@@ -125,11 +125,19 @@ export default function ReporteDiarioOperadores() {
     null
   );
   const [selectedEquipo, setSelectedEquipo] = useState<EquipoData | null>(null);
-  const [selectedOperador, setSelectedOperador] = useState<PersonalNuevoData | null>(null);
-  const [selectedVigia1, setSelectedVigia1] = useState<PersonalNuevoData | null>(null);
-  const [selectedVigia2, setSelectedVigia2] = useState<PersonalNuevoData | null>(null);
-  const [selectedVigia3, setSelectedVigia3] = useState<PersonalNuevoData | null>(null);
-  const [selectedEtapa, setSelectedEtapa] = useState<{id: number; nombre: string; descripcion?: string} | null>(null);
+  const [selectedOperador, setSelectedOperador] =
+    useState<PersonalNuevoData | null>(null);
+  const [selectedVigia1, setSelectedVigia1] =
+    useState<PersonalNuevoData | null>(null);
+  const [selectedVigia2, setSelectedVigia2] =
+    useState<PersonalNuevoData | null>(null);
+  const [selectedVigia3, setSelectedVigia3] =
+    useState<PersonalNuevoData | null>(null);
+  const [selectedEtapa, setSelectedEtapa] = useState<{
+    id: number;
+    nombre: string;
+    descripcion?: string;
+  } | null>(null);
   const [reportCode, setReportCode] = useState<string>("");
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
@@ -137,7 +145,7 @@ export default function ReporteDiarioOperadores() {
 
   const memoizedEtapas = useMemo(() => {
     const etapas = selectedProyecto?.etapas || [];
-    console.log('Etapas disponibles:', etapas);
+    // console.log('Etapas disponibles:', etapas);
     return etapas;
   }, [selectedProyecto?.etapas]);
 
@@ -243,7 +251,7 @@ export default function ReporteDiarioOperadores() {
             // Actualmente enviando strings porque no hay selectores de ID disponibles
             frente: row.frente || undefined, // Debería ser id_frente
             actividad: row.descripcion || undefined,
-            equipo_maquinaria: row.material || undefined, // Debería ser id_equipo_maquinaria  
+            equipo_maquinaria: row.material || undefined, // Debería ser id_equipo_maquinaria
             m3: row.m3 ? Number(row.m3) : undefined,
             viajes: row.viajes ? Number(row.viajes) : undefined,
             horas_trabajadas:
@@ -253,8 +261,8 @@ export default function ReporteDiarioOperadores() {
           })),
       };
 
-      console.log('selectedEtapa antes de enviar:', selectedEtapa);
-      console.log('Datos enviados al backend:', reporteData);
+      console.log("selectedEtapa antes de enviar:", selectedEtapa);
+      console.log("Datos enviados al backend:", reporteData);
 
       let response;
       if (reportId) {
@@ -1074,7 +1082,7 @@ export default function ReporteDiarioOperadores() {
                           handleMasterInputChange("etapa", value)
                         }
                         onEtapaChange={(etapa) => {
-                          console.log('Etapa seleccionada:', etapa);
+                          console.log("Etapa seleccionada:", etapa);
                           setSelectedEtapa(etapa);
                         }}
                         etapas={memoizedEtapas}

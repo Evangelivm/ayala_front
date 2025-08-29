@@ -591,7 +591,6 @@ export default function DailyWorkReportViajes() {
                         onPersonSelected={(person) => 
                           setSelectedPersonalIds(prev => ({ ...prev, id_responsable: person?.id_personal || undefined }))
                         }
-                        cargo="Supervisor"
                         placeholder="Seleccionar responsable..."
                         className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
                       />
@@ -621,7 +620,6 @@ export default function DailyWorkReportViajes() {
                         onPersonSelected={(person) => 
                           setSelectedPersonalIds(prev => ({ ...prev, id_operador: person?.id_personal || undefined }))
                         }
-                        cargo="Operador"
                         placeholder="Seleccionar operador..."
                         className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
                       />
@@ -641,7 +639,6 @@ export default function DailyWorkReportViajes() {
                         onPersonSelected={(person) => 
                           setSelectedPersonalIds(prev => ({ ...prev, id_vigia: person?.id_personal || undefined }))
                         }
-                        cargo="Vigía"
                         placeholder="Seleccionar vigía..."
                         className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
                       />
@@ -658,7 +655,6 @@ export default function DailyWorkReportViajes() {
                         onPersonSelected={(person) => 
                           setSelectedPersonalIds(prev => ({ ...prev, id_mantero: person?.id_personal || undefined }))
                         }
-                        cargo="Mantero"
                         placeholder="Seleccionar mantero..."
                         className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
                       />
@@ -675,7 +671,6 @@ export default function DailyWorkReportViajes() {
                         onPersonSelected={(person) => 
                           setSelectedPersonalIds(prev => ({ ...prev, id_controlador: person?.id_personal || undefined }))
                         }
-                        cargo="Controlador"
                         placeholder="Seleccionar controlador..."
                         className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
                       />
@@ -692,7 +687,6 @@ export default function DailyWorkReportViajes() {
                         onPersonSelected={(person) => 
                           setSelectedPersonalIds(prev => ({ ...prev, id_capataz: person?.id_personal || undefined }))
                         }
-                        cargo="Capataz"
                         placeholder="Seleccionar capataz..."
                         className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
                       />

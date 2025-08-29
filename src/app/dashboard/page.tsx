@@ -137,7 +137,7 @@ export default function Dashboard() {
   useEffect(() => {
     loadDashboardData()
     loadReportsTables()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   const loadReportsTables = async () => {
     try {
