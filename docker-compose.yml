@@ -3,16 +3,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     ports:
       - "3000:3000" # El puerto interno de tu contenedor
     environment:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     networks:
-      - shared_network
+      - ayala_network
 
 networks:
-  shared_network:
+  ayala_network:
     external: true
