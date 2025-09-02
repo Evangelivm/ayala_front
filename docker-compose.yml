@@ -14,8 +14,8 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     networks:
-      - ayala_network
+      - shared_network
 
 networks:
-  ayala_network:
+  shared_network:
     external: true
