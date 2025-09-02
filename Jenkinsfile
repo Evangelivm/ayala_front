@@ -31,7 +31,7 @@ pipeline {
                 sh '''
                 cd /var/jenkins_home/workspace/ayala_front
                 docker compose build --no-cache \
-                    --build-arg NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
+                    --build-arg NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
                 echo "✅ Imagen construida exitosamente"
                 '''
             }
@@ -43,7 +43,7 @@ pipeline {
                 sh '''
                 cd /var/jenkins_home/workspace/ayala_front
                 docker compose up -d
-                echo "🚀 Aplicación desplegada en http://<tu-servidor>:3000"
+                echo "🚀 Aplicación desplegada en http://<tu-servidor>:3002"
                 '''
             }
         }
@@ -63,7 +63,6 @@ pipeline {
     post {
         failure {
             echo '❌ Pipeline fallido - Revisar logs'
-            slackSend channel: '#alertas', message: "Falló el deploy de ayala_front: ${BUILD_URL}"
         }
         success {
             echo '🎉 ¡Despliegue exitoso!'

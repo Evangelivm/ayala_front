@@ -32,6 +32,7 @@ import {
   Download,
   Edit,
   RefreshCw,
+  FileText,
 } from "lucide-react"
 import Link from "next/link"
 import { 
@@ -41,6 +42,26 @@ import {
   dashboardApi,
   type DashboardStats
 } from "@/lib/connections"
+import dynamic from 'next/dynamic'
+
+// Cargar el componente PDF de forma dinámica para evitar problemas de SSR
+const ReporteCombustiblePDF = dynamic(() => import('@/components/ReporteCombustiblePDF'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Generando reporte PDF...</p>
+      </div>
+    </div>
+  )
+})
+
+// Importar la función de descarga dinámicamente
+const descargarPDF = async () => {
+  const { descargarReportePDF } = await import('@/components/ReporteCombustiblePDF')
+  return descargarReportePDF()
+}
 
 
 interface RecentReport {
@@ -122,6 +143,9 @@ export default function Dashboard() {
   const [plantillerosReports, setPlantillerosReports] = useState<PlantilleroReporte[]>([])
   const [operadoresReports, setOperadoresReports] = useState<OperadorReporte[]>([])
   const [loadingTables, setLoadingTables] = useState(false)
+  
+  // Estado para el modal del reporte PDF
+  const [showReportePDF, setShowReportePDF] = useState(false)
 
   useEffect(() => {
     // Inicializar el tiempo en el cliente
@@ -285,6 +309,13 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => setShowReportePDF(true)}
+                className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Reporte Combustible
+              </Button>
               <Badge className="text-sm px-3 py-1 bg-green-600 text-white font-mono">
                 <Activity className="h-4 w-4 mr-1" />
                 DASHBOARD
@@ -970,6 +1001,71 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modal para Reporte de Combustible PDF */}
+      {showReportePDF && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-[95vw] h-[95vh] flex flex-col">
+            {/* Header del Modal */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-lg">
+              <div className="flex items-center gap-3">
+                <FileText className="h-6 w-6" />
+                <div>
+                  <h2 className="text-lg font-bold">Reporte de Consumo de Combustible</h2>
+                  <p className="text-sm text-orange-100">Vista previa del documento PDF</p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => setShowReportePDF(false)}
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-orange-600 hover:text-white"
+              >
+                ✕
+              </Button>
+            </div>
+            
+            {/* Contenido del Modal */}
+            <div className="flex-1 p-4 overflow-hidden">
+              <div className="w-full h-full border border-gray-200 rounded-lg overflow-hidden">
+                <ReporteCombustiblePDF />
+              </div>
+            </div>
+            
+            {/* Footer del Modal */}
+            <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+              <div className="text-sm text-gray-600">
+                Documento generado automáticamente • Datos de prueba
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => setShowReportePDF(false)}
+                  variant="outline"
+                >
+                  Cerrar
+                </Button>
+                <Button 
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                  onClick={async () => {
+                    try {
+                      const exito = await descargarPDF()
+                      if (!exito) {
+                        alert('Error al descargar el PDF. Intente nuevamente.')
+                      }
+                    } catch (error) {
+                      console.error('Error al descargar PDF:', error)
+                      alert('Error al descargar el PDF. Intente nuevamente.')
+                    }
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Descargar PDF
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

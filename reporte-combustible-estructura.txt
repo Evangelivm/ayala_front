@@ -1,0 +1,98 @@
+ESTRUCTURA DE DATOS PARA REPORTE DE CONSUMO DE COMBUSTIBLE
+========================================================
+
+Basado en el documento de la imagen "reporte_detallado.jpg"
+
+TABLAS DE BASE DE DATOS NECESARIAS:
+----------------------------------
+
+1. TABLA: reporte_combustible
+   - id (PRIMARY KEY)
+   - codigo_reporte (VARCHAR) - Ej: "MA010171O"
+   - fecha (DATE)
+   - hora (TIME)
+   - almacen (VARCHAR) - Ej: "SUB ALMACEN ALAMEDA RTL"
+   - cliente_operacion (VARCHAR) - Ej: "F001-000015705"
+   - referencia (VARCHAR)
+   - valor_total (DECIMAL)
+   - igv (DECIMAL)
+   - total_soles (DECIMAL)
+   - observaciones (TEXT)
+   - created_at (TIMESTAMP)
+   - updated_at (TIMESTAMP)
+
+2. TABLA: empresa_datos
+   - id (PRIMARY KEY)
+   - razon_social (VARCHAR) - Ej: "ARIAS AYALA S.A.C"
+   - ruc (VARCHAR) - Ej: "20439061"
+   - usuario (VARCHAR) - Ej: "RAYALA"
+   - sucursal (VARCHAR) - Ej: "PRINCIPAL"
+   - guia_remision (VARCHAR) - Ej: "EG07-00008355"
+   - direccion (TEXT) - Ej: "CAL LOS ANDES NRO. 155 URB. SAN GREGORIO, LIMA - LIMA - ATE"
+
+3. TABLA: combustible_detalle
+   - id (PRIMARY KEY)
+   - reporte_id (FOREIGN KEY -> reporte_combustible.id)
+   - codigo (VARCHAR) - Ej: "00002"
+   - cantidad (DECIMAL) - Ej: "41.00", "66.50", "16.00", etc.
+   - unidad_medida (VARCHAR) - Ej: "GALON"
+   - descripcion (VARCHAR) - Ej: "DIESEL B5 S50", "DIESEL B5 S50 EN-003", etc.
+   - codigo_producto (VARCHAR) - Ej: "EN-003", "EQ-002", "EN-004", "MC-003", "RE-005"
+   - kilometraje (DECIMAL)
+   - horometro (DECIMAL)
+   - valor_unitario (DECIMAL)
+   - importe_total (DECIMAL)
+
+DATOS DE EJEMPLO EXTRAÍDOS DE LA IMAGEN:
+---------------------------------------
+
+EMPRESA:
+- Razón Social: ARIAS AYALA S.A.C
+- RUC: 20439061
+- Usuario: RAYALA
+- Sucursal: PRINCIPAL
+- Guía de Remisión: EG07-00008355
+- Dirección: CAL LOS ANDES NRO. 155 URB. SAN GREGORIO, LIMA - LIMA - ATE
+
+REPORTE:
+- Código: MA010171O
+- Fecha: 11/08/2025 11:46:48
+- Almacén: SUB ALMACEN ALAMEDA RTL
+- Cliente OP: F001-000015705 26/08/2025
+- Referencia: D & B COMBUSTIBLES DEL PERU SOCIEDAD ANONIMA
+- Valor: 2281.58
+- IGV: 410.68
+- Total: 2692.26 SOLES
+
+DETALLE DE COMBUSTIBLE:
+1. Código: 00002, Cantidad: 41.00, UM: GALON, Descripción: DIESEL B5 S50 EN-003
+   Km: 3,035.00, Horómetro: 15.16, Valor: 3,035.00, Importe: 621.56
+
+2. Código: 00002, Cantidad: 66.50, UM: GALON, Descripción: DIESEL B5 S50 EQ-002
+   Km: 734.70, Horómetro: 15.16, Valor: 3,065.00, Importe: 242.56
+
+3. Código: 00002, Cantidad: 16.00, UM: GALON, Descripción: DIESEL B5 S50 EN-004
+   Km: 3,065.00, Horómetro: 15.16, Valor: 2,755.80, Importe: 151.60
+
+4. Código: 00002, Cantidad: 10.00, UM: GALON, Descripción: DIESEL B5 S50 MC-003
+   Km: 2,755.80, Horómetro: 15.16, Valor: 7,425.10, Importe: 257.72
+
+5. Código: 00002, Cantidad: 17.00, UM: GALON, Descripción: DIESEL B5 S50 RE-005
+   Km: 7,425.10, Horómetro: -, Valor: -, Importe: 2,281.58
+
+TOTALES:
+- 5 Items
+- Total Cantidad: 150.50 galones
+- Valor Total: 2,281.58
+- Importe Total: 621.56
+
+NOTAS PARA INTEGRACIÓN FUTURA:
+-----------------------------
+1. Los valores de kilometraje y horómetro pueden venir de equipos/vehículos asociados
+2. Los precios pueden estar en una tabla de precios_combustible
+3. Se debe considerar manejo de IGV configurable
+4. Los códigos de producto deben estar en una tabla maestra
+5. El formato de fecha debe ser consistente con el sistema
+6. Implementar validaciones de stock y disponibilidad
+7. Considerar manejo de diferentes tipos de combustible
+8. Integrar con sistema de inventarios existente
