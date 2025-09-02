@@ -6,10 +6,10 @@ services:
       args:
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     ports:
-      - "3000:3000" # El puerto interno de tu contenedor
+      - "3002:3002" # El puerto interno de tu contenedor
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 3002
       HOSTNAME: 0.0.0.0
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
