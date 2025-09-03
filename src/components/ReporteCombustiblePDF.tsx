@@ -13,9 +13,9 @@ import {
 
 // Datos de ejemplo basados en la imagen
 const datosEmpresa = {
-  razonSocial: "ARIAS AYALA S.A.C",
-  ruc: "20439061",
-  usuario: "RAYALA",
+  razonSocial: "MAQUINARIAS AYALA S.A.C",
+  ruc: "20603739061",
+  // usuario: "RAYALA",
   sucursal: "PRINCIPAL",
   guiaRemision: "EG07-00008355",
   direccion: "CAL LOS ANDES NRO. 155 URB. SAN GREGORIO, LIMA - LIMA - ATE",

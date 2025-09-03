@@ -1,10 +1,16 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -12,7 +18,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   CalendarDays,
   Users,
@@ -33,93 +39,97 @@ import {
   Edit,
   RefreshCw,
   FileText,
-} from "lucide-react"
-import Link from "next/link"
-import { 
-  viajesEliminacionApi, 
-  reportesPlantillerosApi, 
+} from "lucide-react";
+import Link from "next/link";
+import {
+  viajesEliminacionApi,
+  reportesPlantillerosApi,
   reportesOperadoresApi,
   dashboardApi,
-  type DashboardStats
-} from "@/lib/connections"
-import dynamic from 'next/dynamic'
+  type DashboardStats,
+} from "@/lib/connections";
+import dynamic from "next/dynamic";
 
 // Cargar el componente PDF de forma dinámica para evitar problemas de SSR
-const ReporteCombustiblePDF = dynamic(() => import('@/components/ReporteCombustiblePDF'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Generando reporte PDF...</p>
+const ReporteCombustiblePDF = dynamic(
+  () => import("@/components/ReporteCombustiblePDF"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Generando reporte PDF...</p>
+        </div>
       </div>
-    </div>
-  )
-})
+    ),
+  }
+);
 
 // Importar la función de descarga dinámicamente
 const descargarPDF = async () => {
-  const { descargarReportePDF } = await import('@/components/ReporteCombustiblePDF')
-  return descargarReportePDF()
-}
-
+  const { descargarReportePDF } = await import(
+    "@/components/ReporteCombustiblePDF"
+  );
+  return descargarReportePDF();
+};
 
 interface RecentReport {
-  id: number
-  codigo: string
-  tipo: 'viajes' | 'plantilleros' | 'operadores'
-  fecha: string
-  proyecto?: string
-  responsable?: string
+  id: number;
+  codigo: string;
+  tipo: "viajes" | "plantilleros" | "operadores";
+  fecha: string;
+  proyecto?: string;
+  responsable?: string;
 }
 
 interface ViajeReporte {
-  id_viaje?: number
-  id?: number
-  codigo_reporte: string
-  fecha: string
-  proyecto?: { nombre: string }
-  responsable?: { nombres: string; apellidos?: string }
-  nombre_responsable?: string
-  detalle_viajes?: Array<{ viajes: number }>
+  id_viaje?: number;
+  id?: number;
+  codigo_reporte: string;
+  fecha: string;
+  proyecto?: { nombre: string };
+  responsable?: { nombres: string; apellidos?: string };
+  nombre_responsable?: string;
+  detalle_viajes?: Array<{ viajes: number }>;
 }
 
 interface PlantilleroReporte {
-  id_reporte?: number
-  id?: number
-  codigo_reporte?: string
-  codigo?: string
-  fecha: string
-  proyecto?: string | { nombre: string }
-  cliente?: string
-  ubicacion?: string
-  etapa?: string
-  nombre?: string
-  cargo?: string
-  sector?: string
-  frente?: string
-  horaInicio?: string
-  horaFin?: string
-  material?: string
-  partida?: string
-  maquinaria?: string
-  estado?: string
-  modelo?: string
-  codigoMaquinaria?: string
-  comentarios?: string
-  fechaRegistro?: Date
+  id_reporte?: number;
+  id?: number;
+  codigo_reporte?: string;
+  codigo?: string;
+  fecha: string;
+  proyecto?: string | { nombre: string };
+  cliente?: string;
+  ubicacion?: string;
+  etapa?: string;
+  nombre?: string;
+  cargo?: string;
+  sector?: string;
+  frente?: string;
+  horaInicio?: string;
+  horaFin?: string;
+  material?: string;
+  partida?: string;
+  maquinaria?: string;
+  estado?: string;
+  modelo?: string;
+  codigoMaquinaria?: string;
+  comentarios?: string;
+  fechaRegistro?: Date;
 }
 
 interface OperadorReporte {
-  id_reporte?: number
-  id?: number
-  codigo_reporte?: string
-  codigo?: string
-  fecha: string
-  proyecto?: { nombre: string }
-  operador?: string | { nombres: string; apellidos?: string }
-  codigoEquipo?: string
-  detalle_produccion?: Array<{ m3?: number }>
+  id_reporte?: number;
+  id?: number;
+  codigo_reporte?: string;
+  codigo?: string;
+  fecha: string;
+  proyecto?: { nombre: string };
+  operador?: string | { nombres: string; apellidos?: string };
+  codigoEquipo?: string;
+  detalle_produccion?: Array<{ m3?: number }>;
 }
 
 export default function Dashboard() {
@@ -133,129 +143,158 @@ export default function Dashboard() {
     totalHorasOperacion: 0,
     totalViajes: 0,
     totalM3: 0,
-  })
-  
-  const [currentTime, setCurrentTime] = useState<Date | null>(null)
-  const [loading, setLoading] = useState(false)
-  
+  });
+
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(false);
+
   // Estados para las tablas de reportes
-  const [viajesReports, setViajesReports] = useState<ViajeReporte[]>([])
-  const [plantillerosReports, setPlantillerosReports] = useState<PlantilleroReporte[]>([])
-  const [operadoresReports, setOperadoresReports] = useState<OperadorReporte[]>([])
-  const [loadingTables, setLoadingTables] = useState(false)
-  
+  const [viajesReports, setViajesReports] = useState<ViajeReporte[]>([]);
+  const [plantillerosReports, setPlantillerosReports] = useState<
+    PlantilleroReporte[]
+  >([]);
+  const [operadoresReports, setOperadoresReports] = useState<OperadorReporte[]>(
+    []
+  );
+  const [loadingTables, setLoadingTables] = useState(false);
+
   // Estado para el modal del reporte PDF
-  const [showReportePDF, setShowReportePDF] = useState(false)
+  const [showReportePDF, setShowReportePDF] = useState(false);
 
   useEffect(() => {
     // Inicializar el tiempo en el cliente
-    setCurrentTime(new Date())
-    
-    const timer = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
+    setCurrentTime(new Date());
 
-    return () => clearInterval(timer)
-  }, [])
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
-    loadDashboardData()
-    loadReportsTables()
-  }, [])
+    loadDashboardData();
+    loadReportsTables();
+  }, []);
 
   const loadReportsTables = async () => {
     try {
-      setLoadingTables(true)
-      
+      setLoadingTables(true);
+
       // Cargar todos los reportes en paralelo
-      const [viajesData, plantillerosData, operadoresData] = await Promise.allSettled([
-        viajesEliminacionApi.getAll().catch(() => ({ data: [] })),
-        reportesPlantillerosApi.getAll().catch(() => ({ data: [] })),
-        reportesOperadoresApi.getAll().catch(() => ({ data: [] }))
-      ])
+      const [viajesData, plantillerosData, operadoresData] =
+        await Promise.allSettled([
+          viajesEliminacionApi.getAll().catch(() => ({ data: [] })),
+          reportesPlantillerosApi.getAll().catch(() => ({ data: [] })),
+          reportesOperadoresApi.getAll().catch(() => ({ data: [] })),
+        ]);
 
       // Procesar reportes de viajes
-      const viajes = viajesData.status === 'fulfilled' ? 
-        (Array.isArray(viajesData.value?.data) ? viajesData.value.data : []) : []
-      setViajesReports(viajes.slice(0, 10)) // Mostrar solo los primeros 10
+      const viajes =
+        viajesData.status === "fulfilled"
+          ? Array.isArray(viajesData.value?.data)
+            ? viajesData.value.data
+            : []
+          : [];
+      setViajesReports(viajes.slice(0, 10)); // Mostrar solo los primeros 10
 
       // Procesar reportes de plantilleros
-      const plantilleros = plantillerosData.status === 'fulfilled' ? 
-        (Array.isArray(plantillerosData.value) ? plantillerosData.value : 
-         (plantillerosData.value?.data || [])) : []
-      setPlantillerosReports(plantilleros.slice(0, 10))
+      const plantilleros =
+        plantillerosData.status === "fulfilled"
+          ? Array.isArray(plantillerosData.value)
+            ? plantillerosData.value
+            : plantillerosData.value?.data || []
+          : [];
+      setPlantillerosReports(plantilleros.slice(0, 10));
 
       // Procesar reportes de operadores
-      const operadores = operadoresData.status === 'fulfilled' ? 
-        (Array.isArray(operadoresData.value) ? operadoresData.value : 
-         (operadoresData.value?.data || [])) : []
-      setOperadoresReports(operadores.slice(0, 10))
-
+      const operadores =
+        operadoresData.status === "fulfilled"
+          ? Array.isArray(operadoresData.value)
+            ? operadoresData.value
+            : operadoresData.value?.data || []
+          : [];
+      setOperadoresReports(operadores.slice(0, 10));
     } catch (error) {
-      console.error('Error loading reports tables:', error)
+      console.error("Error loading reports tables:", error);
     } finally {
-      setLoadingTables(false)
+      setLoadingTables(false);
     }
-  }
+  };
 
   const loadDashboardData = async () => {
     try {
-      setLoading(true)
-      
+      setLoading(true);
+
       // Usar la nueva API de dashboard para obtener estadísticas
-      const dashboardStats = await dashboardApi.getStats()
-      setStats(dashboardStats)
-
+      const dashboardStats = await dashboardApi.getStats();
+      setStats(dashboardStats);
     } catch (error) {
-      console.error('Error loading dashboard data:', error)
+      console.error("Error loading dashboard data:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-
-
-  const handleViewDetails = (reporte: ViajeReporte | PlantilleroReporte | OperadorReporte, tipo: string) => {
+  const handleViewDetails = (
+    reporte: ViajeReporte | PlantilleroReporte | OperadorReporte,
+    tipo: string
+  ) => {
     // TODO: Implementar modal de detalles o navegar a página de detalles
-    const codigo = 'codigo_reporte' in reporte ? reporte.codigo_reporte : ('codigo' in reporte ? reporte.codigo : '')
-    console.log('Ver detalles del reporte:', codigo, 'tipo:', tipo)
+    const codigo =
+      "codigo_reporte" in reporte
+        ? reporte.codigo_reporte
+        : "codigo" in reporte
+        ? reporte.codigo
+        : "";
+    console.log("Ver detalles del reporte:", codigo, "tipo:", tipo);
     // Aquí se podría abrir un modal o navegar a una página de detalles
-  }
+  };
 
-  const handleDownloadReport = async (reporte: ViajeReporte | PlantilleroReporte | OperadorReporte, tipo: string) => {
+  const handleDownloadReport = async (
+    reporte: ViajeReporte | PlantilleroReporte | OperadorReporte,
+    tipo: string
+  ) => {
     try {
       // Generar nombre del archivo
-      const fechaFormateada = new Date(reporte.fecha).toISOString().split('T')[0]
-      const codigo = 'codigo_reporte' in reporte ? reporte.codigo_reporte : ('codigo' in reporte ? reporte.codigo : '')
-      const fileName = `${tipo}-${codigo}-${fechaFormateada}.json`
-      
+      const fechaFormateada = new Date(reporte.fecha)
+        .toISOString()
+        .split("T")[0];
+      const codigo =
+        "codigo_reporte" in reporte
+          ? reporte.codigo_reporte
+          : "codigo" in reporte
+          ? reporte.codigo
+          : "";
+      const fileName = `${tipo}-${codigo}-${fechaFormateada}.json`;
+
       // Crear objeto con datos del reporte para exportar
       const reportData = {
         tipo,
         codigo,
         fecha: reporte.fecha,
         proyecto: reporte.proyecto,
-        datos: reporte
-      }
-      
+        datos: reporte,
+      };
+
       // Crear blob y descargar
-      const blob = new Blob([JSON.stringify(reportData, null, 2)], { 
-        type: 'application/json' 
-      })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      
-      console.log('Descarga iniciada:', fileName)
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      console.log("Descarga iniciada:", fileName);
     } catch (error) {
-      console.error('Error al descargar reporte:', error)
+      console.error("Error al descargar reporte:", error);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -268,13 +307,18 @@ export default function Dashboard() {
                 <span className="text-sm font-bold">MA</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-blue-700">Maquinarias Ayala</h1>
+                <h1 className="text-xl font-bold text-blue-700">
+                  Maquinarias Ayala
+                </h1>
                 <p className="text-sm text-slate-600">Sistema de Reportes</p>
               </div>
             </div>
 
             <div className="flex-1 flex justify-center">
-              <Badge variant="outline" className="px-3 py-2 border-slate-300 text-slate-600 text-sm font-bold">
+              <Badge
+                variant="outline"
+                className="px-3 py-2 border-slate-300 text-slate-600 text-sm font-bold"
+              >
                 {currentTime ? (
                   <>
                     {currentTime
@@ -309,7 +353,7 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button 
+              <Button
                 onClick={() => setShowReportePDF(true)}
                 className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2"
               >
@@ -325,8 +369,12 @@ export default function Dashboard() {
 
           <div className="pb-4">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-blue-700">PANEL DE CONTROL</h2>
-              <p className="text-slate-600 mt-1">Resumen general del sistema de reportes</p>
+              <h2 className="text-2xl font-bold text-blue-700">
+                PANEL DE CONTROL
+              </h2>
+              <p className="text-slate-600 mt-1">
+                Resumen general del sistema de reportes
+              </p>
             </div>
           </div>
         </div>
@@ -384,9 +432,12 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold mb-1">{stats.reportesViajes.total}</div>
+                  <div className="text-3xl font-bold mb-1">
+                    {stats.reportesViajes.total}
+                  </div>
                   <div className="text-blue-100 text-sm">
-                    Hoy: {stats.reportesViajes.hoy} | Semana: {stats.reportesViajes.ultimaSemana}
+                    Hoy: {stats.reportesViajes.hoy} | Semana:{" "}
+                    {stats.reportesViajes.ultimaSemana}
                   </div>
                 </CardContent>
               </Card>
@@ -399,9 +450,12 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold mb-1">{stats.reportesPlantilleros.total}</div>
+                  <div className="text-3xl font-bold mb-1">
+                    {stats.reportesPlantilleros.total}
+                  </div>
                   <div className="text-green-100 text-sm">
-                    Hoy: {stats.reportesPlantilleros.hoy} | Semana: {stats.reportesPlantilleros.ultimaSemana}
+                    Hoy: {stats.reportesPlantilleros.hoy} | Semana:{" "}
+                    {stats.reportesPlantilleros.ultimaSemana}
                   </div>
                 </CardContent>
               </Card>
@@ -414,9 +468,12 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold mb-1">{stats.reportesOperadores.total}</div>
+                  <div className="text-3xl font-bold mb-1">
+                    {stats.reportesOperadores.total}
+                  </div>
                   <div className="text-purple-100 text-sm">
-                    Hoy: {stats.reportesOperadores.hoy} | Semana: {stats.reportesOperadores.ultimaSemana}
+                    Hoy: {stats.reportesOperadores.hoy} | Semana:{" "}
+                    {stats.reportesOperadores.ultimaSemana}
                   </div>
                 </CardContent>
               </Card>
@@ -429,8 +486,12 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold mb-1">{stats.proyectosActivos}</div>
-                  <div className="text-orange-100 text-sm">Proyectos activos</div>
+                  <div className="text-3xl font-bold mb-1">
+                    {stats.proyectosActivos}
+                  </div>
+                  <div className="text-orange-100 text-sm">
+                    Proyectos activos
+                  </div>
                 </CardContent>
               </Card>
 
@@ -442,7 +503,9 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold mb-1">{stats.personalActivo}</div>
+                  <div className="text-3xl font-bold mb-1">
+                    {stats.personalActivo}
+                  </div>
                   <div className="text-teal-100 text-sm">Personal activo</div>
                 </CardContent>
               </Card>
@@ -455,8 +518,12 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold mb-1">{stats.equiposDisponibles}</div>
-                  <div className="text-indigo-100 text-sm">Equipos disponibles</div>
+                  <div className="text-3xl font-bold mb-1">
+                    {stats.equiposDisponibles}
+                  </div>
+                  <div className="text-indigo-100 text-sm">
+                    Equipos disponibles
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -478,13 +545,17 @@ export default function Dashboard() {
                     <div className="text-2xl font-bold text-blue-600 mb-2">
                       {stats.reportesViajes.ultimaSemana}
                     </div>
-                    <div className="text-sm text-slate-600">Reportes de Viajes</div>
+                    <div className="text-sm text-slate-600">
+                      Reportes de Viajes
+                    </div>
                     <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                       <div
                         className="bg-blue-600 h-2 rounded-full"
                         style={{
                           width: `${Math.min(
-                            (stats.reportesViajes.ultimaSemana / Math.max(stats.reportesViajes.total, 1)) * 100,
+                            (stats.reportesViajes.ultimaSemana /
+                              Math.max(stats.reportesViajes.total, 1)) *
+                              100,
                             100
                           )}%`,
                         }}
@@ -495,13 +566,17 @@ export default function Dashboard() {
                     <div className="text-2xl font-bold text-green-600 mb-2">
                       {stats.reportesPlantilleros.ultimaSemana}
                     </div>
-                    <div className="text-sm text-slate-600">Reportes Plantilleros</div>
+                    <div className="text-sm text-slate-600">
+                      Reportes Plantilleros
+                    </div>
                     <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                       <div
                         className="bg-green-600 h-2 rounded-full"
                         style={{
                           width: `${Math.min(
-                            (stats.reportesPlantilleros.ultimaSemana / Math.max(stats.reportesPlantilleros.total, 1)) * 100,
+                            (stats.reportesPlantilleros.ultimaSemana /
+                              Math.max(stats.reportesPlantilleros.total, 1)) *
+                              100,
                             100
                           )}%`,
                         }}
@@ -512,13 +587,17 @@ export default function Dashboard() {
                     <div className="text-2xl font-bold text-purple-600 mb-2">
                       {stats.reportesOperadores.ultimaSemana}
                     </div>
-                    <div className="text-sm text-slate-600">Reportes Operadores</div>
+                    <div className="text-sm text-slate-600">
+                      Reportes Operadores
+                    </div>
                     <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                       <div
                         className="bg-purple-600 h-2 rounded-full"
                         style={{
                           width: `${Math.min(
-                            (stats.reportesOperadores.ultimaSemana / Math.max(stats.reportesOperadores.total, 1)) * 100,
+                            (stats.reportesOperadores.ultimaSemana /
+                              Math.max(stats.reportesOperadores.total, 1)) *
+                              100,
                             100
                           )}%`,
                         }}
@@ -663,7 +742,11 @@ export default function Dashboard() {
                     Reportes de Viajes de Eliminación
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={loadReportsTables}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={loadReportsTables}
+                    >
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Actualizar
                     </Button>
@@ -695,34 +778,57 @@ export default function Dashboard() {
                     <TableHeader>
                       <TableRow className="bg-slate-50">
                         <TableHead className="font-semibold">Código</TableHead>
-                        <TableHead className="font-semibold">Proyecto</TableHead>
+                        <TableHead className="font-semibold">
+                          Proyecto
+                        </TableHead>
                         <TableHead className="font-semibold">Fecha</TableHead>
-                        <TableHead className="font-semibold">Responsable</TableHead>
-                        <TableHead className="font-semibold">Total Viajes</TableHead>
-                        <TableHead className="font-semibold">Acciones</TableHead>
+                        <TableHead className="font-semibold">
+                          Responsable
+                        </TableHead>
+                        <TableHead className="font-semibold">
+                          Total Viajes
+                        </TableHead>
+                        <TableHead className="font-semibold">
+                          Acciones
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {viajesReports.map((reporte) => {
-                        const totalViajes = reporte.detalle_viajes?.reduce((sum: number, detalle) => 
-                          sum + (detalle.viajes || 0), 0) || 0
-                        
+                        const totalViajes =
+                          reporte.detalle_viajes?.reduce(
+                            (sum: number, detalle) =>
+                              sum + (detalle.viajes || 0),
+                            0
+                          ) || 0;
+
                         return (
-                          <TableRow key={reporte.id_viaje || reporte.id} className="hover:bg-slate-50">
+                          <TableRow
+                            key={reporte.id_viaje || reporte.id}
+                            className="hover:bg-slate-50"
+                          >
                             <TableCell className="font-medium">
-                              <Badge variant="outline" className="text-blue-600">
+                              <Badge
+                                variant="outline"
+                                className="text-blue-600"
+                              >
                                 {reporte.codigo_reporte}
                               </Badge>
                             </TableCell>
-                            <TableCell>{reporte.proyecto?.nombre || 'N/A'}</TableCell>
                             <TableCell>
-                              {new Date(reporte.fecha).toLocaleDateString('es-PE')}
+                              {reporte.proyecto?.nombre || "N/A"}
                             </TableCell>
                             <TableCell>
-                              {reporte.responsable?.nombres ? 
-                                `${reporte.responsable.nombres} ${reporte.responsable.apellidos || ''}`.trim() :
-                                reporte.nombre_responsable || 'N/A'
-                              }
+                              {new Date(reporte.fecha).toLocaleDateString(
+                                "es-PE"
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {reporte.responsable?.nombres
+                                ? `${reporte.responsable.nombres} ${
+                                    reporte.responsable.apellidos || ""
+                                  }`.trim()
+                                : reporte.nombre_responsable || "N/A"}
                             </TableCell>
                             <TableCell>
                               <Badge className="bg-blue-100 text-blue-800">
@@ -731,27 +837,35 @@ export default function Dashboard() {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
-                                <Button 
-                                  size="sm" 
+                                <Button
+                                  size="sm"
                                   variant="ghost"
-                                  onClick={() => handleViewDetails(reporte, 'viajes')}
+                                  onClick={() =>
+                                    handleViewDetails(reporte, "viajes")
+                                  }
                                   title="Ver detalles"
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                <Link href={`/reporte-viajes?edit=${reporte.id_viaje || reporte.id}`}>
-                                  <Button 
-                                    size="sm" 
+                                <Link
+                                  href={`/reporte-viajes?edit=${
+                                    reporte.id_viaje || reporte.id
+                                  }`}
+                                >
+                                  <Button
+                                    size="sm"
                                     variant="ghost"
                                     title="Editar reporte"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
                                 </Link>
-                                <Button 
-                                  size="sm" 
+                                <Button
+                                  size="sm"
                                   variant="ghost"
-                                  onClick={() => handleDownloadReport(reporte, 'viajes')}
+                                  onClick={() =>
+                                    handleDownloadReport(reporte, "viajes")
+                                  }
                                   title="Descargar reporte"
                                 >
                                   <Download className="h-4 w-4" />
@@ -759,7 +873,7 @@ export default function Dashboard() {
                               </div>
                             </TableCell>
                           </TableRow>
-                        )
+                        );
                       })}
                     </TableBody>
                   </Table>
@@ -777,7 +891,11 @@ export default function Dashboard() {
                     Reportes de Plantilleros
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={loadReportsTables}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={loadReportsTables}
+                    >
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Actualizar
                     </Button>
@@ -809,61 +927,82 @@ export default function Dashboard() {
                     <TableHeader>
                       <TableRow className="bg-slate-50">
                         <TableHead className="font-semibold">Código</TableHead>
-                        <TableHead className="font-semibold">Proyecto</TableHead>
+                        <TableHead className="font-semibold">
+                          Proyecto
+                        </TableHead>
                         <TableHead className="font-semibold">Fecha</TableHead>
-                        <TableHead className="font-semibold">Plantillero</TableHead>
+                        <TableHead className="font-semibold">
+                          Plantillero
+                        </TableHead>
                         <TableHead className="font-semibold">Cargo</TableHead>
                         <TableHead className="font-semibold">Frente</TableHead>
-                        <TableHead className="font-semibold">Acciones</TableHead>
+                        <TableHead className="font-semibold">
+                          Acciones
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {plantillerosReports.map((reporte) => (
-                        <TableRow key={reporte.id_reporte || reporte.id} className="hover:bg-slate-50">
+                        <TableRow
+                          key={reporte.id_reporte || reporte.id}
+                          className="hover:bg-slate-50"
+                        >
                           <TableCell className="font-medium">
                             <Badge variant="outline" className="text-green-600">
                               {reporte.codigo_reporte || reporte.codigo}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            {typeof reporte.proyecto === 'object' && reporte.proyecto?.nombre ? 
-                              reporte.proyecto.nombre : 
-                              (typeof reporte.proyecto === 'string' ? reporte.proyecto : 'N/A')
-                            }
+                            {typeof reporte.proyecto === "object" &&
+                            reporte.proyecto?.nombre
+                              ? reporte.proyecto.nombre
+                              : typeof reporte.proyecto === "string"
+                              ? reporte.proyecto
+                              : "N/A"}
                           </TableCell>
                           <TableCell>
-                            {new Date(reporte.fecha).toLocaleDateString('es-PE')}
+                            {new Date(reporte.fecha).toLocaleDateString(
+                              "es-PE"
+                            )}
                           </TableCell>
-                          <TableCell>{reporte.nombre || 'N/A'}</TableCell>
+                          <TableCell>{reporte.nombre || "N/A"}</TableCell>
                           <TableCell>
                             <Badge variant="secondary" className="text-xs">
-                              {reporte.cargo || 'N/A'}
+                              {reporte.cargo || "N/A"}
                             </Badge>
                           </TableCell>
-                          <TableCell>{reporte.frente || 'N/A'}</TableCell>
+                          <TableCell>{reporte.frente || "N/A"}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 variant="ghost"
-                                onClick={() => handleViewDetails(reporte, 'plantilleros')}
+                                onClick={() =>
+                                  handleViewDetails(reporte, "plantilleros")
+                                }
                                 title="Ver detalles"
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Link href={`/reporte-plantilleros?edit=${reporte.id_reporte || reporte.id}`}>
-                                <Button 
-                                  size="sm" 
+                              <Link
+                                href={`/reporte-plantilleros?edit=${
+                                  reporte.id_reporte || reporte.id
+                                }`}
+                              >
+                                <Button
+                                  size="sm"
                                   variant="ghost"
                                   title="Editar reporte"
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                               </Link>
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 variant="ghost"
-                                onClick={() => handleDownloadReport(reporte, 'plantilleros')}
+                                onClick={() =>
+                                  handleDownloadReport(reporte, "plantilleros")
+                                }
                                 title="Descargar reporte"
                               >
                                 <Download className="h-4 w-4" />
@@ -888,7 +1027,11 @@ export default function Dashboard() {
                     Reportes de Operadores
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={loadReportsTables}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={loadReportsTables}
+                    >
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Actualizar
                     </Button>
@@ -920,40 +1063,65 @@ export default function Dashboard() {
                     <TableHeader>
                       <TableRow className="bg-slate-50">
                         <TableHead className="font-semibold">Código</TableHead>
-                        <TableHead className="font-semibold">Proyecto</TableHead>
+                        <TableHead className="font-semibold">
+                          Proyecto
+                        </TableHead>
                         <TableHead className="font-semibold">Fecha</TableHead>
-                        <TableHead className="font-semibold">Operador</TableHead>
+                        <TableHead className="font-semibold">
+                          Operador
+                        </TableHead>
                         <TableHead className="font-semibold">Equipo</TableHead>
-                        <TableHead className="font-semibold">Total M3</TableHead>
-                        <TableHead className="font-semibold">Acciones</TableHead>
+                        <TableHead className="font-semibold">
+                          Total M3
+                        </TableHead>
+                        <TableHead className="font-semibold">
+                          Acciones
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {operadoresReports.map((reporte) => {
-                        const totalM3 = Number(reporte.detalle_produccion?.reduce((sum: number, detalle) => 
-                          sum + (Number(detalle.m3) || 0), 0) || 0)
-                        
+                        const totalM3 = Number(
+                          reporte.detalle_produccion?.reduce(
+                            (sum: number, detalle) =>
+                              sum + (Number(detalle.m3) || 0),
+                            0
+                          ) || 0
+                        );
+
                         return (
-                          <TableRow key={reporte.id_reporte || reporte.id} className="hover:bg-slate-50">
+                          <TableRow
+                            key={reporte.id_reporte || reporte.id}
+                            className="hover:bg-slate-50"
+                          >
                             <TableCell className="font-medium">
-                              <Badge variant="outline" className="text-purple-600">
+                              <Badge
+                                variant="outline"
+                                className="text-purple-600"
+                              >
                                 {reporte.codigo_reporte || reporte.codigo}
                               </Badge>
                             </TableCell>
-                            <TableCell>{reporte.proyecto?.nombre || 'N/A'}</TableCell>
                             <TableCell>
-                              {new Date(reporte.fecha).toLocaleDateString('es-PE')}
+                              {reporte.proyecto?.nombre || "N/A"}
                             </TableCell>
                             <TableCell>
-                              {reporte.operador ? 
-                                (typeof reporte.operador === 'string' ? 
-                                  reporte.operador : 
-                                  `${reporte.operador.nombres} ${reporte.operador.apellidos || ''}`.trim()
-                                ) : 'N/A'}
+                              {new Date(reporte.fecha).toLocaleDateString(
+                                "es-PE"
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {reporte.operador
+                                ? typeof reporte.operador === "string"
+                                  ? reporte.operador
+                                  : `${reporte.operador.nombres} ${
+                                      reporte.operador.apellidos || ""
+                                    }`.trim()
+                                : "N/A"}
                             </TableCell>
                             <TableCell>
                               <Badge variant="secondary" className="text-xs">
-                                {reporte.codigoEquipo || 'N/A'}
+                                {reporte.codigoEquipo || "N/A"}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -963,27 +1131,35 @@ export default function Dashboard() {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
-                                <Button 
-                                  size="sm" 
+                                <Button
+                                  size="sm"
                                   variant="ghost"
-                                  onClick={() => handleViewDetails(reporte, 'operadores')}
+                                  onClick={() =>
+                                    handleViewDetails(reporte, "operadores")
+                                  }
                                   title="Ver detalles"
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                <Link href={`/reporte-operadores?edit=${reporte.id_reporte || reporte.id}`}>
-                                  <Button 
-                                    size="sm" 
+                                <Link
+                                  href={`/reporte-operadores?edit=${
+                                    reporte.id_reporte || reporte.id
+                                  }`}
+                                >
+                                  <Button
+                                    size="sm"
                                     variant="ghost"
                                     title="Editar reporte"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
                                 </Link>
-                                <Button 
-                                  size="sm" 
+                                <Button
+                                  size="sm"
                                   variant="ghost"
-                                  onClick={() => handleDownloadReport(reporte, 'operadores')}
+                                  onClick={() =>
+                                    handleDownloadReport(reporte, "operadores")
+                                  }
                                   title="Descargar reporte"
                                 >
                                   <Download className="h-4 w-4" />
@@ -991,7 +1167,7 @@ export default function Dashboard() {
                               </div>
                             </TableCell>
                           </TableRow>
-                        )
+                        );
                       })}
                     </TableBody>
                   </Table>
@@ -1011,11 +1187,15 @@ export default function Dashboard() {
               <div className="flex items-center gap-3">
                 <FileText className="h-6 w-6" />
                 <div>
-                  <h2 className="text-lg font-bold">Reporte de Consumo de Combustible</h2>
-                  <p className="text-sm text-orange-100">Vista previa del documento PDF</p>
+                  <h2 className="text-lg font-bold">
+                    Reporte de Consumo de Combustible
+                  </h2>
+                  <p className="text-sm text-orange-100">
+                    Vista previa del documento PDF
+                  </p>
                 </div>
               </div>
-              <Button 
+              <Button
                 onClick={() => setShowReportePDF(false)}
                 variant="ghost"
                 size="sm"
@@ -1024,37 +1204,37 @@ export default function Dashboard() {
                 ✕
               </Button>
             </div>
-            
+
             {/* Contenido del Modal */}
-            <div className="flex-1 p-4 overflow-hidden">
-              <div className="w-full h-full border border-gray-200 rounded-lg overflow-hidden">
+            <div className="flex-1 overflow-hidden">
+              <div className="w-full h-full overflow-hidden">
                 <ReporteCombustiblePDF />
               </div>
             </div>
-            
+
             {/* Footer del Modal */}
             <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
               <div className="text-sm text-gray-600">
                 Documento generado automáticamente • Datos de prueba
               </div>
               <div className="flex gap-2">
-                <Button 
+                <Button
                   onClick={() => setShowReportePDF(false)}
                   variant="outline"
                 >
                   Cerrar
                 </Button>
-                <Button 
+                <Button
                   className="bg-orange-600 hover:bg-orange-700 text-white"
                   onClick={async () => {
                     try {
-                      const exito = await descargarPDF()
+                      const exito = await descargarPDF();
                       if (!exito) {
-                        alert('Error al descargar el PDF. Intente nuevamente.')
+                        alert("Error al descargar el PDF. Intente nuevamente.");
                       }
                     } catch (error) {
-                      console.error('Error al descargar PDF:', error)
-                      alert('Error al descargar el PDF. Intente nuevamente.')
+                      console.error("Error al descargar PDF:", error);
+                      alert("Error al descargar el PDF. Intente nuevamente.");
                     }
                   }}
                 >
@@ -1067,5 +1247,5 @@ export default function Dashboard() {
         </div>
       )}
     </div>
-  )
+  );
 }
