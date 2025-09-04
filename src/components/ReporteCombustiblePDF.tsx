@@ -10,86 +10,70 @@ import {
   PDFViewer,
   pdf,
 } from "@react-pdf/renderer";
+import { InformeConsumoCombustibleResponse } from "@/lib/connections";
+import dayjs from "dayjs";
+import "dayjs/locale/es";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 
-// Datos de ejemplo basados en la imagen
+// Configurar plugins de dayjs
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Configurar dayjs para usar español y timezone de Perú
+dayjs.locale("es");
+dayjs.tz.setDefault("America/Lima");
+
+// Interfaces para props
+interface ReporteCombustiblePDFProps {
+  className?: string;
+  datosReporte?: InformeConsumoCombustibleResponse[];
+  mostrarTodosLosRegistros?: boolean;
+}
+
+// Datos de empresa (fijos)
 const datosEmpresa = {
   razonSocial: "MAQUINARIAS AYALA S.A.C",
   ruc: "20603739061",
-  // usuario: "RAYALA",
   sucursal: "PRINCIPAL",
-  guiaRemision: "EG07-00008355",
   direccion: "CAL LOS ANDES NRO. 155 URB. SAN GREGORIO, LIMA - LIMA - ATE",
 };
 
-const datosReporte = {
-  codigo: "MA010171O",
-  fecha: "11/08/2025 11:46:48",
-  almacen: "SUB ALMACEN ALAMEDA RTL",
-  clienteOP: "F001-000015705 26/08/2025",
-  referencia: "D & B COMBUSTIBLES DEL PERU SOCIEDAD ANONIMA",
-  consumoCombustible: "0100001019",
-  valor: 2281.58,
-  igv: 410.68,
-  total: 2692.26,
+// Funciones para procesar datos dinámicos
+const generarDatosReporte = (datos: InformeConsumoCombustibleResponse[]) => {
+  if (!datos || datos.length === 0) return null;
+  
+  const primerRegistro = datos[0];
+  const totalGeneral = datos.reduce((sum, item) => sum + item.total, 0);
+  
+  return {
+    codigo: primerRegistro.codigo_vale || "N/A",
+    fecha: dayjs(primerRegistro.fecha_emision).tz("America/Lima").format("DD/MM/YYYY HH:mm:ss"),
+    almacen: primerRegistro.almacenes || "N/A",
+    clienteOP: `${primerRegistro.numero_factura} ${dayjs(primerRegistro.fecha_emision).tz("America/Lima").format("DD/MM/YYYY")}`,
+    referencia: primerRegistro.nombre || "N/A",
+    guia_remision: primerRegistro.guia_remision || "N/A",
+    consumoCombustible: primerRegistro.codigo_vale || "N/A",
+    glosa: primerRegistro.glosa || "RIMAC / MAQUINAS",
+    total: totalGeneral,
+  };
 };
 
-const detalleCombustible = [
-  {
-    codVale: "00002",
-    codEquipo: "EN-003",
-    cantidad: 41.0,
+const generarDetalleCombustible = (datos: InformeConsumoCombustibleResponse[]) => {
+  if (!datos || datos.length === 0) return [];
+  
+  return datos.map(item => ({
+    codVale: item.codigo_vale || "N/A",
+    codEquipo: item.placa || "N/A",
+    cantidad: item.cantidad || 0,
     unidadMedida: "GALON",
-    descripcion: "DIESEL B5 S50 EN-003",
-    kilometraje: 3035.0,
-    horometro: 3035.0,
-    valorUnitario: 3035.0,
-    importeTotal: 621.56,
-  },
-  {
-    codVale: "00002",
-    codEquipo: "EQ-002",
-    cantidad: 66.5,
-    unidadMedida: "GALON",
-    descripcion: "DIESEL B5 S50 EQ-002",
-    kilometraje: 734.7,
-    horometro: 734.7,
-    valorUnitario: 3065.0,
-    importeTotal: 242.56,
-  },
-  {
-    codVale: "00002",
-    codEquipo: "EN-004",
-    cantidad: 16.0,
-    unidadMedida: "GALON",
-    descripcion: "DIESEL B5 S50 EN-004",
-    kilometraje: 3065.0,
-    horometro: 3065.0,
-    valorUnitario: 2755.8,
-    importeTotal: 151.6,
-  },
-  {
-    codVale: "00002",
-    codEquipo: "MC-003",
-    cantidad: 10.0,
-    unidadMedida: "GALON",
-    descripcion: "DIESEL B5 S50 MC-003",
-    kilometraje: 2755.8,
-    horometro: 2755.8,
-    valorUnitario: 7425.1,
-    importeTotal: 257.72,
-  },
-  {
-    codVale: "00002",
-    codEquipo: "RE-005",
-    cantidad: 17.0,
-    unidadMedida: "GALON",
-    descripcion: "DIESEL B5 S50 RE-005",
-    kilometraje: 7425.1,
-    horometro: 7425.1,
-    valorUnitario: null,
-    importeTotal: 2281.58,
-  },
-];
+    descripcion: item.descripcion || "N/A",
+    kilometraje: item.km || 0,
+    horometro: item.odometro || 0,
+    valorUnitario: item.val_unit || 0,
+    importeTotal: item.total || 0,
+  }));
+};
 
 // Estilos del PDF
 const styles = StyleSheet.create({
@@ -216,7 +200,30 @@ const styles = StyleSheet.create({
 });
 
 // Componente del documento PDF
-const ReporteCombustibleDocument = () => (
+interface ReporteCombustibleDocumentProps {
+  datos?: InformeConsumoCombustibleResponse[];
+}
+
+const ReporteCombustibleDocument = ({ datos }: ReporteCombustibleDocumentProps) => {
+  const datosReporte = generarDatosReporte(datos || []);
+  const detalleCombustible = generarDetalleCombustible(datos || []);
+  
+  // Si no hay datos, mostrar mensaje
+  if (!datosReporte) {
+    return (
+      <Document title="Reporte Combustible - Sin Datos">
+        <Page size="A4" style={styles.page}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ fontSize: 16, textAlign: 'center' }}>
+              No hay datos disponibles para generar el reporte
+            </Text>
+          </View>
+        </Page>
+      </Document>
+    );
+  }
+  
+  return (
   <Document title={generarNombreArchivo().replace(".pdf", "")}>
     <Page size="A4" style={styles.page}>
       {/* Header con información reorganizada */}
@@ -262,7 +269,7 @@ const ReporteCombustibleDocument = () => (
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Glosa:</Text>
-            <Text style={styles.infoValue}>RIMAC / MAQUINAS</Text>
+            <Text style={styles.infoValue}>{datosReporte.glosa}</Text>
           </View>
         </View>
 
@@ -270,7 +277,7 @@ const ReporteCombustibleDocument = () => (
         <View style={styles.infoRight}>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Guía R.:</Text>
-            <Text style={styles.infoValue}>{datosEmpresa.guiaRemision}</Text>
+            <Text style={styles.infoValue}>{datosReporte.guia_remision}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Entidad:</Text>
@@ -349,40 +356,22 @@ const ReporteCombustibleDocument = () => (
       </View>
     </Page>
   </Document>
-);
-
-// Componente principal para mostrar el PDF
-interface ReporteCombustiblePDFProps {
-  className?: string;
-}
+  );
+};
 
 // Función para generar el nombre del archivo con fecha y hora
 const generarNombreArchivo = () => {
-  const ahora = new Date();
-  const fecha = ahora
-    .toLocaleDateString("es-PE", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
-    .replace(/\//g, "-");
-
-  const hora = ahora
-    .toLocaleTimeString("es-PE", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    })
-    .replace(/:/g, "-");
+  const ahora = dayjs().tz("America/Lima");
+  const fecha = ahora.format("DD-MM-YYYY");
+  const hora = ahora.format("HH-mm-ss");
 
   return `Reporte_Combustible_${fecha}_${hora}.pdf`;
 };
 
 // Función para descargar el PDF
-export const descargarReportePDF = async () => {
+export const descargarReportePDF = async (datos?: InformeConsumoCombustibleResponse[]) => {
   try {
-    const pdfDocument = <ReporteCombustibleDocument />;
+    const pdfDocument = <ReporteCombustibleDocument datos={datos} />;
     const asPdf = pdf(pdfDocument);
     const blob = await asPdf.toBlob();
 
@@ -404,9 +393,11 @@ export const descargarReportePDF = async () => {
 
 const ReporteCombustiblePDF: React.FC<ReporteCombustiblePDFProps> = ({
   className,
+  datosReporte,
+  mostrarTodosLosRegistros = false,
 }) => {
   // Usar useMemo para evitar re-renderizados innecesarios del documento
-  const document = useMemo(() => <ReporteCombustibleDocument />, []);
+  const document = useMemo(() => <ReporteCombustibleDocument datos={datosReporte} />, [datosReporte]);
 
   // Referencia al contenedor del PDFViewer
   const pdfViewerRef = React.useRef<HTMLDivElement>(null);

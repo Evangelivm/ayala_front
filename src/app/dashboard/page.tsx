@@ -49,30 +49,19 @@ import {
   type DashboardStats,
 } from "@/lib/connections";
 import dynamic from "next/dynamic";
+import dayjs from "dayjs";
+import "dayjs/locale/es";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 
-// Cargar el componente PDF de forma dinámica para evitar problemas de SSR
-const ReporteCombustiblePDF = dynamic(
-  () => import("@/components/ReporteCombustiblePDF"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-full h-full flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Generando reporte PDF...</p>
-        </div>
-      </div>
-    ),
-  }
-);
+// Configurar plugins de dayjs
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
-// Importar la función de descarga dinámicamente
-const descargarPDF = async () => {
-  const { descargarReportePDF } = await import(
-    "@/components/ReporteCombustiblePDF"
-  );
-  return descargarReportePDF();
-};
+// Configurar dayjs para usar español y timezone de Perú
+dayjs.locale("es");
+dayjs.tz.setDefault("America/Lima");
+
 
 interface RecentReport {
   id: number;
@@ -158,15 +147,13 @@ export default function Dashboard() {
   );
   const [loadingTables, setLoadingTables] = useState(false);
 
-  // Estado para el modal del reporte PDF
-  const [showReportePDF, setShowReportePDF] = useState(false);
 
   useEffect(() => {
-    // Inicializar el tiempo en el cliente
-    setCurrentTime(new Date());
+    // Inicializar el tiempo en el cliente con zona horaria de Perú
+    setCurrentTime(dayjs().tz("America/Lima").toDate());
 
     const timer = setInterval(() => {
-      setCurrentTime(new Date());
+      setCurrentTime(dayjs().tz("America/Lima").toDate());
     }, 1000);
 
     return () => clearInterval(timer);
@@ -251,15 +238,14 @@ export default function Dashboard() {
     // Aquí se podría abrir un modal o navegar a una página de detalles
   };
 
+
   const handleDownloadReport = async (
     reporte: ViajeReporte | PlantilleroReporte | OperadorReporte,
     tipo: string
   ) => {
     try {
       // Generar nombre del archivo
-      const fechaFormateada = new Date(reporte.fecha)
-        .toISOString()
-        .split("T")[0];
+      const fechaFormateada = dayjs(reporte.fecha).tz("America/Lima").format("YYYY-MM-DD");
       const codigo =
         "codigo_reporte" in reporte
           ? reporte.codigo_reporte
@@ -321,30 +307,10 @@ export default function Dashboard() {
               >
                 {currentTime ? (
                   <>
-                    {currentTime
-                      .toLocaleDateString("es-PE", {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })
-                      .charAt(0)
-                      .toUpperCase() +
-                      currentTime
-                        .toLocaleDateString("es-PE", {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })
-                        .slice(1)}
+                    {dayjs(currentTime).format("dddd, D [de] MMMM [de] YYYY").charAt(0).toUpperCase() +
+                      dayjs(currentTime).format("dddd, D [de] MMMM [de] YYYY").slice(1)}
                     ,{" "}
-                    {currentTime.toLocaleTimeString("es-PE", {
-                      hour: "numeric",
-                      minute: "2-digit",
-                      second: "2-digit",
-                      hour12: true,
-                    })}
+                    {dayjs(currentTime).format("h:mm:ss A")}
                   </>
                 ) : (
                   "Cargando..."
@@ -353,13 +319,14 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                onClick={() => setShowReportePDF(true)}
-                className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Reporte Combustible
-              </Button>
+              <Link href="/combustible">
+                <Button
+                  className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Combustible
+                </Button>
+              </Link>
               <Badge className="text-sm px-3 py-1 bg-green-600 text-white font-mono">
                 <Activity className="h-4 w-4 mr-1" />
                 DASHBOARD
@@ -609,6 +576,7 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
 
+
           <TabsContent value="reports">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Reporte de Viajes de Eliminación */}
@@ -819,9 +787,7 @@ export default function Dashboard() {
                               {reporte.proyecto?.nombre || "N/A"}
                             </TableCell>
                             <TableCell>
-                              {new Date(reporte.fecha).toLocaleDateString(
-                                "es-PE"
-                              )}
+                              {dayjs(reporte.fecha).tz("America/Lima").format("DD/MM/YYYY")}
                             </TableCell>
                             <TableCell>
                               {reporte.responsable?.nombres
@@ -1106,9 +1072,7 @@ export default function Dashboard() {
                               {reporte.proyecto?.nombre || "N/A"}
                             </TableCell>
                             <TableCell>
-                              {new Date(reporte.fecha).toLocaleDateString(
-                                "es-PE"
-                              )}
+                              {dayjs(reporte.fecha).tz("America/Lima").format("DD/MM/YYYY")}
                             </TableCell>
                             <TableCell>
                               {reporte.operador
@@ -1178,74 +1142,6 @@ export default function Dashboard() {
         </Tabs>
       </div>
 
-      {/* Modal para Reporte de Combustible PDF */}
-      {showReportePDF && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-[95vw] h-[95vh] flex flex-col">
-            {/* Header del Modal */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-lg">
-              <div className="flex items-center gap-3">
-                <FileText className="h-6 w-6" />
-                <div>
-                  <h2 className="text-lg font-bold">
-                    Reporte de Consumo de Combustible
-                  </h2>
-                  <p className="text-sm text-orange-100">
-                    Vista previa del documento PDF
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={() => setShowReportePDF(false)}
-                variant="ghost"
-                size="sm"
-                className="text-white hover:bg-orange-600 hover:text-white"
-              >
-                ✕
-              </Button>
-            </div>
-
-            {/* Contenido del Modal */}
-            <div className="flex-1 overflow-hidden">
-              <div className="w-full h-full overflow-hidden">
-                <ReporteCombustiblePDF />
-              </div>
-            </div>
-
-            {/* Footer del Modal */}
-            <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-              <div className="text-sm text-gray-600">
-                Documento generado automáticamente • Datos de prueba
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setShowReportePDF(false)}
-                  variant="outline"
-                >
-                  Cerrar
-                </Button>
-                <Button
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
-                  onClick={async () => {
-                    try {
-                      const exito = await descargarPDF();
-                      if (!exito) {
-                        alert("Error al descargar el PDF. Intente nuevamente.");
-                      }
-                    } catch (error) {
-                      console.error("Error al descargar PDF:", error);
-                      alert("Error al descargar el PDF. Intente nuevamente.");
-                    }
-                  }}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Descargar PDF
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
