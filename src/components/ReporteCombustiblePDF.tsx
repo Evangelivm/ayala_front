@@ -50,6 +50,12 @@ const generarDatosReporte = (datos: InformeConsumoCombustibleResponse[]) => {
     return sum + totalFactura;
   }, 0);
   
+  // Calcular el total de galones sumando todas las cantidades
+  const totalGalones = datos.reduce((sum, factura) => {
+    const totalGalonesFactura = factura.detalles.reduce((sumDetalle, detalle) => sumDetalle + (detalle.cantidad || 0), 0);
+    return sum + totalGalonesFactura;
+  }, 0);
+  
   // Obtener el primer código de vale del primer detalle
   const primerCodigoVale = primerRegistro.detalles?.[0]?.codigo_vale || "N/A";
   
@@ -63,6 +69,7 @@ const generarDatosReporte = (datos: InformeConsumoCombustibleResponse[]) => {
     consumoCombustible: primerCodigoVale,
     glosa: primerRegistro.glosa || "RIMAC / MAQUINAS",
     total: totalGeneral,
+    totalGalones: totalGalones,
   };
 };
 
@@ -362,6 +369,14 @@ const ReporteCombustibleDocument = ({ datos }: ReporteCombustibleDocumentProps) 
         <View style={styles.totalesLeft}></View>
 
         <View style={styles.totalesRight}>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>TOTAL GALONES:</Text>
+            <Text style={styles.totalValue}>
+              {datosReporte.totalGalones.toLocaleString("es-PE", {
+                minimumFractionDigits: 2,
+              })}
+            </Text>
+          </View>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>TOTAL:</Text>
             <Text style={styles.totalValue}>
