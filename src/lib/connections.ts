@@ -1452,13 +1452,7 @@ export interface InformeConsumoCombustibleFilter {
   id_equipo?: number;
 }
 
-export interface InformeConsumoCombustibleResponse {
-  fecha_emision: Date;
-  almacenes: string;
-  numero_factura: string;
-  nombre: string;
-  glosa: string;
-  guia_remision: string;
+export interface InformeConsumoCombustibleDetalle {
   codigo_vale: string;
   placa: string;
   cantidad: number;
@@ -1467,6 +1461,16 @@ export interface InformeConsumoCombustibleResponse {
   odometro: number;
   val_unit: number;
   total: number;
+}
+
+export interface InformeConsumoCombustibleResponse {
+  fecha_emision: Date;
+  almacenes: string;
+  numero_factura: string;
+  nombre: string;
+  glosa: string;
+  guia_remision: string;
+  detalles: InformeConsumoCombustibleDetalle[];
 }
 
 export const informeConsumoCombustibleApi = {

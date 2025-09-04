@@ -10,7 +10,7 @@ import {
   PDFViewer,
   pdf,
 } from "@react-pdf/renderer";
-import { InformeConsumoCombustibleResponse } from "@/lib/connections";
+import { InformeConsumoCombustibleResponse, InformeConsumoCombustibleDetalle } from "@/lib/connections";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import timezone from "dayjs/plugin/timezone";
@@ -44,16 +44,23 @@ const generarDatosReporte = (datos: InformeConsumoCombustibleResponse[]) => {
   if (!datos || datos.length === 0) return null;
   
   const primerRegistro = datos[0];
-  const totalGeneral = datos.reduce((sum, item) => sum + item.total, 0);
+  // Calcular el total sumando todos los detalles de todas las facturas
+  const totalGeneral = datos.reduce((sum, factura) => {
+    const totalFactura = factura.detalles.reduce((sumDetalle, detalle) => sumDetalle + detalle.total, 0);
+    return sum + totalFactura;
+  }, 0);
+  
+  // Obtener el primer código de vale del primer detalle
+  const primerCodigoVale = primerRegistro.detalles?.[0]?.codigo_vale || "N/A";
   
   return {
-    codigo: primerRegistro.codigo_vale || "N/A",
+    codigo: primerCodigoVale,
     fecha: dayjs(primerRegistro.fecha_emision).tz("America/Lima").format("DD/MM/YYYY HH:mm:ss"),
     almacen: primerRegistro.almacenes || "N/A",
     clienteOP: `${primerRegistro.numero_factura} ${dayjs(primerRegistro.fecha_emision).tz("America/Lima").format("DD/MM/YYYY")}`,
     referencia: primerRegistro.nombre || "N/A",
     guia_remision: primerRegistro.guia_remision || "N/A",
-    consumoCombustible: primerRegistro.codigo_vale || "N/A",
+    consumoCombustible: primerCodigoVale,
     glosa: primerRegistro.glosa || "RIMAC / MAQUINAS",
     total: totalGeneral,
   };
@@ -62,16 +69,25 @@ const generarDatosReporte = (datos: InformeConsumoCombustibleResponse[]) => {
 const generarDetalleCombustible = (datos: InformeConsumoCombustibleResponse[]) => {
   if (!datos || datos.length === 0) return [];
   
-  return datos.map(item => ({
-    codVale: item.codigo_vale || "N/A",
-    codEquipo: item.placa || "N/A",
-    cantidad: item.cantidad || 0,
+  // Aplanar todos los detalles de todas las facturas en una sola lista
+  const todosLosDetalles: InformeConsumoCombustibleDetalle[] = [];
+  
+  datos.forEach(factura => {
+    if (factura.detalles && Array.isArray(factura.detalles)) {
+      todosLosDetalles.push(...factura.detalles);
+    }
+  });
+  
+  return todosLosDetalles.map(detalle => ({
+    codVale: detalle.codigo_vale || "N/A",
+    codEquipo: detalle.placa || "N/A",
+    cantidad: detalle.cantidad || 0,
     unidadMedida: "GALON",
-    descripcion: item.descripcion || "N/A",
-    kilometraje: item.km || 0,
-    horometro: item.odometro || 0,
-    valorUnitario: item.val_unit || 0,
-    importeTotal: item.total || 0,
+    descripcion: detalle.descripcion || "N/A",
+    kilometraje: detalle.km || 0,
+    horometro: detalle.odometro || 0,
+    valorUnitario: detalle.val_unit || 0,
+    importeTotal: detalle.total || 0,
   }));
 };
 
@@ -349,7 +365,9 @@ const ReporteCombustibleDocument = ({ datos }: ReporteCombustibleDocumentProps) 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>TOTAL:</Text>
             <Text style={styles.totalValue}>
-              {datosReporte.total.toFixed(2)}
+              {datosReporte.total.toLocaleString("es-PE", {
+                minimumFractionDigits: 2,
+              })}
             </Text>
           </View>
         </View>
