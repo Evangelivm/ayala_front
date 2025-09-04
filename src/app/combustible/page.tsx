@@ -70,16 +70,22 @@ const descargarPDF = async (datos: InformeConsumoCombustibleResponse[]) => {
 };
 
 export default function CombustiblePage() {
-  const [combustibleReports, setCombustibleReports] = useState<InformeConsumoCombustibleResponse[]>([]);
+  const [combustibleReports, setCombustibleReports] = useState<
+    InformeConsumoCombustibleResponse[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   // Estado para el acordeón
-  const [expandedFacturas, setExpandedFacturas] = useState<Set<number>>(new Set());
+  const [expandedFacturas, setExpandedFacturas] = useState<Set<number>>(
+    new Set()
+  );
 
   // Estado para el modal del reporte PDF
   const [showReportePDF, setShowReportePDF] = useState(false);
-  const [datosPDFSeleccionados, setDatosPDFSeleccionados] = useState<InformeConsumoCombustibleResponse[]>([]);
+  const [datosPDFSeleccionados, setDatosPDFSeleccionados] = useState<
+    InformeConsumoCombustibleResponse[]
+  >([]);
 
   useEffect(() => {
     // Inicializar el tiempo en el cliente con zona horaria de Perú
@@ -120,7 +126,9 @@ export default function CombustiblePage() {
     setExpandedFacturas(newExpanded);
   };
 
-  const handleVerReporteCombustible = (registro?: InformeConsumoCombustibleResponse) => {
+  const handleVerReporteCombustible = (
+    registro?: InformeConsumoCombustibleResponse
+  ) => {
     if (registro) {
       // Mostrar PDF con un registro específico
       setDatosPDFSeleccionados([registro]);
@@ -134,7 +142,7 @@ export default function CombustiblePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-red-50">
       {/* Header Principal */}
-      <div className="bg-white shadow-md border-b border-slate-200">
+      {/* <div className="bg-white shadow-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center py-4">
             <div className="flex items-center gap-4">
@@ -193,7 +201,7 @@ export default function CombustiblePage() {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Contenido Principal */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -211,7 +219,9 @@ export default function CombustiblePage() {
                   onClick={loadCombustibleReports}
                   disabled={loading}
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  <RefreshCw
+                    className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+                  />
                   Actualizar
                 </Button>
                 <Button
@@ -226,7 +236,8 @@ export default function CombustiblePage() {
               </div>
             </CardTitle>
             <CardDescription className="text-orange-100">
-              Facturas agrupadas por número de factura con sus respectivos detalles
+              Facturas agrupadas por número de factura con sus respectivos
+              detalles
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -239,14 +250,16 @@ export default function CombustiblePage() {
               <div className="p-8 text-center text-slate-500">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No hay facturas de consumo de combustible disponibles</p>
-                <p className="text-sm mt-2">Las facturas se agrupan automáticamente por número de factura</p>
+                <p className="text-sm mt-2">
+                  Las facturas se agrupan automáticamente por número de factura
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
                 {combustibleReports.map((factura, facturaIndex) => (
                   <Card key={facturaIndex} className="border border-slate-200">
                     {/* Header de la factura */}
-                    <div 
+                    <div
                       className="bg-slate-100 p-4 border-b border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors"
                       onClick={() => toggleFactura(facturaIndex)}
                     >
@@ -265,22 +278,38 @@ export default function CombustiblePage() {
                           </Button>
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
-                              <span className="text-xs font-medium text-slate-600">Fecha Emisión</span>
+                              <span className="text-xs font-medium text-slate-600">
+                                Fecha Emisión
+                              </span>
                               <p className="font-semibold text-slate-900">
-                                {dayjs(factura.fecha_emision).tz("America/Lima").format("DD/MM/YYYY")}
+                                {dayjs(factura.fecha_emision)
+                                  .tz("America/Lima")
+                                  .format("DD/MM/YYYY")}
                               </p>
                             </div>
                             <div>
-                              <span className="text-xs font-medium text-slate-600">Número Factura</span>
-                              <p className="font-medium text-slate-900">{factura.numero_factura}</p>
+                              <span className="text-xs font-medium text-slate-600">
+                                Número Factura
+                              </span>
+                              <p className="font-medium text-slate-900">
+                                {factura.numero_factura}
+                              </p>
                             </div>
                             <div>
-                              <span className="text-xs font-medium text-slate-600">Proveedor</span>
-                              <p className="font-medium text-slate-900">{factura.nombre}</p>
+                              <span className="text-xs font-medium text-slate-600">
+                                Proveedor
+                              </span>
+                              <p className="font-medium text-slate-900">
+                                {factura.nombre}
+                              </p>
                             </div>
                             <div>
-                              <span className="text-xs font-medium text-slate-600">Almacén</span>
-                              <p className="font-medium text-slate-700">{factura.almacenes}</p>
+                              <span className="text-xs font-medium text-slate-600">
+                                Almacén
+                              </span>
+                              <p className="font-medium text-slate-700">
+                                {factura.almacenes}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -310,14 +339,30 @@ export default function CombustiblePage() {
                         <Table>
                           <TableHeader>
                             <TableRow className="bg-orange-50">
-                              <TableHead className="font-semibold text-orange-700">Código Vale</TableHead>
-                              <TableHead className="font-semibold text-orange-700">Placa</TableHead>
-                              <TableHead className="font-semibold text-orange-700">Cantidad (gal)</TableHead>
-                              <TableHead className="font-semibold text-orange-700">Descripción</TableHead>
-                              <TableHead className="font-semibold text-orange-700">KM</TableHead>
-                              <TableHead className="font-semibold text-orange-700">Odómetro</TableHead>
-                              <TableHead className="font-semibold text-orange-700">Valor Unit.</TableHead>
-                              <TableHead className="font-semibold text-orange-700">Total</TableHead>
+                              <TableHead className="font-semibold text-orange-700">
+                                Código Vale
+                              </TableHead>
+                              <TableHead className="font-semibold text-orange-700">
+                                Placa
+                              </TableHead>
+                              <TableHead className="font-semibold text-orange-700">
+                                Cantidad (gal)
+                              </TableHead>
+                              <TableHead className="font-semibold text-orange-700">
+                                Descripción
+                              </TableHead>
+                              <TableHead className="font-semibold text-orange-700">
+                                KM
+                              </TableHead>
+                              <TableHead className="font-semibold text-orange-700">
+                                Odómetro
+                              </TableHead>
+                              <TableHead className="font-semibold text-orange-700">
+                                Valor Unit.
+                              </TableHead>
+                              <TableHead className="font-semibold text-orange-700">
+                                Total
+                              </TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -327,11 +372,16 @@ export default function CombustiblePage() {
                                 className="hover:bg-slate-50"
                               >
                                 <TableCell className="font-mono text-sm">
-                                  <Badge variant="secondary" className="bg-slate-200 text-slate-700">
+                                  <Badge
+                                    variant="secondary"
+                                    className="bg-slate-200 text-slate-700"
+                                  >
                                     {detalle.codigo_vale}
                                   </Badge>
                                 </TableCell>
-                                <TableCell className="font-medium">{detalle.placa}</TableCell>
+                                <TableCell className="font-medium">
+                                  {detalle.placa}
+                                </TableCell>
                                 <TableCell>
                                   <Badge className="bg-orange-100 text-orange-800">
                                     {detalle.cantidad.toFixed(2)} gal
@@ -361,17 +411,34 @@ export default function CombustiblePage() {
                         <div className="bg-slate-50 p-4 border-t border-slate-200">
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-slate-600">
-                              Total de registros: <span className="font-medium">{factura.detalles.length}</span>
+                              Total de registros:{" "}
+                              <span className="font-medium">
+                                {factura.detalles.length}
+                              </span>
                             </span>
                             <div className="flex gap-4">
                               <span className="text-slate-600">
-                                Total galones: <span className="font-semibold text-orange-600">
-                                  {factura.detalles.reduce((sum, det) => sum + det.cantidad, 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} gal
+                                Total galones:{" "}
+                                <span className="font-semibold text-orange-600">
+                                  {factura.detalles
+                                    .reduce((sum, det) => sum + det.cantidad, 0)
+                                    .toLocaleString("es-PE", {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}{" "}
+                                  gal
                                 </span>
                               </span>
                               <span className="text-slate-600">
-                                Monto total: <span className="font-semibold text-orange-600">
-                                  S/. {factura.detalles.reduce((sum, det) => sum + det.total, 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                Monto total:{" "}
+                                <span className="font-semibold text-orange-600">
+                                  S/.{" "}
+                                  {factura.detalles
+                                    .reduce((sum, det) => sum + det.total, 0)
+                                    .toLocaleString("es-PE", {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}
                                 </span>
                               </span>
                             </div>
