@@ -66,10 +66,10 @@ export default function ProgramacionPage() {
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
         // Procesar datos (saltando la primera fila de headers)
-        const processedData: ProgramacionData[] = (jsonData as any[])
+        const processedData: ProgramacionData[] = (jsonData as unknown[][])
           .slice(1)
-          .filter((row: any[]) => row.length > 0 && row[0])
-          .map((row: any[], index: number) => {
+          .filter((row: unknown[]) => row.length > 0 && row[0])
+          .map((row: unknown[], index: number) => {
             try {
               // Procesar fecha - convertir a Date object
               let fechaProcessed: Date = new Date();
@@ -135,7 +135,7 @@ export default function ProgramacionPage() {
               }
 
               return {
-                fecha: new Date(row[0] || new Date()),
+                fecha: row[0] ? new Date(row[0] as string | number | Date) : new Date(),
                 unidad: String(row[1] || ""),
                 apellidos_nombres: String(row[2] || ""),
                 proyectos: String(row[3] || ""),

@@ -1542,7 +1542,7 @@ export const programacionApi = {
       
       // Extraer mensaje de error del servidor si está disponible
       if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as any;
+        const axiosError = error as { response?: { data?: { message?: string } } };
         if (axiosError.response?.data?.message) {
           throw new Error(axiosError.response.data.message);
         }
