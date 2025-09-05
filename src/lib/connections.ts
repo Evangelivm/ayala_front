@@ -1516,6 +1516,7 @@ export const informeConsumoCombustibleApi = {
 export interface ProgramacionData {
   fecha: Date;
   unidad: string;
+  proveedor: string;
   apellidos_nombres: string;
   proyectos: string;
   programacion: string;

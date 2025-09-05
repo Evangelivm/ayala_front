@@ -89,14 +89,14 @@ export default function ProgramacionPage() {
 
               // Procesar hora_partida - convertir a formato TIME
               let horaPartidaProcessed = "00:00:00";
-              if (row[5]) {
-                if (typeof row[5] === "number") {
+              if (row[6]) {
+                if (typeof row[6] === "number") {
                   // Convertir decimal a tiempo (0.33333 = 8 horas)
-                  const totalHours = Math.round(row[5] * 24);
+                  const totalHours = Math.round(row[6] * 24);
                   const hours = String(totalHours).padStart(2, "0");
                   horaPartidaProcessed = `${hours}:00:00`;
                 } else {
-                  const timeStr = String(row[5]);
+                  const timeStr = String(row[6]);
                   // Si no tiene segundos, agregarlos
                   horaPartidaProcessed = timeStr.includes(":")
                     ? timeStr.split(":").length === 2
@@ -109,23 +109,24 @@ export default function ProgramacionPage() {
               return {
                 fecha: fechaProcessed,
                 unidad: String(row[1] || ""),
-                apellidos_nombres: String(row[2] || ""),
-                proyectos: String(row[3] || ""),
-                programacion: String(row[4] || ""),
+                proveedor: String(row[2] || ""),
+                apellidos_nombres: String(row[3] || ""),
+                proyectos: String(row[4] || ""),
+                programacion: String(row[5] || ""),
                 hora_partida: horaPartidaProcessed,
-                estado_programacion: String(row[6] || ""),
-                comentarios: String(row[7] || ""),
+                estado_programacion: String(row[7] || ""),
+                comentarios: String(row[8] || ""),
               };
             } catch (error) {
               console.warn(`Error procesando fila ${index + 2}:`, error);
               let horaPartidaFallback = "00:00:00";
-              if (row[5]) {
-                if (typeof row[5] === "number") {
-                  const totalHours = Math.round(row[5] * 24);
+              if (row[6]) {
+                if (typeof row[6] === "number") {
+                  const totalHours = Math.round(row[6] * 24);
                   const hours = String(totalHours).padStart(2, "0");
                   horaPartidaFallback = `${hours}:00:00`;
                 } else {
-                  const timeStr = String(row[5]);
+                  const timeStr = String(row[6]);
                   horaPartidaFallback = timeStr.includes(":")
                     ? timeStr.split(":").length === 2
                       ? `${timeStr}:00`
@@ -137,12 +138,13 @@ export default function ProgramacionPage() {
               return {
                 fecha: row[0] ? new Date(row[0] as string | number | Date) : new Date(),
                 unidad: String(row[1] || ""),
-                apellidos_nombres: String(row[2] || ""),
-                proyectos: String(row[3] || ""),
-                programacion: String(row[4] || ""),
+                proveedor: String(row[2] || ""),
+                apellidos_nombres: String(row[3] || ""),
+                proyectos: String(row[4] || ""),
+                programacion: String(row[5] || ""),
                 hora_partida: horaPartidaFallback,
-                estado_programacion: String(row[6] || ""),
-                comentarios: String(row[7] || ""),
+                estado_programacion: String(row[7] || ""),
+                comentarios: String(row[8] || ""),
               };
             }
           });
@@ -280,6 +282,7 @@ export default function ProgramacionPage() {
                     <TableRow>
                       <TableHead>Fecha</TableHead>
                       <TableHead>Unidad</TableHead>
+                      <TableHead>Proveedor</TableHead>
                       <TableHead>Apellidos y Nombres</TableHead>
                       <TableHead>Proyectos</TableHead>
                       <TableHead>Programación</TableHead>
@@ -294,11 +297,26 @@ export default function ProgramacionPage() {
                         <TableCell>
                           {item.fecha.toLocaleDateString("es-ES")}
                         </TableCell>
-                        <TableCell className="min-w-24 whitespace-nowrap">
-                          {item.unidad}
+                        <TableCell className="min-w-24">
+                          <div className={item.unidad.length > 30 ? "whitespace-normal break-words" : "whitespace-nowrap"}>
+                            {item.unidad}
+                          </div>
                         </TableCell>
-                        <TableCell>{item.apellidos_nombres}</TableCell>
-                        <TableCell>{item.proyectos}</TableCell>
+                        <TableCell className="min-w-32">
+                          <div className={item.proveedor.length > 30 ? "whitespace-normal break-words" : "whitespace-nowrap"}>
+                            {item.proveedor}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className={item.apellidos_nombres.length > 30 ? "whitespace-normal break-words" : "whitespace-nowrap"}>
+                            {item.apellidos_nombres}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className={item.proyectos.length > 30 ? "whitespace-normal break-words" : "whitespace-nowrap"}>
+                            {item.proyectos}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <span
                             className={
