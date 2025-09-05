@@ -1512,5 +1512,92 @@ export const informeConsumoCombustibleApi = {
   },
 };
 
+// ============ PROGRAMACIÓN API ============
+export interface ProgramacionData {
+  fecha: Date;
+  unidad: string;
+  apellidos_nombres: string;
+  proyectos: string;
+  programacion: string;
+  hora_partida: string;
+  estado_programacion: string;
+  comentarios?: string;
+}
+
+export interface ProgramacionResponse {
+  message: string;
+  totalRecords: number;
+  successCount: number;
+  processingTime: number;
+}
+
+export const programacionApi = {
+  // Crear múltiples registros de programación
+  createBatch: async (data: ProgramacionData[]): Promise<ProgramacionResponse> => {
+    try {
+      const response = await api.post("/programacion", { data });
+      return response.data;
+    } catch (error) {
+      console.error("Programación API error:", error);
+      
+      // Extraer mensaje de error del servidor si está disponible
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        if (axiosError.response?.data?.message) {
+          throw new Error(axiosError.response.data.message);
+        }
+      }
+      
+      throw new Error("Error al guardar los registros de programación");
+    }
+  },
+
+  // Obtener registros de programación paginados
+  getAll: async (page: number = 1, limit: number = 50): Promise<{
+    data: ProgramacionData[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> => {
+    try {
+      const response = await api.get("/programacion", {
+        params: { page, limit },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Programación API error:", error);
+      return {
+        data: [],
+        pagination: { page: 1, limit: 50, total: 0, totalPages: 0 },
+      };
+    }
+  },
+
+  // Obtener registro por ID
+  getById: async (id: number): Promise<ProgramacionData> => {
+    try {
+      const response = await api.get(`/programacion/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Programación API error:", error);
+      throw new Error("Registro de programación no encontrado");
+    }
+  },
+
+  // Eliminar registro
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/programacion/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Programación API error:", error);
+      throw new Error("Error al eliminar el registro");
+    }
+  },
+};
+
 // Exportar la instancia de axios para uso directo si es necesario
 export { api };

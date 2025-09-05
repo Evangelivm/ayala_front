@@ -13,6 +13,7 @@ import {
   LogOut,
   UserCircle,
   ClipboardList,
+  Upload,
 } from "lucide-react"
 
 import {
@@ -53,7 +54,13 @@ const menuItems = [
         title: "Reporte Plantilleros", // New menu item
         url: "/reporte-plantilleros",
         icon: ClipboardList,
-        isActive: true, // Set this as the active item for this response
+        isActive: false,
+      },
+      {
+        title: "Programación",
+        url: "/programacion",
+        icon: Upload,
+        isActive: false,
       },
       {
         title: "Reportes Semanales",
