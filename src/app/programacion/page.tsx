@@ -191,6 +191,8 @@ export default function ProgramacionPage() {
       );
 
       handleDiscard();
+      
+      toast.success("¡Información subida exitosamente!");
     } catch (error) {
       toast.error("Error al guardar los datos");
       console.error("Error saving data:", error);
