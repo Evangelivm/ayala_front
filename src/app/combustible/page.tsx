@@ -491,7 +491,7 @@ export default function CombustiblePage() {
             {/* Footer del Modal */}
             <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
               <div className="text-sm text-gray-600">
-                Documento generado automáticamente • Datos de prueba
+                Documento generado automáticamente
               </div>
               <div className="flex gap-2">
                 <Button

@@ -1470,6 +1470,7 @@ export interface InformeConsumoCombustibleResponse {
   nombre: string;
   glosa: string;
   guia_remision: string;
+  alfanum: string;
   detalles: InformeConsumoCombustibleDetalle[];
 }
 
