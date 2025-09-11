@@ -116,7 +116,10 @@ export default function OrdenCompraPage() {
     { codigo: "0803", nombre: "VILLA EL SALVADOR - ACABADOS" },
   ];
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (
+    field: string,
+    value: string | Date | { codigo: string; nombre: string }
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -153,26 +156,35 @@ export default function OrdenCompraPage() {
     setIsModalOpen(false);
   };
 
-  const selectCentroCosto = (centro: any) => {
+  const selectCentroCosto = (centro: { codigo: string; nombre: string }) => {
     setFormData((prev) => ({ ...prev, centroCosto: centro }));
     setIsCentroCostoModalOpen(false);
   };
 
   // Funciones para Nueva Orden
-  const handleNuevaOrdenInputChange = (field: string, value: any) => {
+  const handleNuevaOrdenInputChange = (
+    field: string,
+    value: string | Date | number | { porcentaje: number; monto: number }
+  ) => {
     setNuevaOrdenData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleItemChange = (index: number, field: string, value: any) => {
+  const handleItemChange = (
+    index: number,
+    field: string,
+    value: string | number
+  ) => {
     const updatedItems = [...nuevaOrdenData.items];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
 
     // Calcular subtotal automáticamente
     if (field === "cantidad" || field === "precioUni") {
-      const cantidad =
-        field === "cantidad" ? value : updatedItems[index].cantidad;
-      const precio =
-        field === "precioUni" ? value : updatedItems[index].precioUni;
+      const cantidad = Number(
+        field === "cantidad" ? value : updatedItems[index].cantidad
+      );
+      const precio = Number(
+        field === "precioUni" ? value : updatedItems[index].precioUni
+      );
       updatedItems[index].subtotal = cantidad * precio;
       updatedItems[index].valorUni = cantidad * precio;
     }
@@ -207,10 +219,11 @@ export default function OrdenCompraPage() {
     }
   };
 
-  const calcularTotales = (items: any[]) => {
+  const calcularTotales = (items: Array<{ subtotal: number }>) => {
     const subtotal = items.reduce((acc, item) => acc + (item.subtotal || 0), 0);
     const igv = subtotal * (nuevaOrdenData.igvPorcentaje / 100);
-    const retencionMonto = subtotal * (nuevaOrdenData.retencion.porcentaje / 100);
+    const retencionMonto =
+      subtotal * (nuevaOrdenData.retencion.porcentaje / 100);
     const total = subtotal + igv;
 
     setNuevaOrdenData((prev) => ({
@@ -389,7 +402,10 @@ export default function OrdenCompraPage() {
                               mode="single"
                               selected={formData.fechaPeriodo}
                               onSelect={(date) =>
-                                handleInputChange("fechaPeriodo", date)
+                                handleInputChange(
+                                  "fechaPeriodo",
+                                  date ?? new Date()
+                                )
                               }
                               locale={es}
                               initialFocus
@@ -733,7 +749,7 @@ export default function OrdenCompraPage() {
                               onSelect={(date) =>
                                 handleNuevaOrdenInputChange(
                                   "fechaEmision",
-                                  date
+                                  date || new Date()
                                 )
                               }
                               locale={es}
@@ -794,14 +810,15 @@ export default function OrdenCompraPage() {
                                 selected={nuevaOrdenData.fechaServicio}
                                 onSelect={(date) => {
                                   if (date) {
-                                    const currentTime = nuevaOrdenData.fechaServicio;
+                                    const currentTime =
+                                      nuevaOrdenData.fechaServicio;
                                     date.setHours(currentTime.getHours());
                                     date.setMinutes(currentTime.getMinutes());
                                   }
                                   handleNuevaOrdenInputChange(
                                     "fechaServicio",
                                     date || new Date()
-                                  )
+                                  );
                                 }}
                                 locale={es}
                                 initialFocus
@@ -812,13 +829,22 @@ export default function OrdenCompraPage() {
                                   <input
                                     type="time"
                                     className="h-7 text-xs border rounded px-2"
-                                    value={format(nuevaOrdenData.fechaServicio, "HH:mm")}
+                                    value={format(
+                                      nuevaOrdenData.fechaServicio,
+                                      "HH:mm"
+                                    )}
                                     onChange={(e) => {
-                                      const [hours, minutes] = e.target.value.split(':');
-                                      const newDate = new Date(nuevaOrdenData.fechaServicio);
+                                      const [hours, minutes] =
+                                        e.target.value.split(":");
+                                      const newDate = new Date(
+                                        nuevaOrdenData.fechaServicio
+                                      );
                                       newDate.setHours(parseInt(hours));
                                       newDate.setMinutes(parseInt(minutes));
-                                      handleNuevaOrdenInputChange("fechaServicio", newDate);
+                                      handleNuevaOrdenInputChange(
+                                        "fechaServicio",
+                                        newDate
+                                      );
                                     }}
                                   />
                                 </div>
@@ -1175,10 +1201,12 @@ export default function OrdenCompraPage() {
                               placeholder="Observaciones adicionales..."
                             />
                           </div>
-                          
+
                           {/* Sección de Retención */}
                           <div className="mt-4 p-3 border border-gray-300 rounded-lg bg-gray-50">
-                            <h4 className="text-sm font-semibold mb-2">Retención</h4>
+                            <h4 className="text-sm font-semibold mb-2">
+                              Retención
+                            </h4>
                             <div className="flex items-center gap-4">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs">Retención</span>
@@ -1187,7 +1215,7 @@ export default function OrdenCompraPage() {
                                   onValueChange={(value) => {
                                     handleNuevaOrdenInputChange("retencion", {
                                       ...nuevaOrdenData.retencion,
-                                      porcentaje: parseInt(value)
+                                      porcentaje: parseInt(value),
                                     });
                                     calcularTotales(nuevaOrdenData.items);
                                   }}
@@ -1205,14 +1233,13 @@ export default function OrdenCompraPage() {
                               <div className="flex items-center gap-2">
                                 <Input
                                   type="number"
-                                  value={nuevaOrdenData.retencion.monto.toFixed(2)}
+                                  value={nuevaOrdenData.retencion.monto.toFixed(
+                                    2
+                                  )}
                                   readOnly
                                   className="h-7 text-xs w-24 bg-gray-100"
                                 />
-                                <input
-                                  type="checkbox"
-                                  className="w-4 h-4"
-                                />
+                                <input type="checkbox" className="w-4 h-4" />
                               </div>
                             </div>
                           </div>
@@ -1222,13 +1249,19 @@ export default function OrdenCompraPage() {
                       <div className="col-span-4">
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 space-y-2">
                           <div className="mb-3">
-                            <Label htmlFor="igv-porcentaje" className="text-xs font-semibold">
+                            <Label
+                              htmlFor="igv-porcentaje"
+                              className="text-xs font-semibold"
+                            >
                               IGV:
                             </Label>
                             <Select
                               value={nuevaOrdenData.igvPorcentaje.toString()}
                               onValueChange={(value) => {
-                                handleNuevaOrdenInputChange("igvPorcentaje", parseInt(value));
+                                handleNuevaOrdenInputChange(
+                                  "igvPorcentaje",
+                                  parseInt(value)
+                                );
                                 calcularTotales(nuevaOrdenData.items);
                               }}
                             >
@@ -1267,7 +1300,9 @@ export default function OrdenCompraPage() {
                             </span>
                           </div>
                           <div className="flex justify-between text-xs border-t pt-2">
-                            <span className="font-semibold">Igv ({nuevaOrdenData.igvPorcentaje}%):</span>
+                            <span className="font-semibold">
+                              Igv ({nuevaOrdenData.igvPorcentaje}%):
+                            </span>
                             <span className="font-mono">
                               {nuevaOrdenData.igv.toFixed(2)}
                             </span>
