@@ -14,6 +14,7 @@ import {
   UserCircle,
   ClipboardList,
   Upload,
+  ShoppingCart,
 } from "lucide-react"
 
 import {
@@ -60,6 +61,12 @@ const menuItems = [
         title: "Programación",
         url: "/programacion",
         icon: Upload,
+        isActive: false,
+      },
+      {
+        title: "Orden de Compra",
+        url: "/orden-compra",
+        icon: ShoppingCart,
         isActive: false,
       },
       {

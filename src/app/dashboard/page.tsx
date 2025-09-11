@@ -39,8 +39,10 @@ import {
   Edit,
   RefreshCw,
   FileText,
+  ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   viajesEliminacionApi,
   reportesPlantillerosApi,
@@ -48,7 +50,6 @@ import {
   dashboardApi,
   type DashboardStats,
 } from "@/lib/connections";
-import dynamic from "next/dynamic";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import timezone from "dayjs/plugin/timezone";
@@ -61,6 +62,30 @@ dayjs.extend(timezone);
 // Configurar dayjs para usar español y timezone de Perú
 dayjs.locale("es");
 dayjs.tz.setDefault("America/Lima");
+
+// Cargar el componente PDF de forma dinámica para evitar problemas de SSR
+const OrdenCompraPDF = dynamic(
+  () => import("@/components/OrdenCompraPDF"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Generando orden de compra PDF...</p>
+        </div>
+      </div>
+    ),
+  }
+);
+
+// Importar la función de descarga dinámicamente
+const descargarOrdenCompraPDF = async () => {
+  const { descargarOrdenCompraPDF } = await import(
+    "@/components/OrdenCompraPDF"
+  );
+  return descargarOrdenCompraPDF();
+};
 
 
 interface RecentReport {
@@ -136,6 +161,7 @@ export default function Dashboard() {
 
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showOrdenCompraPDF, setShowOrdenCompraPDF] = useState(false);
 
   // Estados para las tablas de reportes
   const [viajesReports, setViajesReports] = useState<ViajeReporte[]>([]);
@@ -282,6 +308,10 @@ export default function Dashboard() {
     }
   };
 
+  const handleVerOrdenCompra = () => {
+    setShowOrdenCompraPDF(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header Principal */}
@@ -327,7 +357,16 @@ export default function Dashboard() {
                   Combustible
                 </Button>
               </Link>
-              <Badge className="text-sm px-3 py-1 bg-green-600 text-white font-mono">
+              
+              <Button
+                onClick={handleVerOrdenCompra}
+                className="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2"
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Orden de Compra
+              </Button>
+
+              <Badge className="text-sm px-3 py-1 bg-blue-600 text-white font-mono">
                 <Activity className="h-4 w-4 mr-1" />
                 DASHBOARD
               </Badge>
@@ -1141,6 +1180,75 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modal para Orden de Compra PDF */}
+      {showOrdenCompraPDF && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-[95vw] h-[95vh] flex flex-col">
+            {/* Header del Modal */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-t-lg">
+              <div className="flex items-center gap-3">
+                <ShoppingCart className="h-6 w-6" />
+                <div>
+                  <h2 className="text-lg font-bold">
+                    Orden de Compra
+                  </h2>
+                  <p className="text-sm text-green-100">
+                    Vista previa del documento PDF
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setShowOrdenCompraPDF(false)}
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-green-600 hover:text-white"
+              >
+                ✕
+              </Button>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div className="flex-1 overflow-hidden">
+              <div className="w-full h-full overflow-hidden">
+                <OrdenCompraPDF className="w-full h-full" />
+              </div>
+            </div>
+
+            {/* Footer del Modal */}
+            <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+              <div className="text-sm text-gray-600">
+                Documento generado automáticamente
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setShowOrdenCompraPDF(false)}
+                  variant="outline"
+                >
+                  Cerrar
+                </Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={async () => {
+                    try {
+                      const exito = await descargarOrdenCompraPDF();
+                      if (!exito) {
+                        alert("Error al descargar el PDF. Intente nuevamente.");
+                      }
+                    } catch (error) {
+                      console.error("Error al descargar PDF:", error);
+                      alert("Error al descargar el PDF. Intente nuevamente.");
+                    }
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Descargar PDF
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
