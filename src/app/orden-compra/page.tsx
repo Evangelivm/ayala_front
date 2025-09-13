@@ -43,6 +43,10 @@ export default function OrdenCompraPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCentroCostoModalOpen, setIsCentroCostoModalOpen] = useState(false);
   const [isNuevaOrdenModalOpen, setIsNuevaOrdenModalOpen] = useState(false);
+  const [isNuevoCentroCostoModalOpen, setIsNuevoCentroCostoModalOpen] = useState(false);
+  const [isCentroCostoListModalOpen, setIsCentroCostoListModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [selectedCentroCosto, setSelectedCentroCosto] = useState<string | null>(null);
 
   // Estado para Nueva Orden
   const [nuevaOrdenData, setNuevaOrdenData] = useState({
@@ -116,6 +120,97 @@ export default function OrdenCompraPage() {
     { codigo: "0803", nombre: "VILLA EL SALVADOR - ACABADOS" },
   ];
 
+  const centrosCostoList = [
+    { cecoCod: "01", centroCosto: "01 - ADMINISTRACIÓN", selected: false },
+    { cecoCod: "0101", centroCosto: "0101 - SOPORTE TÉCNICO", selected: false },
+    { cecoCod: "0102", centroCosto: "0102 - ÚTILES DE OFICINA", selected: false },
+    { cecoCod: "0103", centroCosto: "0103 - SERVICIOS COMUNICACIONES", selected: false },
+  ];
+
+  const [nuevoCentroCostoData, setNuevoCentroCostoData] = useState({
+    codigo: "0202",
+    nombre: "CENTRIOQ CONDOMINIO ECOAMIGABLE",
+    año: "2025"
+  });
+
+  const ordenesTrabajos = [
+    {
+      proyNum: "25OT12C385",
+      descripcion: "ABASTECIMIENTO DE COMBUSTIBLE",
+      fecha: "01/12/2025",
+      entCod: "C0002",
+      razonSocial: "MAQUINARIAS AYALA S.A.C.",
+      cecoCod: "060101",
+      cecoNombre: "MC-001 PPNC",
+      pptoVentas: "1.00",
+      pptoCompras: "99",
+      margen: "1.00",
+      ventasVal: ".00",
+      compraReal: ".00",
+      margenFinal: ".00"
+    },
+    {
+      proyNum: "25OT12C386",
+      descripcion: "ABASTECIMIENTO DE COMBUSTIBLE",
+      fecha: "01/12/2025",
+      entCod: "C0002",
+      razonSocial: "MAQUINARIAS AYALA S.A.C.",
+      cecoCod: "060102",
+      cecoNombre: "MC-002 PPNC",
+      pptoVentas: "1.00",
+      pptoCompras: "99",
+      margen: "1.00",
+      ventasVal: ".00",
+      compraReal: ".00",
+      margenFinal: ".00"
+    },
+    {
+      proyNum: "25OT12C387",
+      descripcion: "ABASTECIMIENTO DE COMBUSTIBLE",
+      fecha: "01/12/2025",
+      entCod: "C0002",
+      razonSocial: "MAQUINARIAS AYALA S.A.C.",
+      cecoCod: "060103",
+      cecoNombre: "PE-003 RETRI",
+      pptoVentas: "1.00",
+      pptoCompras: "99",
+      margen: "1.00",
+      ventasVal: ".00",
+      compraReal: ".00",
+      margenFinal: ".00"
+    },
+    {
+      proyNum: "25OT12C388",
+      descripcion: "ABASTECIMIENTO DE COMBUSTIBLE",
+      fecha: "01/12/2025",
+      entCod: "C0002",
+      razonSocial: "MAQUINARIAS AYALA S.A.C.",
+      cecoCod: "060104",
+      cecoNombre: "PE-003 RETRI",
+      pptoVentas: "1.00",
+      pptoCompras: "99",
+      margen: "1.00",
+      ventasVal: ".00",
+      compraReal: ".00",
+      margenFinal: ".00"
+    },
+    {
+      proyNum: "25OT12C389",
+      descripcion: "ABASTECIMIENTO DE COMBUSTIBLE",
+      fecha: "01/12/2025",
+      entCod: "C0002",
+      razonSocial: "MAQUINARIAS AYALA S.A.C.",
+      cecoCod: "060105",
+      cecoNombre: "RE-004 SETRI",
+      pptoVentas: "1.00",
+      pptoCompras: "99",
+      margen: "1.00",
+      ventasVal: ".00",
+      compraReal: ".00",
+      margenFinal: ".00"
+    }
+  ];
+
   const handleInputChange = (
     field: string,
     value: string | Date | { codigo: string; nombre: string }
@@ -159,6 +254,78 @@ export default function OrdenCompraPage() {
   const selectCentroCosto = (centro: { codigo: string; nombre: string }) => {
     setFormData((prev) => ({ ...prev, centroCosto: centro }));
     setIsCentroCostoModalOpen(false);
+  };
+
+  const handleRowClick = (proyNum: string) => {
+    setSelectedOrder(proyNum);
+  };
+
+  const handleSelectOrder = () => {
+    if (selectedOrder) {
+      const orden = ordenesTrabajos.find(o => o.proyNum === selectedOrder);
+      if (orden) {
+        // Actualizar formData con los datos de la orden seleccionada
+        setFormData((prev) => ({ 
+          ...prev, 
+          numero: orden.proyNum,
+          descripcion: orden.descripcion,
+          centroCosto: {
+            codigo: orden.cecoCod,
+            nombre: orden.cecoNombre
+          }
+        }));
+        setIsCentroCostoModalOpen(false);
+        setSelectedOrder(null);
+      }
+    }
+  };
+
+  const handleNuevoCentroCostoInputChange = (field: string, value: string) => {
+    setNuevoCentroCostoData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveNuevoCentroCosto = () => {
+    console.log("Nuevo centro de costo:", nuevoCentroCostoData);
+    setIsNuevoCentroCostoModalOpen(false);
+  };
+
+  const handleCancelNuevoCentroCosto = () => {
+    setNuevoCentroCostoData({
+      codigo: "0202",
+      nombre: "CENTRIOQ CONDOMINIO ECOAMIGABLE", 
+      año: "2025"
+    });
+    setIsNuevoCentroCostoModalOpen(false);
+  };
+
+  const handleCentroCostoRowClick = (cecoCod: string) => {
+    setSelectedCentroCosto(cecoCod);
+  };
+
+  const handleSelectCentroCosto = () => {
+    if (selectedCentroCosto) {
+      const centro = centrosCostoList.find(c => c.cecoCod === selectedCentroCosto);
+      if (centro) {
+        // Actualizar formData principal
+        setFormData((prev) => ({ 
+          ...prev, 
+          centroCosto: {
+            codigo: centro.cecoCod,
+            nombre: centro.centroCosto
+          }
+        }));
+        
+        // Actualizar también el estado del nuevo centro de costo
+        setNuevoCentroCostoData((prev) => ({
+          ...prev,
+          codigo: centro.cecoCod,
+          nombre: centro.centroCosto.split(' - ')[1] || centro.centroCosto
+        }));
+        
+        setIsCentroCostoListModalOpen(false);
+        setSelectedCentroCosto(null);
+      }
+    }
   };
 
   // Funciones para Nueva Orden
@@ -322,6 +489,18 @@ export default function OrdenCompraPage() {
                     <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
                       <Plus className="h-4 w-4" />
                       Nueva orden
+                    </Button>
+                  </DialogTrigger>
+                </Dialog>
+
+                <Dialog
+                  open={isNuevoCentroCostoModalOpen}
+                  onOpenChange={setIsNuevoCentroCostoModalOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
+                      <Plus className="h-4 w-4" />
+                      Centro de costo
                     </Button>
                   </DialogTrigger>
                 </Dialog>
@@ -637,31 +816,241 @@ export default function OrdenCompraPage() {
                     open={isCentroCostoModalOpen}
                     onOpenChange={setIsCentroCostoModalOpen}
                   >
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Seleccionar Centro de Costo</DialogTitle>
+                    <DialogContent className="max-w-[90vw] max-h-[90vh] w-full flex flex-col">
+                      <DialogHeader className="flex-shrink-0">
+                        <DialogTitle>Lista de Órdenes de trabajo</DialogTitle>
                       </DialogHeader>
-                      <div className="space-y-2 p-4">
-                        {centrosCosto.map((centro) => (
-                          <Button
-                            key={centro.codigo}
-                            variant="outline"
-                            className="w-full justify-start text-left h-auto p-3"
-                            onClick={() => selectCentroCosto(centro)}
-                          >
-                            <div>
-                              <div className="font-semibold">
-                                {centro.codigo}
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                {centro.nombre}
-                              </div>
-                            </div>
+                      
+                      <div className="flex-1 overflow-y-auto px-4 space-y-4">
+                        {/* Filtro */}
+                        <div className="flex gap-2 items-center">
+                          <span className="text-sm font-semibold">Filtrar:</span>
+                          <Input 
+                            className="max-w-xs h-8 text-sm"
+                            placeholder="Buscar..."
+                          />
+                          <Button size="sm" className="h-8 px-3 text-xs">
+                            🔍
                           </Button>
-                        ))}
+                        </div>
+
+                        {/* Tabla de órdenes */}
+                        <div className="border rounded-lg overflow-x-auto flex-shrink-0">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-blue-100">
+                                <TableHead className="text-xs font-bold text-center w-24">Proy Nume</TableHead>
+                                <TableHead className="text-xs font-bold min-w-[200px]">Descripción</TableHead>
+                                <TableHead className="text-xs font-bold text-center w-20">Fecha</TableHead>
+                                <TableHead className="text-xs font-bold text-center w-20">Ent cod</TableHead>
+                                <TableHead className="text-xs font-bold text-center w-40">Razón social</TableHead>
+                                <TableHead className="text-xs font-bold text-center w-20">Ceco Cod</TableHead>
+                                <TableHead className="text-xs font-bold text-center w-32">Ceco Nombre</TableHead>
+                                <TableHead className="text-xs font-bold text-center w-20">PPTO Ventas</TableHead>
+                                <TableHead className="text-xs font-bold text-center w-20">PPTO Compras</TableHead>
+                                <TableHead className="text-xs font-bold text-center w-20">Margen</TableHead>
+                                <TableHead className="text-xs font-bold text-center w-20">Ventas val</TableHead>
+                                <TableHead className="text-xs font-bold text-center w-20">Compra real</TableHead>
+                                <TableHead className="text-xs font-bold text-center w-20">Margen final</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {ordenesTrabajos.map((orden, index) => (
+                                <TableRow 
+                                  key={orden.proyNum}
+                                  className={`cursor-pointer transition-colors ${
+                                    selectedOrder === orden.proyNum 
+                                      ? 'bg-blue-200 hover:bg-blue-300' 
+                                      : index === 0 
+                                        ? 'hover:bg-orange-50 bg-orange-100' 
+                                        : 'hover:bg-gray-50'
+                                  }`}
+                                  onClick={() => handleRowClick(orden.proyNum)}
+                                >
+                                  <TableCell className="text-xs text-center">{orden.proyNum}</TableCell>
+                                  <TableCell className="text-xs">{orden.descripcion}</TableCell>
+                                  <TableCell className="text-xs text-center">{orden.fecha}</TableCell>
+                                  <TableCell className="text-xs text-center">{orden.entCod}</TableCell>
+                                  <TableCell className="text-xs text-center">{orden.razonSocial}</TableCell>
+                                  <TableCell className="text-xs text-center">{orden.cecoCod}</TableCell>
+                                  <TableCell className="text-xs text-center">{orden.cecoNombre}</TableCell>
+                                  <TableCell className="text-xs text-center">{orden.pptoVentas}</TableCell>
+                                  <TableCell className="text-xs text-center">{orden.pptoCompras}</TableCell>
+                                  <TableCell className="text-xs text-center">{orden.margen}</TableCell>
+                                  <TableCell className="text-xs text-center">{orden.ventasVal}</TableCell>
+                                  <TableCell className="text-xs text-center">{orden.compraReal}</TableCell>
+                                  <TableCell className="text-xs text-center">{orden.margenFinal}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+
+                      </div>
+
+                      {/* Botones fijos en la parte inferior */}
+                      <div className="flex gap-2 justify-start p-4 border-t bg-white flex-shrink-0">
+                        <Button 
+                          className="h-8 px-4 text-xs bg-yellow-500 hover:bg-yellow-600"
+                          onClick={handleSelectOrder}
+                          disabled={!selectedOrder}
+                        >
+                          Seleccionar
+                        </Button>
+                        <Button variant="outline" className="h-8 px-4 text-xs">
+                          Registrar nuevo
+                        </Button>
+                        <Button variant="outline" className="h-8 px-4 text-xs" onClick={() => setIsCentroCostoModalOpen(false)}>
+                          Cancelar
+                        </Button>
                       </div>
                     </DialogContent>
                   </Dialog>
+                </DialogContent>
+              </Dialog>
+
+              {/* Modal Nuevo Centro de Costo */}
+              <Dialog
+                open={isNuevoCentroCostoModalOpen}
+                onOpenChange={setIsNuevoCentroCostoModalOpen}
+              >
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Centro de costo (consultar)</DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="p-4 space-y-4">
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="codigo-cc" className="text-sm font-semibold">
+                          Código:
+                        </Label>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsCentroCostoListModalOpen(true)}
+                          className="w-full h-8 text-sm bg-orange-100 hover:bg-orange-200 justify-start font-normal border-gray-300"
+                        >
+                          {nuevoCentroCostoData.codigo}
+                        </Button>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="nombre-cc" className="text-sm font-semibold">
+                          Nombre:
+                        </Label>
+                        <Input
+                          id="nombre-cc"
+                          value={nuevoCentroCostoData.nombre}
+                          onChange={(e) =>
+                            handleNuevoCentroCostoInputChange("nombre", e.target.value)
+                          }
+                          className="h-8 text-sm bg-orange-100"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="año-cc" className="text-sm font-semibold">
+                          Año:
+                        </Label>
+                        <Input
+                          id="año-cc"
+                          value={nuevoCentroCostoData.año}
+                          onChange={(e) =>
+                            handleNuevoCentroCostoInputChange("año", e.target.value)
+                          }
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        className="h-8 px-4 text-xs bg-yellow-500 hover:bg-yellow-600"
+                        onClick={handleSaveNuevoCentroCosto}
+                      >
+                        Guardar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8 px-4 text-xs"
+                        onClick={handleCancelNuevoCentroCosto}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Modal Lista de Centro de Costo */}
+              <Dialog
+                open={isCentroCostoListModalOpen}
+                onOpenChange={setIsCentroCostoListModalOpen}
+              >
+                <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+                  <DialogHeader className="flex-shrink-0">
+                    <DialogTitle>Lista de Centro de costo</DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="flex-1 overflow-y-auto px-4 space-y-4">
+                    {/* Filtro */}
+                    <div className="flex gap-2 items-center">
+                      <span className="text-sm font-semibold">Filtrar:</span>
+                      <Input 
+                        className="max-w-xs h-8 text-sm bg-yellow-100"
+                        placeholder="Buscar..."
+                      />
+                    </div>
+
+                    {/* Tabla de centros de costo */}
+                    <div className="border rounded-lg overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-blue-100">
+                            <TableHead className="text-xs font-bold text-center w-24">Ceco Cod</TableHead>
+                            <TableHead className="text-xs font-bold">Centro de costo</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {centrosCostoList.map((centro, index) => (
+                            <TableRow 
+                              key={centro.cecoCod}
+                              className={`cursor-pointer transition-colors ${
+                                selectedCentroCosto === centro.cecoCod 
+                                  ? 'bg-blue-200 hover:bg-blue-300' 
+                                  : index === 0 
+                                    ? 'hover:bg-yellow-50 bg-yellow-100' 
+                                    : 'hover:bg-gray-50'
+                              }`}
+                              onClick={() => handleCentroCostoRowClick(centro.cecoCod)}
+                            >
+                              <TableCell className="text-xs text-center">{centro.cecoCod}</TableCell>
+                              <TableCell className="text-xs">{centro.centroCosto}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+
+                  {/* Botones fijos en la parte inferior */}
+                  <div className="flex gap-2 justify-start p-4 border-t bg-white flex-shrink-0">
+                    <Button 
+                      className="h-8 px-4 text-xs bg-yellow-500 hover:bg-yellow-600"
+                      onClick={handleSelectCentroCosto}
+                      disabled={!selectedCentroCosto}
+                    >
+                      Seleccionar
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="h-8 px-4 text-xs"
+                      onClick={() => setIsCentroCostoListModalOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
                 </DialogContent>
               </Dialog>
 
