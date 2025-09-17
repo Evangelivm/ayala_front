@@ -114,7 +114,7 @@ export default function ProgramacionPage() {
                 proyectos: String(row[4] || ""),
                 programacion: String(row[5] || ""),
                 hora_partida: horaPartidaProcessed,
-                estado_programacion: String(row[7] || ""),
+                estado_programacion: String(row[7] || "").trim().toUpperCase(),
                 comentarios: String(row[8] || ""),
               };
             } catch (error) {
@@ -143,7 +143,7 @@ export default function ProgramacionPage() {
                 proyectos: String(row[4] || ""),
                 programacion: String(row[5] || ""),
                 hora_partida: horaPartidaFallback,
-                estado_programacion: String(row[7] || ""),
+                estado_programacion: String(row[7] || "").trim().toUpperCase(),
                 comentarios: String(row[8] || ""),
               };
             }
