@@ -53,26 +53,96 @@ export interface PersonalNuevoData {
 export interface ProyectoData {
   id: number;
   nombre: string;
-  cliente: string;
-  ubicacion: string;
+  descripcion?: string;
+  cliente?: string;
+  ubicacion?: string;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  estado: string;
   activo: boolean;
   etapas: Array<{
     id: number;
     nombre: string;
     descripcion?: string;
+    orden?: number;
     sectores: Array<{
-      id_sector: number;
+      id: number;
       nombre: string;
       descripcion?: string;
       ubicacion?: string;
+      orden?: number;
       frentes: Array<{
-        id_frente: number;
+        id: number;
         nombre: string;
         descripcion?: string;
         responsable?: string;
+        orden?: number;
+        partidas?: Array<{
+          id: number;
+          codigo: string;
+          descripcion: string;
+          unidad_medida?: string;
+          cantidad: number;
+          precio_unitario?: number;
+          total?: number;
+          orden?: number;
+        }>;
       }>;
     }>;
   }>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Interfaces para operaciones individuales
+export interface EtapaData {
+  id_etapa?: number;
+  id_proyecto: number;
+  nombre: string;
+  descripcion?: string;
+  orden?: number;
+  activo?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SectorData {
+  id_sector?: number;
+  id_etapa: number;
+  nombre: string;
+  descripcion?: string;
+  ubicacion?: string;
+  orden?: number;
+  activo?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface FrenteData {
+  id_frente?: number;
+  id_sector: number;
+  nombre: string;
+  descripcion?: string;
+  responsable?: string;
+  orden?: number;
+  activo?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PartidaData {
+  id_partida?: number;
+  id_frente: number;
+  codigo: string;
+  descripcion: string;
+  unidad_medida?: string;
+  cantidad: number;
+  precio_unitario?: number;
+  total?: number;
+  orden?: number;
+  activo?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface MaquinariaData {
@@ -238,41 +308,280 @@ export const personalApi = {
 export const proyectosApi = {
   // Obtener todos los proyectos
   getAll: async (): Promise<ProyectoData[]> => {
-    const response = await api.get("/proyectos");
-    return response.data;
+    try {
+      const response = await api.get("/proyectos");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Proyectos API error:", error);
+      return [];
+    }
   },
 
   // Obtener proyecto por ID
   getById: async (id: number): Promise<ProyectoData> => {
-    const response = await api.get(`/proyectos/${id}`);
-    return response.data;
+    try {
+      const response = await api.get(`/proyectos/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Proyectos API error:", error);
+      throw new Error("Proyecto no encontrado");
+    }
   },
 
   // Obtener proyecto por nombre
   getByNombre: async (nombre: string): Promise<ProyectoData[]> => {
-    const response = await api.get("/proyectos", { params: { nombre } });
-    return response.data;
+    try {
+      const response = await api.get("/proyectos", { params: { nombre } });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Proyectos API error:", error);
+      return [];
+    }
   },
 
   // Crear nuevo proyecto
-  create: async (data: Omit<ProyectoData, "id">): Promise<ProyectoData> => {
-    const response = await api.post("/proyectos", data);
-    return response.data;
+  create: async (data: Omit<ProyectoData, "id" | "created_at" | "updated_at" | "etapas">): Promise<ProyectoData> => {
+    try {
+      const response = await api.post("/proyectos", data);
+      return response.data;
+    } catch (error) {
+      console.error("Proyectos API error:", error);
+      throw new Error("Error al crear proyecto");
+    }
   },
 
   // Actualizar proyecto
   update: async (
     id: number,
-    data: Partial<ProyectoData>
+    data: Partial<Omit<ProyectoData, "id" | "created_at" | "updated_at" | "etapas">>
   ): Promise<ProyectoData> => {
-    const response = await api.put(`/proyectos/${id}`, data);
-    return response.data;
+    try {
+      const response = await api.put(`/proyectos/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Proyectos API error:", error);
+      throw new Error("Error al actualizar proyecto");
+    }
   },
 
-  // Eliminar proyecto
+  // Eliminar proyecto (hard delete)
   delete: async (id: number): Promise<{ message: string }> => {
-    const response = await api.delete(`/proyectos/${id}`);
-    return response.data;
+    try {
+      const response = await api.delete(`/proyectos/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Proyectos API error:", error);
+      throw new Error("Error al eliminar proyecto");
+    }
+  },
+};
+
+// ============ ETAPAS API ============
+// NOTA: Estas funciones requieren que se implementen los endpoints en el backend
+export const etapasApi = {
+  // Obtener todas las etapas de un proyecto
+  getByProyecto: async (idProyecto: number): Promise<EtapaData[]> => {
+    try {
+      // Por ahora, obtenemos las etapas del proyecto completo
+      const proyecto = await proyectosApi.getById(idProyecto);
+      return proyecto.etapas.map(etapa => ({
+        id_etapa: etapa.id,
+        id_proyecto: idProyecto,
+        nombre: etapa.nombre,
+        descripcion: etapa.descripcion,
+        orden: etapa.orden,
+        activo: true,
+      }));
+    } catch (error) {
+      console.error("Etapas API error:", error);
+      return [];
+    }
+  },
+
+  // Crear nueva etapa
+  create: async (data: Omit<EtapaData, "id_etapa" | "created_at" | "updated_at">): Promise<EtapaData> => {
+    try {
+      const response = await api.post("/etapas", data);
+      return response.data;
+    } catch (error) {
+      console.error("Etapas API error:", error);
+      throw new Error("Error al crear etapa");
+    }
+  },
+
+  // Actualizar etapa
+  update: async (
+    id: number,
+    data: Partial<Omit<EtapaData, "id_etapa" | "created_at" | "updated_at">>
+  ): Promise<EtapaData> => {
+    try {
+      const response = await api.patch(`/etapas/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Etapas API error:", error);
+      throw new Error("Error al actualizar etapa");
+    }
+  },
+
+  // Eliminar etapa
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/etapas/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Etapas API error:", error);
+      throw new Error("Error al eliminar etapa");
+    }
+  },
+};
+
+// ============ SECTORES API ============
+export const sectoresApi = {
+  // Obtener todos los sectores de una etapa
+  getByEtapa: async (idEtapa: number): Promise<SectorData[]> => {
+    try {
+      const response = await api.get("/sectores", { params: { id_etapa: idEtapa } });
+      return response.data;
+    } catch (error) {
+      console.error("Sectores API error:", error);
+      return [];
+    }
+  },
+
+  // Crear nuevo sector
+  create: async (data: Omit<SectorData, "id_sector" | "created_at" | "updated_at">): Promise<SectorData> => {
+    try {
+      const response = await api.post("/sectores", data);
+      return response.data;
+    } catch (error) {
+      console.error("Sectores API error:", error);
+      throw new Error("Error al crear sector");
+    }
+  },
+
+  // Actualizar sector
+  update: async (
+    id: number,
+    data: Partial<Omit<SectorData, "id_sector" | "created_at" | "updated_at">>
+  ): Promise<SectorData> => {
+    try {
+      const response = await api.patch(`/sectores/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Sectores API error:", error);
+      throw new Error("Error al actualizar sector");
+    }
+  },
+
+  // Eliminar sector
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/sectores/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Sectores API error:", error);
+      throw new Error("Error al eliminar sector");
+    }
+  },
+};
+
+// ============ FRENTES API ============
+export const frentesApi = {
+  // Obtener todos los frentes de un sector
+  getBySector: async (idSector: number): Promise<FrenteData[]> => {
+    try {
+      const response = await api.get("/frentes", { params: { id_sector: idSector } });
+      return response.data;
+    } catch (error) {
+      console.error("Frentes API error:", error);
+      return [];
+    }
+  },
+
+  // Crear nuevo frente
+  create: async (data: Omit<FrenteData, "id_frente" | "created_at" | "updated_at">): Promise<FrenteData> => {
+    try {
+      const response = await api.post("/frentes", data);
+      return response.data;
+    } catch (error) {
+      console.error("Frentes API error:", error);
+      throw new Error("Error al crear frente");
+    }
+  },
+
+  // Actualizar frente
+  update: async (
+    id: number,
+    data: Partial<Omit<FrenteData, "id_frente" | "created_at" | "updated_at">>
+  ): Promise<FrenteData> => {
+    try {
+      const response = await api.patch(`/frentes/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Frentes API error:", error);
+      throw new Error("Error al actualizar frente");
+    }
+  },
+
+  // Eliminar frente
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/frentes/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Frentes API error:", error);
+      throw new Error("Error al eliminar frente");
+    }
+  },
+};
+
+// ============ PARTIDAS API ============
+export const partidasApi = {
+  // Obtener todas las partidas de un frente
+  getByFrente: async (idFrente: number): Promise<PartidaData[]> => {
+    try {
+      const response = await api.get("/partidas", { params: { id_frente: idFrente } });
+      return response.data;
+    } catch (error) {
+      console.error("Partidas API error:", error);
+      return [];
+    }
+  },
+
+  // Crear nueva partida
+  create: async (data: Omit<PartidaData, "id_partida" | "created_at" | "updated_at">): Promise<PartidaData> => {
+    try {
+      const response = await api.post("/partidas", data);
+      return response.data;
+    } catch (error) {
+      console.error("Partidas API error:", error);
+      throw new Error("Error al crear partida");
+    }
+  },
+
+  // Actualizar partida
+  update: async (
+    id: number,
+    data: Partial<Omit<PartidaData, "id_partida" | "created_at" | "updated_at">>
+  ): Promise<PartidaData> => {
+    try {
+      const response = await api.patch(`/partidas/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Partidas API error:", error);
+      throw new Error("Error al actualizar partida");
+    }
+  },
+
+  // Eliminar partida
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/partidas/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Partidas API error:", error);
+      throw new Error("Error al eliminar partida");
+    }
   },
 };
 

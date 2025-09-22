@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Upload,
   ShoppingCart,
+  Briefcase,
 } from "lucide-react"
 
 import {
@@ -97,7 +98,7 @@ const menuItems = [
       {
         title: "Proyectos",
         url: "/proyectos",
-        icon: FileText,
+        icon: Briefcase,
       },
     ],
   },
