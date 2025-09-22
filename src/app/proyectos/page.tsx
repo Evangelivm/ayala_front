@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Building,
   FileText,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,8 +69,20 @@ import {
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
-import { proyectosApi, etapasApi, sectoresApi, frentesApi, partidasApi } from "@/lib/connections";
-import type { ProyectoData, EtapaData, SectorData, FrenteData, PartidaData } from "@/lib/connections";
+import {
+  proyectosApi,
+  etapasApi,
+  sectoresApi,
+  frentesApi,
+  partidasApi,
+} from "@/lib/connections";
+import type {
+  ProyectoData,
+  EtapaData,
+  SectorData,
+  FrenteData,
+  PartidaData,
+} from "@/lib/connections";
 
 // Tipos TypeScript para compatibilidad con UI
 interface Partida {
@@ -169,7 +182,6 @@ interface PartidaFormData {
   id_frente: string;
 }
 
-
 function getStatusIcon(status: string) {
   switch (status) {
     case "Completado":
@@ -232,7 +244,13 @@ function HexagonButton({
 }
 
 // Componente para mostrar partidas
-function PartidaItem({ partida }: { partida: Partida }) {
+function PartidaItem({
+  partida,
+  onDelete,
+}: {
+  partida: Partida;
+  onDelete: (id: number) => void;
+}) {
   return (
     <div className="flex items-center justify-between py-2 px-4 bg-gray-50 rounded-md">
       <div className="flex items-center gap-3">
@@ -256,54 +274,78 @@ function PartidaItem({ partida }: { partida: Partida }) {
         <span className="text-xs text-muted-foreground w-10">
           {partida.progress}%
         </span>
+        <button
+          onClick={() => onDelete(partida.id)}
+          className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
+          title="Eliminar partida"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
       </div>
     </div>
   );
 }
 
 // Componente para mostrar frentes
-function FrenteItem({ frente }: { frente: Frente }) {
+function FrenteItem({
+  frente,
+  onDelete,
+  onDeletePartida,
+}: {
+  frente: Frente;
+  onDelete: (id: number) => void;
+  onDeletePartida: (id: number) => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="w-full">
-        <div className="flex items-center justify-between py-2 px-3 bg-orange-50 rounded-md hover:bg-orange-100 transition-colors">
-          <div className="flex items-center gap-3">
-            {isOpen ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-            <GitBranch className="h-4 w-4 text-orange-600" />
-            <span className="text-sm font-medium">{frente.name}</span>
-            {getStatusIcon(frente.status)}
-            <Badge
-              variant={getStatusBadgeVariant(frente.status)}
-              className="text-xs"
-            >
-              {frente.status}
-            </Badge>
+      <div className="flex items-center justify-between py-2 px-3 bg-orange-50 rounded-md hover:bg-orange-100 transition-colors">
+        <CollapsibleTrigger className="flex-1 flex items-center gap-3">
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+          <GitBranch className="h-4 w-4 text-orange-600" />
+          <span className="text-sm font-medium">{frente.name}</span>
+          {getStatusIcon(frente.status)}
+          <Badge
+            variant={getStatusBadgeVariant(frente.status)}
+            className="text-xs"
+          >
+            {frente.status}
+          </Badge>
+        </CollapsibleTrigger>
+        <div className="flex items-center gap-2">
+          <div className="w-16 bg-gray-200 rounded-full h-2">
+            <div
+              className="h-2 rounded-full bg-orange-500"
+              style={{ width: `${frente.progress}%` }}
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-16 bg-gray-200 rounded-full h-2">
-              <div
-                className="h-2 rounded-full bg-orange-500"
-                style={{ width: `${frente.progress}%` }}
-              />
-            </div>
-            <span className="text-xs text-muted-foreground w-10">
-              {frente.progress}%
-            </span>
-          </div>
+          <span className="text-xs text-muted-foreground w-10">
+            {frente.progress}%
+          </span>
+          <button
+            onClick={() => onDelete(frente.id)}
+            className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
+            title="Eliminar frente"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
         </div>
-      </CollapsibleTrigger>
+      </div>
       <CollapsibleContent className="pl-6 pt-2 space-y-2">
         <div className="text-xs font-semibold text-gray-600 mb-2">
           Partidas:
         </div>
         {frente.partidas.map((partida: Partida) => (
-          <PartidaItem key={partida.id} partida={partida} />
+          <PartidaItem
+            key={partida.id}
+            partida={partida}
+            onDelete={onDeletePartida}
+          />
         ))}
       </CollapsibleContent>
     </Collapsible>
@@ -311,46 +353,66 @@ function FrenteItem({ frente }: { frente: Frente }) {
 }
 
 // Componente para mostrar sectores
-function SectorItem({ sector }: { sector: Sector }) {
+function SectorItem({
+  sector,
+  onDelete,
+  onDeleteFrente,
+  onDeletePartida,
+}: {
+  sector: Sector;
+  onDelete: (id: number) => void;
+  onDeleteFrente: (id: number) => void;
+  onDeletePartida: (id: number) => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="w-full">
-        <div className="flex items-center justify-between py-2 px-3 bg-green-50 rounded-md hover:bg-green-100 transition-colors">
-          <div className="flex items-center gap-3">
-            {isOpen ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-            <Building className="h-4 w-4 text-green-600" />
-            <span className="text-sm font-medium">{sector.name}</span>
-            {getStatusIcon(sector.status)}
-            <Badge
-              variant={getStatusBadgeVariant(sector.status)}
-              className="text-xs"
-            >
-              {sector.status}
-            </Badge>
+      <div className="flex items-center justify-between py-2 px-3 bg-green-50 rounded-md hover:bg-green-100 transition-colors">
+        <CollapsibleTrigger className="flex-1 flex items-center gap-3">
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+          <MapPin className="h-4 w-4 text-green-600" />
+          <span className="text-sm font-medium">{sector.name}</span>
+          {getStatusIcon(sector.status)}
+          <Badge
+            variant={getStatusBadgeVariant(sector.status)}
+            className="text-xs"
+          >
+            {sector.status}
+          </Badge>
+        </CollapsibleTrigger>
+        <div className="flex items-center gap-2">
+          <div className="w-16 bg-gray-200 rounded-full h-2">
+            <div
+              className="h-2 rounded-full bg-green-500"
+              style={{ width: `${sector.progress}%` }}
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-16 bg-gray-200 rounded-full h-2">
-              <div
-                className="h-2 rounded-full bg-green-500"
-                style={{ width: `${sector.progress}%` }}
-              />
-            </div>
-            <span className="text-xs text-muted-foreground w-10">
-              {sector.progress}%
-            </span>
-          </div>
+          <span className="text-xs text-muted-foreground w-10">
+            {sector.progress}%
+          </span>
+          <button
+            onClick={() => onDelete(sector.id)}
+            className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
+            title="Eliminar sector"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
         </div>
-      </CollapsibleTrigger>
+      </div>
       <CollapsibleContent className="pl-6 pt-2 space-y-2">
         <div className="text-xs font-semibold text-gray-600 mb-2">Frentes:</div>
         {sector.frentes.map((frente: Frente) => (
-          <FrenteItem key={frente.id} frente={frente} />
+          <FrenteItem
+            key={frente.id}
+            frente={frente}
+            onDelete={onDeleteFrente}
+            onDeletePartida={onDeletePartida}
+          />
         ))}
       </CollapsibleContent>
     </Collapsible>
@@ -358,45 +420,68 @@ function SectorItem({ sector }: { sector: Sector }) {
 }
 
 // Componente para mostrar etapas
-function EtapaItem({ etapa }: { etapa: Etapa }) {
+function EtapaItem({
+  etapa,
+  onDelete,
+  onDeleteSector,
+  onDeleteFrente,
+  onDeletePartida,
+}: {
+  etapa: Etapa;
+  onDelete: (id: number) => void;
+  onDeleteSector: (id: number) => void;
+  onDeleteFrente: (id: number) => void;
+  onDeletePartida: (id: number) => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="w-full">
-        <div className="flex items-center justify-between py-3 px-4 bg-purple-50 rounded-md hover:bg-purple-100 transition-colors">
-          <div className="flex items-center gap-3">
-            {isOpen ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-            <Layers className="h-4 w-4 text-purple-600" />
-            <span className="font-medium">{etapa.name}</span>
-            {getStatusIcon(etapa.status)}
-            <Badge variant={getStatusBadgeVariant(etapa.status)}>
-              {etapa.status}
-            </Badge>
+      <div className="flex items-center justify-between py-3 px-4 bg-purple-50 rounded-md hover:bg-purple-100 transition-colors">
+        <CollapsibleTrigger className="flex-1 flex items-center gap-3">
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+          <Layers className="h-4 w-4 text-purple-600" />
+          <span className="font-medium">{etapa.name}</span>
+          {getStatusIcon(etapa.status)}
+          <Badge variant={getStatusBadgeVariant(etapa.status)}>
+            {etapa.status}
+          </Badge>
+        </CollapsibleTrigger>
+        <div className="flex items-center gap-2">
+          <div className="w-20 bg-gray-200 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full ${etapa.statusColor}`}
+              style={{ width: `${etapa.progress}%` }}
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-20 bg-gray-200 rounded-full h-2">
-              <div
-                className={`h-2 rounded-full ${etapa.statusColor}`}
-                style={{ width: `${etapa.progress}%` }}
-              />
-            </div>
-            <span className="text-sm text-muted-foreground w-12">
-              {etapa.progress}%
-            </span>
-          </div>
+          <span className="text-sm text-muted-foreground w-12">
+            {etapa.progress}%
+          </span>
+          <button
+            onClick={() => onDelete(etapa.id)}
+            className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
+            title="Eliminar etapa"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
         </div>
-      </CollapsibleTrigger>
+      </div>
       <CollapsibleContent className="pl-6 pt-3 space-y-3">
         <div className="text-sm font-semibold text-gray-600 mb-2">
           Sectores:
         </div>
         {etapa.sectores.map((sector: Sector) => (
-          <SectorItem key={sector.id} sector={sector} />
+          <SectorItem
+            key={sector.id}
+            sector={sector}
+            onDelete={onDeleteSector}
+            onDeleteFrente={onDeleteFrente}
+            onDeletePartida={onDeletePartida}
+          />
         ))}
       </CollapsibleContent>
     </Collapsible>
@@ -407,9 +492,17 @@ function EtapaItem({ etapa }: { etapa: Etapa }) {
 function SubproyectoItem({
   subproyecto,
   projectId,
+  onDeleteEtapa,
+  onDeleteSector,
+  onDeleteFrente,
+  onDeletePartida,
 }: {
   subproyecto: Subproyecto;
   projectId: number;
+  onDeleteEtapa: (id: number) => void;
+  onDeleteSector: (id: number) => void;
+  onDeleteFrente: (id: number) => void;
+  onDeletePartida: (id: number) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -509,7 +602,7 @@ function SubproyectoItem({
                   "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
               }}
             >
-              <List className="h-4 w-4 text-white" />
+              <FileText className="h-4 w-4 text-white" />
             </button>
           </div>
         </div>
@@ -522,7 +615,14 @@ function SubproyectoItem({
         ) : (
           <div className="space-y-3">
             {subproyecto.etapas.map((etapa: Etapa) => (
-              <EtapaItem key={etapa.id} etapa={etapa} />
+              <EtapaItem
+                key={etapa.id}
+                etapa={etapa}
+                onDelete={onDeleteEtapa}
+                onDeleteSector={onDeleteSector}
+                onDeleteFrente={onDeleteFrente}
+                onDeletePartida={onDeletePartida}
+              />
             ))}
           </div>
         )}
@@ -549,7 +649,9 @@ export default function ProyectosDashboard() {
   });
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [selectedContext, setSelectedContext] = useState<{ type: string } | null>(null);
+  const [selectedContext, setSelectedContext] = useState<{
+    type: string;
+  } | null>(null);
 
   // Estados para dropdowns dependientes
   const [selectedEtapaForSector, setSelectedEtapaForSector] = useState("");
@@ -560,104 +662,114 @@ export default function ProyectosDashboard() {
   const [selectedFrenteForPartida, setSelectedFrenteForPartida] = useState("");
 
   // Datos de subproyectos mock (mantenemos estos como solicitaste)
-  const mockSubproyectos = useMemo<Subproyecto[]>(() => [
-    {
-      id: 1,
-      name: "Subproyecto A - Torre Norte",
-      status: "En progreso",
-      startDate: "05/07/2025",
-      endDate: "20/08/2025",
-      progress: 45,
-      etapas: [
-        {
-          id: 1,
-          name: "Cimentación Torre Norte",
-          status: "En progreso",
-          progress: 60,
-          sectores: [
-            {
-              id: 1,
-              name: "Sector A1 - Zapatas Norte",
-              status: "En progreso",
-              progress: 70,
-              frentes: [
-                {
-                  id: 1,
-                  name: "Frente Norte-Este",
-                  status: "En progreso",
-                  progress: 80,
-                  partidas: [
-                    {
-                      id: 1,
-                      name: "Excavación",
-                      status: "Completado",
-                      progress: 100,
-                    },
-                    {
-                      id: 2,
-                      name: "Armado de acero",
-                      status: "En progreso",
-                      progress: 60,
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: 2,
-      name: "Subproyecto B - Torre Sur",
-      status: "Pendiente",
-      startDate: "15/08/2025",
-      endDate: "30/09/2025",
-      progress: 0,
-      etapas: [],
-    },
-  ], []);
+  const mockSubproyectos = useMemo<Subproyecto[]>(
+    () => [
+      {
+        id: 1,
+        name: "Subproyecto A - Torre Norte",
+        status: "En progreso",
+        startDate: "05/07/2025",
+        endDate: "20/08/2025",
+        progress: 45,
+        etapas: [
+          {
+            id: 1,
+            name: "Cimentación Torre Norte",
+            status: "En progreso",
+            progress: 60,
+            sectores: [
+              {
+                id: 1,
+                name: "Sector A1 - Zapatas Norte",
+                status: "En progreso",
+                progress: 70,
+                frentes: [
+                  {
+                    id: 1,
+                    name: "Frente Norte-Este",
+                    status: "En progreso",
+                    progress: 80,
+                    partidas: [
+                      {
+                        id: 1,
+                        name: "Excavación",
+                        status: "Completado",
+                        progress: 100,
+                      },
+                      {
+                        id: 2,
+                        name: "Armado de acero",
+                        status: "En progreso",
+                        progress: 60,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: "Subproyecto B - Torre Sur",
+        status: "Pendiente",
+        startDate: "15/08/2025",
+        endDate: "30/09/2025",
+        progress: 0,
+        etapas: [],
+      },
+    ],
+    []
+  );
 
   // Función para convertir ProyectoData a Project (para compatibilidad con UI)
-  const convertProyectoToProject = useCallback((proyecto: ProyectoData): Project => {
-    return {
-      id: proyecto.id,
-      name: proyecto.nombre,
-      cliente: proyecto.cliente || "",
-      status: proyecto.activo ? "En progreso" : "Inactivo",
-      ubicacion: proyecto.ubicacion || "",
-      startDate: proyecto.fecha_inicio || "",
-      endDate: proyecto.fecha_fin || "",
-      progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
-      statusColor: proyecto.activo ? "bg-blue-500" : "bg-gray-400",
-      etapas: proyecto.etapas?.map(etapa => ({
-        id: etapa.id,
-        name: etapa.nombre,
-        status: "En progreso", // TODO: Calcular estado real
+  const convertProyectoToProject = useCallback(
+    (proyecto: ProyectoData): Project => {
+      return {
+        id: proyecto.id,
+        name: proyecto.nombre,
+        cliente: proyecto.cliente || "",
+        status: proyecto.activo ? "En progreso" : "Inactivo",
+        ubicacion: proyecto.ubicacion || "",
+        startDate: proyecto.fecha_inicio || "",
+        endDate: proyecto.fecha_fin || "",
         progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
-        statusColor: "bg-purple-500",
-        sectores: etapa.sectores?.map(sector => ({
-          id: sector.id,
-          name: sector.nombre,
-          status: "En progreso", // TODO: Calcular estado real
-          progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
-          frentes: sector.frentes?.map(frente => ({
-            id: frente.id,
-            name: frente.nombre,
+        statusColor: proyecto.activo ? "bg-blue-500" : "bg-gray-400",
+        etapas:
+          proyecto.etapas?.map((etapa) => ({
+            id: etapa.id,
+            name: etapa.nombre,
             status: "En progreso", // TODO: Calcular estado real
             progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
-            partidas: frente.partidas?.map(partida => ({
-              id: partida.id,
-              name: partida.descripcion,
-              status: "En progreso", // TODO: Calcular estado real
-              progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
-            })) || [],
+            statusColor: "bg-purple-500",
+            sectores:
+              etapa.sectores?.map((sector) => ({
+                id: sector.id,
+                name: sector.nombre,
+                status: "En progreso", // TODO: Calcular estado real
+                progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
+                frentes:
+                  sector.frentes?.map((frente) => ({
+                    id: frente.id,
+                    name: frente.nombre,
+                    status: "En progreso", // TODO: Calcular estado real
+                    progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
+                    partidas:
+                      frente.partidas?.map((partida) => ({
+                        id: partida.id,
+                        name: partida.descripcion,
+                        status: "En progreso", // TODO: Calcular estado real
+                        progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
+                      })) || [],
+                  })) || [],
+              })) || [],
           })) || [],
-        })) || [],
-      })) || [],
-      subproyectos: mockSubproyectos, // Mantener subproyectos mock por ahora
-    };
-  }, [mockSubproyectos]);
+        subproyectos: mockSubproyectos, // Mantener subproyectos mock por ahora
+      };
+    },
+    [mockSubproyectos]
+  );
 
   // Cargar proyectos desde la API
   const loadProjects = useCallback(async () => {
@@ -705,7 +817,11 @@ export default function ProyectosDashboard() {
   };
 
   // Funciones para abrir modales
-  const openModal = (modalType: string, project?: Project, context?: { type: string }) => {
+  const openModal = (
+    modalType: string,
+    project?: Project,
+    context?: { type: string }
+  ) => {
     setModals((prev) => ({ ...prev, [modalType]: true }));
     if (project) setSelectedProject(project);
     if (context) setSelectedContext(context);
@@ -771,7 +887,10 @@ export default function ProyectosDashboard() {
   // Handlers para enviar formularios
   const onSubmitProject = async (data: ProjectFormData) => {
     try {
-      const projectData: Omit<ProyectoData, "id" | "created_at" | "updated_at" | "etapas"> = {
+      const projectData: Omit<
+        ProyectoData,
+        "id" | "created_at" | "updated_at" | "etapas"
+      > = {
         nombre: data.nombre,
         descripcion: data.descripcion,
         cliente: data.cliente,
@@ -808,7 +927,10 @@ export default function ProyectosDashboard() {
         return;
       }
 
-      const etapaData: Omit<EtapaData, "id_etapa" | "created_at" | "updated_at"> = {
+      const etapaData: Omit<
+        EtapaData,
+        "id_etapa" | "created_at" | "updated_at"
+      > = {
         id_proyecto: selectedProject.id,
         nombre: data.nombre,
         descripcion: data.descripcion,
@@ -830,7 +952,10 @@ export default function ProyectosDashboard() {
 
   const onSubmitSector = async (data: SectorFormData) => {
     try {
-      const sectorData: Omit<SectorData, "id_sector" | "created_at" | "updated_at"> = {
+      const sectorData: Omit<
+        SectorData,
+        "id_sector" | "created_at" | "updated_at"
+      > = {
         id_etapa: parseInt(data.id_etapa),
         nombre: data.nombre,
         descripcion: data.descripcion,
@@ -848,13 +973,18 @@ export default function ProyectosDashboard() {
       setSelectedEtapaForSector("");
     } catch (error) {
       console.error("Error al crear sector:", error);
-      setError("Error al crear el sector - Endpoint no implementado en backend");
+      setError(
+        "Error al crear el sector - Endpoint no implementado en backend"
+      );
     }
   };
 
   const onSubmitFrente = async (data: FrenteFormData) => {
     try {
-      const frenteData: Omit<FrenteData, "id_frente" | "created_at" | "updated_at"> = {
+      const frenteData: Omit<
+        FrenteData,
+        "id_frente" | "created_at" | "updated_at"
+      > = {
         id_sector: parseInt(data.id_sector),
         nombre: data.nombre,
         descripcion: data.descripcion,
@@ -873,19 +1003,26 @@ export default function ProyectosDashboard() {
       setSelectedSectorForFrente("");
     } catch (error) {
       console.error("Error al crear frente:", error);
-      setError("Error al crear el frente - Endpoint no implementado en backend");
+      setError(
+        "Error al crear el frente - Endpoint no implementado en backend"
+      );
     }
   };
 
   const onSubmitPartida = async (data: PartidaFormData) => {
     try {
-      const partidaData: Omit<PartidaData, "id_partida" | "created_at" | "updated_at"> = {
+      const partidaData: Omit<
+        PartidaData,
+        "id_partida" | "created_at" | "updated_at"
+      > = {
         id_frente: parseInt(data.id_frente),
         codigo: data.codigo,
         descripcion: data.descripcion,
         unidad_medida: data.unidad_medida,
         cantidad: parseFloat(data.cantidad),
-        precio_unitario: data.precio_unitario ? parseFloat(data.precio_unitario) : undefined,
+        precio_unitario: data.precio_unitario
+          ? parseFloat(data.precio_unitario)
+          : undefined,
         orden: undefined, // Se calculará automáticamente en el backend
         activo: true,
       };
@@ -913,6 +1050,86 @@ export default function ProyectosDashboard() {
       project.ubicacion.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleDeleteProject = async (projectId: number) => {
+    if (
+      window.confirm(
+        "¿Está seguro de que desea eliminar este proyecto? Esta acción no se puede deshacer."
+      )
+    ) {
+      try {
+        await proyectosApi.delete(projectId);
+        await loadProjects();
+      } catch (error) {
+        console.error("Error al eliminar proyecto:", error);
+        setError("Error al eliminar el proyecto");
+      }
+    }
+  };
+
+  const handleDeleteEtapa = async (etapaId: number) => {
+    if (
+      window.confirm(
+        "¿Está seguro de que desea eliminar esta etapa? Esta acción no se puede deshacer."
+      )
+    ) {
+      try {
+        await etapasApi.delete(etapaId);
+        await loadProjects();
+      } catch (error) {
+        console.error("Error al eliminar etapa:", error);
+        setError("Error al eliminar la etapa");
+      }
+    }
+  };
+
+  const handleDeleteSector = async (sectorId: number) => {
+    if (
+      window.confirm(
+        "¿Está seguro de que desea eliminar este sector? Esta acción no se puede deshacer."
+      )
+    ) {
+      try {
+        await sectoresApi.delete(sectorId);
+        await loadProjects();
+      } catch (error) {
+        console.error("Error al eliminar sector:", error);
+        setError("Error al eliminar el sector");
+      }
+    }
+  };
+
+  const handleDeleteFrente = async (frenteId: number) => {
+    if (
+      window.confirm(
+        "¿Está seguro de que desea eliminar este frente? Esta acción no se puede deshacer."
+      )
+    ) {
+      try {
+        await frentesApi.delete(frenteId);
+        await loadProjects();
+      } catch (error) {
+        console.error("Error al eliminar frente:", error);
+        setError("Error al eliminar el frente");
+      }
+    }
+  };
+
+  const handleDeletePartida = async (partidaId: number) => {
+    if (
+      window.confirm(
+        "¿Está seguro de que desea eliminar esta partida? Esta acción no se puede deshacer."
+      )
+    ) {
+      try {
+        await partidasApi.delete(partidaId);
+        await loadProjects();
+      } catch (error) {
+        console.error("Error al eliminar partida:", error);
+        setError("Error al eliminar la partida");
+      }
+    }
+  };
+
   const handleAction = (action: string, projectId: number) => {
     const project = projects.find((p) => p.id === projectId);
     switch (action) {
@@ -928,6 +1145,9 @@ export default function ProyectosDashboard() {
           });
         }
         openModal("editProject", project);
+        break;
+      case "eliminar":
+        handleDeleteProject(projectId);
         break;
       case "etapas":
         openModal("createEtapa", project);
@@ -1031,11 +1251,9 @@ export default function ProyectosDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {projects.filter(p => p.status === "En progreso").length}
+                {projects.filter((p) => p.status === "En progreso").length}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Proyectos activos
-              </p>
+              <p className="text-xs text-muted-foreground">Proyectos activos</p>
             </CardContent>
           </Card>
           <Card>
@@ -1045,9 +1263,11 @@ export default function ProyectosDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {projects.filter(p => p.status === "Completado").length}
+                {projects.filter((p) => p.status === "Completado").length}
               </div>
-              <p className="text-xs text-muted-foreground">Proyectos finalizados</p>
+              <p className="text-xs text-muted-foreground">
+                Proyectos finalizados
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -1059,7 +1279,7 @@ export default function ProyectosDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {new Set(projects.map(p => p.cliente).filter(Boolean)).size}
+                {new Set(projects.map((p) => p.cliente).filter(Boolean)).size}
               </div>
               <p className="text-xs text-muted-foreground">
                 Diferentes clientes
@@ -1161,6 +1381,12 @@ export default function ProyectosDashboard() {
                             onClick={() => handleAction("editar", project.id)}
                           />
                           <HexagonButton
+                            icon={Trash2}
+                            label="Eliminar Proyecto"
+                            color="bg-red-600"
+                            onClick={() => handleAction("eliminar", project.id)}
+                          />
+                          <HexagonButton
                             icon={Layers}
                             label="Crear Etapas"
                             color="bg-purple-600"
@@ -1179,9 +1405,9 @@ export default function ProyectosDashboard() {
                             onClick={() => handleAction("frentes", project.id)}
                           />
                           <HexagonButton
-                            icon={List}
+                            icon={FileText}
                             label="Crear Partidas"
-                            color="bg-red-600"
+                            color="bg-yellow-600"
                             onClick={() => handleAction("partidas", project.id)}
                           />
                         </div>
@@ -1204,7 +1430,14 @@ export default function ProyectosDashboard() {
                               ) : (
                                 <div className="space-y-3">
                                   {project.etapas.map((etapa: Etapa) => (
-                                    <EtapaItem key={etapa.id} etapa={etapa} />
+                                    <EtapaItem
+                                      key={etapa.id}
+                                      etapa={etapa}
+                                      onDelete={handleDeleteEtapa}
+                                      onDeleteSector={handleDeleteSector}
+                                      onDeleteFrente={handleDeleteFrente}
+                                      onDeletePartida={handleDeletePartida}
+                                    />
                                   ))}
                                 </div>
                               )}
@@ -1216,13 +1449,19 @@ export default function ProyectosDashboard() {
                                     Subproyectos
                                   </h3>
                                   <div className="space-y-3">
-                                    {project.subproyectos.map((subproyecto: Subproyecto) => (
-                                      <SubproyectoItem
-                                        key={subproyecto.id}
-                                        subproyecto={subproyecto}
-                                        projectId={project.id}
-                                      />
-                                    ))}
+                                    {project.subproyectos.map(
+                                      (subproyecto: Subproyecto) => (
+                                        <SubproyectoItem
+                                          key={subproyecto.id}
+                                          subproyecto={subproyecto}
+                                          projectId={project.id}
+                                          onDeleteEtapa={handleDeleteEtapa}
+                                          onDeleteSector={handleDeleteSector}
+                                          onDeleteFrente={handleDeleteFrente}
+                                          onDeletePartida={handleDeletePartida}
+                                        />
+                                      )
+                                    )}
                                   </div>
                                 </div>
                               )}
