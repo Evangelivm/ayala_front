@@ -75,6 +75,11 @@ import {
   sectoresApi,
   frentesApi,
   partidasApi,
+  subproyectosApi,
+  subEtapasApi,
+  subsectoresApi,
+  subfrentesApi,
+  subpartidasApi,
 } from "@/lib/connections";
 import type {
   ProyectoData,
@@ -82,14 +87,23 @@ import type {
   SectorData,
   FrenteData,
   PartidaData,
+  SubproyectoData,
+  SubEtapaData,
+  SubsectorData,
+  SubfrenteData,
+  SubpartidaData,
 } from "@/lib/connections";
 
 // Tipos TypeScript para compatibilidad con UI
 interface Partida {
   id: number;
+  codigo: string;
   name: string;
   status: string;
   progress: number;
+  unidad_medida?: string;
+  cantidad: number;
+  precio_unitario?: number;
 }
 
 interface Frente {
@@ -149,6 +163,44 @@ interface ProjectFormData {
   fecha_fin: string;
   cliente: string;
   ubicacion: string;
+}
+
+interface SubproyectoFormData {
+  id_proyecto: string;
+  nombre: string;
+  descripcion: string;
+}
+
+interface SubEtapaFormData {
+  id_subproyecto: string;
+  nombre: string;
+  descripcion: string;
+}
+
+interface SubsectorFormData {
+  nombre: string;
+  descripcion: string;
+  ubicacion: string;
+  id_sub_etapa: string;
+}
+
+interface SubfrenteFormData {
+  nombre: string;
+  descripcion: string;
+  responsable: string;
+  id_sub_etapa: string;
+  id_subsector: string;
+}
+
+interface SubpartidaFormData {
+  codigo: string;
+  descripcion: string;
+  unidad_medida: string;
+  cantidad: string;
+  precio_unitario: string;
+  id_sub_etapa: string;
+  id_subsector: string;
+  id_subfrente: string;
 }
 
 interface EtapaFormData {
@@ -247,9 +299,11 @@ function HexagonButton({
 function PartidaItem({
   partida,
   onDelete,
+  onEdit,
 }: {
   partida: Partida;
   onDelete: (id: number) => void;
+  onEdit: (partida: Partida) => void;
 }) {
   return (
     <div className="flex items-center justify-between py-2 px-4 bg-gray-50 rounded-md">
@@ -275,6 +329,13 @@ function PartidaItem({
           {partida.progress}%
         </span>
         <button
+          onClick={() => onEdit(partida)}
+          className="ml-2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+          title="Editar partida"
+        >
+          <Edit className="h-3 w-3" />
+        </button>
+        <button
           onClick={() => onDelete(partida.id)}
           className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
           title="Eliminar partida"
@@ -291,10 +352,14 @@ function FrenteItem({
   frente,
   onDelete,
   onDeletePartida,
+  onEdit,
+  onEditPartida,
 }: {
   frente: Frente;
   onDelete: (id: number) => void;
   onDeletePartida: (id: number) => void;
+  onEdit: (frente: Frente) => void;
+  onEditPartida: (partida: Partida) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -328,6 +393,13 @@ function FrenteItem({
             {frente.progress}%
           </span>
           <button
+            onClick={() => onEdit(frente)}
+            className="ml-2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+            title="Editar frente"
+          >
+            <Edit className="h-3 w-3" />
+          </button>
+          <button
             onClick={() => onDelete(frente.id)}
             className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
             title="Eliminar frente"
@@ -345,6 +417,7 @@ function FrenteItem({
             key={partida.id}
             partida={partida}
             onDelete={onDeletePartida}
+            onEdit={onEditPartida}
           />
         ))}
       </CollapsibleContent>
@@ -358,11 +431,17 @@ function SectorItem({
   onDelete,
   onDeleteFrente,
   onDeletePartida,
+  onEdit,
+  onEditFrente,
+  onEditPartida,
 }: {
   sector: Sector;
   onDelete: (id: number) => void;
   onDeleteFrente: (id: number) => void;
   onDeletePartida: (id: number) => void;
+  onEdit: (sector: Sector) => void;
+  onEditFrente: (frente: Frente) => void;
+  onEditPartida: (partida: Partida) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -396,6 +475,13 @@ function SectorItem({
             {sector.progress}%
           </span>
           <button
+            onClick={() => onEdit(sector)}
+            className="ml-2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+            title="Editar sector"
+          >
+            <Edit className="h-3 w-3" />
+          </button>
+          <button
             onClick={() => onDelete(sector.id)}
             className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
             title="Eliminar sector"
@@ -412,6 +498,8 @@ function SectorItem({
             frente={frente}
             onDelete={onDeleteFrente}
             onDeletePartida={onDeletePartida}
+            onEdit={onEditFrente}
+            onEditPartida={onEditPartida}
           />
         ))}
       </CollapsibleContent>
@@ -426,12 +514,20 @@ function EtapaItem({
   onDeleteSector,
   onDeleteFrente,
   onDeletePartida,
+  onEdit,
+  onEditSector,
+  onEditFrente,
+  onEditPartida,
 }: {
   etapa: Etapa;
   onDelete: (id: number) => void;
   onDeleteSector: (id: number) => void;
   onDeleteFrente: (id: number) => void;
   onDeletePartida: (id: number) => void;
+  onEdit: (etapa: Etapa) => void;
+  onEditSector: (sector: Sector) => void;
+  onEditFrente: (frente: Frente) => void;
+  onEditPartida: (partida: Partida) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -462,6 +558,13 @@ function EtapaItem({
             {etapa.progress}%
           </span>
           <button
+            onClick={() => onEdit(etapa)}
+            className="ml-2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+            title="Editar etapa"
+          >
+            <Edit className="h-3 w-3" />
+          </button>
+          <button
             onClick={() => onDelete(etapa.id)}
             className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
             title="Eliminar etapa"
@@ -481,6 +584,9 @@ function EtapaItem({
             onDelete={onDeleteSector}
             onDeleteFrente={onDeleteFrente}
             onDeletePartida={onDeletePartida}
+            onEdit={onEditSector}
+            onEditFrente={onEditFrente}
+            onEditPartida={onEditPartida}
           />
         ))}
       </CollapsibleContent>
@@ -496,6 +602,11 @@ function SubproyectoItem({
   onDeleteSector,
   onDeleteFrente,
   onDeletePartida,
+  onEditEtapa,
+  onEditSector,
+  onEditFrente,
+  onEditPartida,
+  onSubproyectoAction,
 }: {
   subproyecto: Subproyecto;
   projectId: number;
@@ -503,6 +614,11 @@ function SubproyectoItem({
   onDeleteSector: (id: number) => void;
   onDeleteFrente: (id: number) => void;
   onDeletePartida: (id: number) => void;
+  onEditEtapa: (etapa: Etapa) => void;
+  onEditSector: (sector: Sector) => void;
+  onEditFrente: (frente: Frente) => void;
+  onEditPartida: (partida: Partida) => void;
+  onSubproyectoAction: (action: string, subproyecto: Subproyecto) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -544,66 +660,128 @@ function SubproyectoItem({
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() =>
-                console.log("editar-subproyecto para proyecto " + projectId)
-              }
-              className={`relative w-8 h-8 bg-blue-600 hover:opacity-80 transition-opacity duration-200 flex items-center justify-center shadow-sm`}
-              style={{
-                clipPath:
-                  "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-              }}
-            >
-              <Edit className="h-4 w-4 text-white" />
-            </button>
-            <button
-              onClick={() =>
-                console.log("etapas-subproyecto para proyecto " + projectId)
-              }
-              className={`relative w-8 h-8 bg-purple-600 hover:opacity-80 transition-opacity duration-200 flex items-center justify-center shadow-sm`}
-              style={{
-                clipPath:
-                  "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-              }}
-            >
-              <Layers className="h-4 w-4 text-white" />
-            </button>
-            <button
-              onClick={() =>
-                console.log("sectores-subproyecto para proyecto " + projectId)
-              }
-              className={`relative w-8 h-8 bg-green-600 hover:opacity-80 transition-opacity duration-200 flex items-center justify-center shadow-sm`}
-              style={{
-                clipPath:
-                  "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-              }}
-            >
-              <MapPin className="h-4 w-4 text-white" />
-            </button>
-            <button
-              onClick={() =>
-                console.log("frentes-subproyecto para proyecto " + projectId)
-              }
-              className={`relative w-8 h-8 bg-orange-600 hover:opacity-80 transition-opacity duration-200 flex items-center justify-center shadow-sm`}
-              style={{
-                clipPath:
-                  "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-              }}
-            >
-              <GitBranch className="h-4 w-4 text-white" />
-            </button>
-            <button
-              onClick={() =>
-                console.log("partidas-subproyecto para proyecto " + projectId)
-              }
-              className={`relative w-8 h-8 bg-red-600 hover:opacity-80 transition-opacity duration-200 flex items-center justify-center shadow-sm`}
-              style={{
-                clipPath:
-                  "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-              }}
-            >
-              <FileText className="h-4 w-4 text-white" />
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onSubproyectoAction("editar", subproyecto)}
+                    className={`relative w-8 h-8 bg-blue-600 hover:opacity-80 transition-opacity duration-200 flex items-center justify-center shadow-sm`}
+                    style={{
+                      clipPath:
+                        "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                    }}
+                  >
+                    <Edit className="h-4 w-4 text-white" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Editar Subproyecto</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() =>
+                      onSubproyectoAction("sub-etapas", subproyecto)
+                    }
+                    className={`relative w-8 h-8 bg-purple-600 hover:opacity-80 transition-opacity duration-200 flex items-center justify-center shadow-sm`}
+                    style={{
+                      clipPath:
+                        "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                    }}
+                  >
+                    <Layers className="h-4 w-4 text-white" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Crear Sub-Etapas</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() =>
+                      onSubproyectoAction("subsectores", subproyecto)
+                    }
+                    className={`relative w-8 h-8 bg-green-600 hover:opacity-80 transition-opacity duration-200 flex items-center justify-center shadow-sm`}
+                    style={{
+                      clipPath:
+                        "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                    }}
+                  >
+                    <MapPin className="h-4 w-4 text-white" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Crear Subsectores</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() =>
+                      onSubproyectoAction("subfrentes", subproyecto)
+                    }
+                    className={`relative w-8 h-8 bg-orange-600 hover:opacity-80 transition-opacity duration-200 flex items-center justify-center shadow-sm`}
+                    style={{
+                      clipPath:
+                        "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                    }}
+                  >
+                    <GitBranch className="h-4 w-4 text-white" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Crear Subfrentes</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() =>
+                      onSubproyectoAction("subpartidas", subproyecto)
+                    }
+                    className={`relative w-8 h-8 bg-yellow-600 hover:opacity-80 transition-opacity duration-200 flex items-center justify-center shadow-sm`}
+                    style={{
+                      clipPath:
+                        "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                    }}
+                  >
+                    <FileText className="h-4 w-4 text-white" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Crear Subpartidas</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onSubproyectoAction("eliminar", subproyecto)}
+                    className={`relative w-8 h-8 bg-red-600 hover:opacity-80 transition-opacity duration-200 flex items-center justify-center shadow-sm`}
+                    style={{
+                      clipPath:
+                        "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-white" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Eliminar Subproyecto</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       </div>
@@ -622,6 +800,10 @@ function SubproyectoItem({
                 onDeleteSector={onDeleteSector}
                 onDeleteFrente={onDeleteFrente}
                 onDeletePartida={onDeletePartida}
+                onEdit={onEditEtapa}
+                onEditSector={onEditSector}
+                onEditFrente={onEditFrente}
+                onEditPartida={onEditPartida}
               />
             ))}
           </div>
@@ -642,16 +824,46 @@ export default function ProyectosDashboard() {
   const [modals, setModals] = useState({
     newProject: false,
     editProject: false,
+    newSubproject: false,
+    editSubproject: false,
     createEtapa: false,
     createSector: false,
     createFrente: false,
     createPartida: false,
+    createSubEtapa: false,
+    createSubsector: false,
+    createSubfrente: false,
+    createSubpartida: false,
+    editEtapa: false,
+    editSector: false,
+    editFrente: false,
+    editPartida: false,
+    editSubEtapa: false,
+    editSubsector: false,
+    editSubfrente: false,
+    editSubpartida: false,
   });
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedSubproject, setSelectedSubproject] =
+    useState<Subproyecto | null>(null);
   const [selectedContext, setSelectedContext] = useState<{
     type: string;
   } | null>(null);
+  const [selectedEtapa, setSelectedEtapa] = useState<Etapa | null>(null);
+  const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
+  const [selectedFrente, setSelectedFrente] = useState<Frente | null>(null);
+  const [selectedPartida, setSelectedPartida] = useState<Partida | null>(null);
+  const [selectedSubEtapa, setSelectedSubEtapa] = useState<Etapa | null>(null);
+  const [selectedSubsector, setSelectedSubsector] = useState<Sector | null>(
+    null
+  );
+  const [selectedSubfrente, setSelectedSubfrente] = useState<Frente | null>(
+    null
+  );
+  const [selectedSubpartida, setSelectedSubpartida] = useState<Partida | null>(
+    null
+  );
 
   // Estados para dropdowns dependientes
   const [selectedEtapaForSector, setSelectedEtapaForSector] = useState("");
@@ -661,71 +873,71 @@ export default function ProyectosDashboard() {
   const [selectedSectorForPartida, setSelectedSectorForPartida] = useState("");
   const [selectedFrenteForPartida, setSelectedFrenteForPartida] = useState("");
 
-  // Datos de subproyectos mock (mantenemos estos como solicitaste)
-  const mockSubproyectos = useMemo<Subproyecto[]>(
-    () => [
-      {
-        id: 1,
-        name: "Subproyecto A - Torre Norte",
-        status: "En progreso",
-        startDate: "05/07/2025",
-        endDate: "20/08/2025",
-        progress: 45,
-        etapas: [
-          {
-            id: 1,
-            name: "Cimentación Torre Norte",
-            status: "En progreso",
-            progress: 60,
-            sectores: [
-              {
-                id: 1,
-                name: "Sector A1 - Zapatas Norte",
-                status: "En progreso",
-                progress: 70,
-                frentes: [
-                  {
-                    id: 1,
-                    name: "Frente Norte-Este",
-                    status: "En progreso",
-                    progress: 80,
-                    partidas: [
-                      {
-                        id: 1,
-                        name: "Excavación",
-                        status: "Completado",
-                        progress: 100,
-                      },
-                      {
-                        id: 2,
-                        name: "Armado de acero",
-                        status: "En progreso",
-                        progress: 60,
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-      {
-        id: 2,
-        name: "Subproyecto B - Torre Sur",
-        status: "Pendiente",
-        startDate: "15/08/2025",
-        endDate: "30/09/2025",
-        progress: 0,
-        etapas: [],
-      },
-    ],
+  // Estados para dropdowns de subproyectos
+  const [selectedSubEtapaForSubsector, setSelectedSubEtapaForSubsector] =
+    useState("");
+  const [selectedSubEtapaForSubfrente, setSelectedSubEtapaForSubfrente] =
+    useState("");
+  const [selectedSubsectorForSubfrente, setSelectedSubsectorForSubfrente] =
+    useState("");
+  const [selectedSubEtapaForSubpartida, setSelectedSubEtapaForSubpartida] =
+    useState("");
+  const [selectedSubsectorForSubpartida, setSelectedSubsectorForSubpartida] =
+    useState("");
+  const [selectedSubfrenteForSubpartida, setSelectedSubfrenteForSubpartida] =
+    useState("");
+
+  // Función para convertir SubproyectoData a Subproyecto (para compatibilidad con UI)
+  const convertSubproyectoDataToSubproyecto = useCallback(
+    (subproyectoData: SubproyectoData): Subproyecto => {
+      return {
+        id: subproyectoData.id_subproyecto || 0,
+        name: subproyectoData.nombre,
+        status: subproyectoData.activo ? "En progreso" : "Inactivo",
+        startDate: "", // TODO: Agregar fechas en la base de datos
+        endDate: "", // TODO: Agregar fechas en la base de datos
+        progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
+        etapas:
+          subproyectoData.sub_etapas?.map((subEtapa) => ({
+            id: subEtapa.id_sub_etapa || 0,
+            name: subEtapa.nombre,
+            status: "En progreso", // TODO: Calcular estado real
+            progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
+            statusColor: "bg-purple-500",
+            sectores:
+              subEtapa.subsector?.map((subsector) => ({
+                id: subsector.id_subsector || 0,
+                name: subsector.nombre,
+                status: "En progreso", // TODO: Calcular estado real
+                progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
+                frentes:
+                  subsector.subfrente?.map((subfrente) => ({
+                    id: subfrente.id_subfrente || 0,
+                    name: subfrente.nombre,
+                    status: "En progreso", // TODO: Calcular estado real
+                    progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
+                    partidas:
+                      subfrente.subpartida?.map((subpartida) => ({
+                        id: subpartida.id_subpartida || 0,
+                        codigo: subpartida.codigo,
+                        name: subpartida.descripcion,
+                        status: "En progreso", // TODO: Calcular estado real
+                        progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
+                        unidad_medida: subpartida.unidad_medida,
+                        cantidad: subpartida.cantidad,
+                        precio_unitario: subpartida.precio_unitario,
+                      })) || [],
+                  })) || [],
+              })) || [],
+          })) || [],
+      };
+    },
     []
   );
 
   // Función para convertir ProyectoData a Project (para compatibilidad con UI)
   const convertProyectoToProject = useCallback(
-    (proyecto: ProyectoData): Project => {
+    async (proyecto: ProyectoData): Promise<Project> => {
       return {
         id: proyecto.id,
         name: proyecto.nombre,
@@ -758,17 +970,21 @@ export default function ProyectosDashboard() {
                     partidas:
                       frente.partidas?.map((partida) => ({
                         id: partida.id,
+                        codigo: partida.codigo,
                         name: partida.descripcion,
                         status: "En progreso", // TODO: Calcular estado real
                         progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
+                        unidad_medida: partida.unidad_medida,
+                        cantidad: partida.cantidad,
+                        precio_unitario: partida.precio_unitario,
                       })) || [],
                   })) || [],
               })) || [],
           })) || [],
-        subproyectos: mockSubproyectos, // Mantener subproyectos mock por ahora
+        subproyectos: [], // Se cargarán por separado
       };
     },
-    [mockSubproyectos]
+    []
   );
 
   // Cargar proyectos desde la API
@@ -777,7 +993,32 @@ export default function ProyectosDashboard() {
       setLoading(true);
       setError(null);
       const proyectosData = await proyectosApi.getAll();
-      const proyectosConverted = proyectosData.map(convertProyectoToProject);
+
+      // Convertir proyectos y cargar subproyectos para cada uno
+      const proyectosConverted = await Promise.all(
+        proyectosData.map(async (proyecto) => {
+          const convertedProject = await convertProyectoToProject(proyecto);
+
+          // Cargar subproyectos para este proyecto
+          try {
+            const subproyectosData = await subproyectosApi.getByProyecto(
+              proyecto.id
+            );
+            convertedProject.subproyectos = subproyectosData.map(
+              convertSubproyectoDataToSubproyecto
+            );
+          } catch (subError) {
+            console.error(
+              `Error cargando subproyectos para proyecto ${proyecto.id}:`,
+              subError
+            );
+            convertedProject.subproyectos = [];
+          }
+
+          return convertedProject;
+        })
+      );
+
       setProjects(proyectosConverted);
     } catch (err) {
       console.error("Error cargando proyectos:", err);
@@ -787,7 +1028,7 @@ export default function ProyectosDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [convertProyectoToProject]);
+  }, [convertProyectoToProject, convertSubproyectoDataToSubproyecto]);
 
   // Cargar proyectos al montar el componente
   useEffect(() => {
@@ -816,6 +1057,30 @@ export default function ProyectosDashboard() {
     return sector?.frentes || [];
   };
 
+  // Funciones para obtener listas filtradas para subproyectos
+  const getSubEtapasForSubproject = (subproyecto: Subproyecto) => {
+    return subproyecto?.etapas || [];
+  };
+
+  const getSubsectoresForSubEtapa = (
+    subproyecto: Subproyecto,
+    subEtapaId: string
+  ) => {
+    const subEtapas = getSubEtapasForSubproject(subproyecto);
+    const subEtapa = subEtapas.find((e) => e.id.toString() === subEtapaId);
+    return subEtapa?.sectores || [];
+  };
+
+  const getSubfrentesForSubsector = (
+    subproyecto: Subproyecto,
+    subEtapaId: string,
+    subsectorId: string
+  ) => {
+    const subsectores = getSubsectoresForSubEtapa(subproyecto, subEtapaId);
+    const subsector = subsectores.find((s) => s.id.toString() === subsectorId);
+    return subsector?.frentes || [];
+  };
+
   // Funciones para abrir modales
   const openModal = (
     modalType: string,
@@ -830,7 +1095,16 @@ export default function ProyectosDashboard() {
   const closeModal = (modalType: string) => {
     setModals((prev) => ({ ...prev, [modalType]: false }));
     setSelectedProject(null);
+    setSelectedSubproject(null);
     setSelectedContext(null);
+    setSelectedEtapa(null);
+    setSelectedSector(null);
+    setSelectedFrente(null);
+    setSelectedPartida(null);
+    setSelectedSubEtapa(null);
+    setSelectedSubsector(null);
+    setSelectedSubfrente(null);
+    setSelectedSubpartida(null);
   };
 
   // Forms
@@ -884,6 +1158,54 @@ export default function ProyectosDashboard() {
     },
   });
 
+  const subproyectoForm = useForm<SubproyectoFormData>({
+    defaultValues: {
+      id_proyecto: "",
+      nombre: "",
+      descripcion: "",
+    },
+  });
+
+  const subEtapaForm = useForm<SubEtapaFormData>({
+    defaultValues: {
+      id_subproyecto: "",
+      nombre: "",
+      descripcion: "",
+    },
+  });
+
+  const subsectorForm = useForm<SubsectorFormData>({
+    defaultValues: {
+      nombre: "",
+      descripcion: "",
+      ubicacion: "",
+      id_sub_etapa: "",
+    },
+  });
+
+  const subfrenteForm = useForm<SubfrenteFormData>({
+    defaultValues: {
+      nombre: "",
+      descripcion: "",
+      responsable: "",
+      id_sub_etapa: "",
+      id_subsector: "",
+    },
+  });
+
+  const subpartidaForm = useForm<SubpartidaFormData>({
+    defaultValues: {
+      codigo: "",
+      descripcion: "",
+      unidad_medida: "",
+      cantidad: "",
+      precio_unitario: "",
+      id_sub_etapa: "",
+      id_subsector: "",
+      id_subfrente: "",
+    },
+  });
+
   // Handlers para enviar formularios
   const onSubmitProject = async (data: ProjectFormData) => {
     try {
@@ -922,124 +1244,353 @@ export default function ProyectosDashboard() {
 
   const onSubmitEtapa = async (data: EtapaFormData) => {
     try {
-      if (!selectedProject) {
-        setError("No hay proyecto seleccionado");
-        return;
+      if (modals.editEtapa && selectedEtapa) {
+        // Actualizar etapa existente
+        await etapasApi.update(selectedEtapa.id, {
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+        });
+      } else {
+        // Crear nueva etapa - validar que hay proyecto seleccionado
+        if (!selectedProject) {
+          setError("No hay proyecto seleccionado");
+          return;
+        }
+
+        const etapaData: Omit<
+          EtapaData,
+          "id_etapa" | "created_at" | "updated_at"
+        > = {
+          id_proyecto: selectedProject.id,
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          activo: true,
+        };
+
+        await etapasApi.create(etapaData);
       }
-
-      const etapaData: Omit<
-        EtapaData,
-        "id_etapa" | "created_at" | "updated_at"
-      > = {
-        id_proyecto: selectedProject.id,
-        nombre: data.nombre,
-        descripcion: data.descripcion,
-        activo: true,
-      };
-
-      await etapasApi.create(etapaData);
 
       // Recargar la lista de proyectos para ver los cambios
       await loadProjects();
 
-      closeModal("createEtapa");
+      closeModal(modals.editEtapa ? "editEtapa" : "createEtapa");
       etapaForm.reset();
     } catch (error) {
-      console.error("Error al crear etapa:", error);
-      setError("Error al crear la etapa - Endpoint no implementado en backend");
+      console.error("Error al procesar etapa:", error);
+      setError("Error al procesar la etapa");
     }
   };
 
   const onSubmitSector = async (data: SectorFormData) => {
     try {
-      const sectorData: Omit<
-        SectorData,
-        "id_sector" | "created_at" | "updated_at"
-      > = {
-        id_etapa: parseInt(data.id_etapa),
-        nombre: data.nombre,
-        descripcion: data.descripcion,
-        ubicacion: data.ubicacion,
-        activo: true,
-      };
+      if (modals.editSector && selectedSector) {
+        // Actualizar sector existente
+        await sectoresApi.update(selectedSector.id, {
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          ubicacion: data.ubicacion,
+        });
+      } else {
+        // Crear nuevo sector
+        const sectorData: Omit<
+          SectorData,
+          "id_sector" | "created_at" | "updated_at"
+        > = {
+          id_etapa: parseInt(data.id_etapa),
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          ubicacion: data.ubicacion,
+          activo: true,
+        };
 
-      await sectoresApi.create(sectorData);
+        await sectoresApi.create(sectorData);
+      }
 
       // Recargar la lista de proyectos para ver los cambios
       await loadProjects();
 
-      closeModal("createSector");
+      closeModal(modals.editSector ? "editSector" : "createSector");
       sectorForm.reset();
       setSelectedEtapaForSector("");
     } catch (error) {
-      console.error("Error al crear sector:", error);
-      setError(
-        "Error al crear el sector - Endpoint no implementado en backend"
-      );
+      console.error("Error al procesar sector:", error);
+      setError("Error al procesar el sector");
     }
   };
 
   const onSubmitFrente = async (data: FrenteFormData) => {
     try {
-      const frenteData: Omit<
-        FrenteData,
-        "id_frente" | "created_at" | "updated_at"
-      > = {
-        id_sector: parseInt(data.id_sector),
-        nombre: data.nombre,
-        descripcion: data.descripcion,
-        responsable: data.responsable,
-        activo: true,
-      };
+      if (modals.editFrente && selectedFrente) {
+        // Actualizar frente existente
+        await frentesApi.update(selectedFrente.id, {
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          responsable: data.responsable,
+        });
+      } else {
+        // Crear nuevo frente
+        const frenteData: Omit<
+          FrenteData,
+          "id_frente" | "created_at" | "updated_at"
+        > = {
+          id_sector: parseInt(data.id_sector),
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          responsable: data.responsable,
+          activo: true,
+        };
 
-      await frentesApi.create(frenteData);
+        await frentesApi.create(frenteData);
+      }
 
       // Recargar la lista de proyectos para ver los cambios
       await loadProjects();
 
-      closeModal("createFrente");
+      closeModal(modals.editFrente ? "editFrente" : "createFrente");
       frenteForm.reset();
       setSelectedEtapaForFrente("");
       setSelectedSectorForFrente("");
     } catch (error) {
-      console.error("Error al crear frente:", error);
-      setError(
-        "Error al crear el frente - Endpoint no implementado en backend"
-      );
+      console.error("Error al procesar frente:", error);
+      setError("Error al procesar el frente");
     }
   };
 
   const onSubmitPartida = async (data: PartidaFormData) => {
     try {
-      const partidaData: Omit<
-        PartidaData,
-        "id_partida" | "created_at" | "updated_at"
-      > = {
-        id_frente: parseInt(data.id_frente),
-        codigo: data.codigo,
-        descripcion: data.descripcion,
-        unidad_medida: data.unidad_medida,
-        cantidad: parseFloat(data.cantidad),
-        precio_unitario: data.precio_unitario
-          ? parseFloat(data.precio_unitario)
-          : undefined,
-        orden: undefined, // Se calculará automáticamente en el backend
-        activo: true,
-      };
+      if (modals.editPartida && selectedPartida) {
+        // Actualizar partida existente
+        await partidasApi.update(selectedPartida.id, {
+          codigo: data.codigo,
+          descripcion: data.descripcion,
+          unidad_medida: data.unidad_medida,
+          cantidad: parseFloat(data.cantidad),
+          precio_unitario: data.precio_unitario
+            ? parseFloat(data.precio_unitario)
+            : undefined,
+        });
+      } else {
+        // Crear nueva partida
+        const partidaData: Omit<
+          PartidaData,
+          "id_partida" | "created_at" | "updated_at"
+        > = {
+          id_frente: parseInt(data.id_frente),
+          codigo: data.codigo,
+          descripcion: data.descripcion,
+          unidad_medida: data.unidad_medida,
+          cantidad: parseFloat(data.cantidad),
+          precio_unitario: data.precio_unitario
+            ? parseFloat(data.precio_unitario)
+            : undefined,
+          orden: undefined, // Se calculará automáticamente en el backend
+          activo: true,
+        };
 
-      await partidasApi.create(partidaData);
+        await partidasApi.create(partidaData);
+      }
 
       // Recargar la lista de proyectos para ver los cambios
       await loadProjects();
 
-      closeModal("createPartida");
+      closeModal(modals.editPartida ? "editPartida" : "createPartida");
       partidaForm.reset();
       setSelectedEtapaForPartida("");
       setSelectedSectorForPartida("");
       setSelectedFrenteForPartida("");
     } catch (error) {
-      console.error("Error al crear partida:", error);
-      setError("Error al crear la partida");
+      console.error("Error al procesar partida:", error);
+      setError("Error al procesar la partida");
+    }
+  };
+
+  const onSubmitSubproyecto = async (data: SubproyectoFormData) => {
+    try {
+      if (modals.editSubproject && selectedSubproject) {
+        // Actualizar subproyecto existente
+        await subproyectosApi.update(selectedSubproject.id, {
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+        });
+      } else {
+        // Crear nuevo subproyecto
+        const subproyectoData: Omit<
+          SubproyectoData,
+          "id_subproyecto" | "created_at" | "updated_at"
+        > = {
+          id_proyecto: parseInt(data.id_proyecto),
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          activo: true,
+        };
+
+        await subproyectosApi.create(subproyectoData);
+      }
+
+      // Recargar la lista de proyectos para ver los cambios
+      await loadProjects();
+
+      closeModal(modals.editSubproject ? "editSubproject" : "newSubproject");
+      subproyectoForm.reset();
+    } catch (error) {
+      console.error("Error al procesar subproyecto:", error);
+      setError("Error al procesar el subproyecto");
+    }
+  };
+
+  const onSubmitSubEtapa = async (data: SubEtapaFormData) => {
+    try {
+      if (modals.editSubEtapa && selectedSubEtapa) {
+        // Actualizar sub-etapa existente
+        await subEtapasApi.update(selectedSubEtapa.id, {
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+        });
+      } else {
+        // Crear nueva sub-etapa
+        const subEtapaData: Omit<
+          SubEtapaData,
+          "id_sub_etapa" | "created_at" | "updated_at"
+        > = {
+          id_subproyecto: parseInt(data.id_subproyecto),
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          activo: true,
+        };
+
+        await subEtapasApi.create(subEtapaData);
+      }
+
+      // Recargar la lista de proyectos para ver los cambios
+      await loadProjects();
+
+      closeModal(modals.editSubEtapa ? "editSubEtapa" : "createSubEtapa");
+      subEtapaForm.reset();
+    } catch (error) {
+      console.error("Error al procesar sub-etapa:", error);
+      setError("Error al procesar la sub-etapa");
+    }
+  };
+
+  const onSubmitSubsector = async (data: SubsectorFormData) => {
+    try {
+      if (modals.editSubsector && selectedSubsector) {
+        // Actualizar subsector existente
+        await subsectoresApi.update(selectedSubsector.id, {
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          ubicacion: data.ubicacion,
+        });
+      } else {
+        // Crear nuevo subsector
+        const subsectorData: Omit<
+          SubsectorData,
+          "id_subsector" | "created_at" | "updated_at"
+        > = {
+          id_sub_etapa: parseInt(data.id_sub_etapa),
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          ubicacion: data.ubicacion,
+          activo: true,
+        };
+
+        await subsectoresApi.create(subsectorData);
+      }
+
+      // Recargar la lista de proyectos para ver los cambios
+      await loadProjects();
+
+      closeModal(modals.editSubsector ? "editSubsector" : "createSubsector");
+      subsectorForm.reset();
+      setSelectedSubEtapaForSubsector("");
+    } catch (error) {
+      console.error("Error al procesar subsector:", error);
+      setError("Error al procesar el subsector");
+    }
+  };
+
+  const onSubmitSubfrente = async (data: SubfrenteFormData) => {
+    try {
+      if (modals.editSubfrente && selectedSubfrente) {
+        // Actualizar subfrente existente
+        await subfrentesApi.update(selectedSubfrente.id, {
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          responsable: data.responsable,
+        });
+      } else {
+        // Crear nuevo subfrente
+        const subfrenteData: Omit<
+          SubfrenteData,
+          "id_subfrente" | "created_at" | "updated_at"
+        > = {
+          id_subsector: parseInt(data.id_subsector),
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          responsable: data.responsable,
+          activo: true,
+        };
+
+        await subfrentesApi.create(subfrenteData);
+      }
+
+      // Recargar la lista de proyectos para ver los cambios
+      await loadProjects();
+
+      closeModal(modals.editSubfrente ? "editSubfrente" : "createSubfrente");
+      subfrenteForm.reset();
+      setSelectedSubEtapaForSubfrente("");
+      setSelectedSubsectorForSubfrente("");
+    } catch (error) {
+      console.error("Error al procesar subfrente:", error);
+      setError("Error al procesar el subfrente");
+    }
+  };
+
+  const onSubmitSubpartida = async (data: SubpartidaFormData) => {
+    try {
+      if (modals.editSubpartida && selectedSubpartida) {
+        // Actualizar subpartida existente
+        await subpartidasApi.update(selectedSubpartida.id, {
+          codigo: data.codigo,
+          descripcion: data.descripcion,
+          unidad_medida: data.unidad_medida,
+          cantidad: parseFloat(data.cantidad),
+          precio_unitario: data.precio_unitario
+            ? parseFloat(data.precio_unitario)
+            : undefined,
+        });
+      } else {
+        // Crear nueva subpartida
+        const subpartidaData: Omit<
+          SubpartidaData,
+          "id_subpartida" | "created_at" | "updated_at"
+        > = {
+          id_subfrente: parseInt(data.id_subfrente),
+          codigo: data.codigo,
+          descripcion: data.descripcion,
+          unidad_medida: data.unidad_medida,
+          cantidad: parseFloat(data.cantidad),
+          precio_unitario: data.precio_unitario
+            ? parseFloat(data.precio_unitario)
+            : undefined,
+          activo: true,
+        };
+
+        await subpartidasApi.create(subpartidaData);
+      }
+
+      // Recargar la lista de proyectos para ver los cambios
+      await loadProjects();
+
+      closeModal(modals.editSubpartida ? "editSubpartida" : "createSubpartida");
+      subpartidaForm.reset();
+      setSelectedSubEtapaForSubpartida("");
+      setSelectedSubsectorForSubpartida("");
+      setSelectedSubfrenteForSubpartida("");
+    } catch (error) {
+      console.error("Error al procesar subpartida:", error);
+      setError("Error al procesar la subpartida");
     }
   };
 
@@ -1130,6 +1681,22 @@ export default function ProyectosDashboard() {
     }
   };
 
+  const handleDeleteSubproyecto = async (subproyectoId: number) => {
+    if (
+      window.confirm(
+        "¿Está seguro de que desea eliminar este subproyecto? Esta acción no se puede deshacer."
+      )
+    ) {
+      try {
+        await subproyectosApi.delete(subproyectoId);
+        await loadProjects();
+      } catch (error) {
+        console.error("Error al eliminar subproyecto:", error);
+        setError("Error al eliminar el subproyecto");
+      }
+    }
+  };
+
   const handleAction = (action: string, projectId: number) => {
     const project = projects.find((p) => p.id === projectId);
     switch (action) {
@@ -1162,6 +1729,205 @@ export default function ProyectosDashboard() {
         openModal("createPartida", project, { type: "project" });
         break;
     }
+  };
+
+  const handleSubproyectoAction = (
+    action: string,
+    subproyecto: Subproyecto
+  ) => {
+    setSelectedSubproject(subproyecto);
+    switch (action) {
+      case "editar":
+        subproyectoForm.reset({
+          id_proyecto: "", // No se puede cambiar el proyecto padre
+          nombre: subproyecto.name,
+          descripcion: "", // No tenemos descripción en la UI actual
+        });
+        openModal("editSubproject");
+        break;
+      case "eliminar":
+        handleDeleteSubproyecto(subproyecto.id);
+        break;
+      case "sub-etapas":
+        subEtapaForm.setValue("id_subproyecto", subproyecto.id.toString());
+        openModal("createSubEtapa");
+        break;
+      case "subsectores":
+        openModal("createSubsector");
+        break;
+      case "subfrentes":
+        openModal("createSubfrente");
+        break;
+      case "subpartidas":
+        openModal("createSubpartida");
+        break;
+    }
+  };
+
+  // Funciones para eliminar entidades de subproyectos
+  const handleDeleteSubEtapa = async (subEtapaId: number) => {
+    if (
+      window.confirm(
+        "¿Está seguro de que desea eliminar esta sub-etapa? Esta acción no se puede deshacer."
+      )
+    ) {
+      try {
+        await subEtapasApi.delete(subEtapaId);
+        await loadProjects();
+      } catch (error) {
+        console.error("Error al eliminar sub-etapa:", error);
+        setError("Error al eliminar la sub-etapa");
+      }
+    }
+  };
+
+  const handleDeleteSubsector = async (subsectorId: number) => {
+    if (
+      window.confirm(
+        "¿Está seguro de que desea eliminar este subsector? Esta acción no se puede deshacer."
+      )
+    ) {
+      try {
+        await subsectoresApi.delete(subsectorId);
+        await loadProjects();
+      } catch (error) {
+        console.error("Error al eliminar subsector:", error);
+        setError("Error al eliminar el subsector");
+      }
+    }
+  };
+
+  const handleDeleteSubfrente = async (subfrenteId: number) => {
+    if (
+      window.confirm(
+        "¿Está seguro de que desea eliminar este subfrente? Esta acción no se puede deshacer."
+      )
+    ) {
+      try {
+        await subfrentesApi.delete(subfrenteId);
+        await loadProjects();
+      } catch (error) {
+        console.error("Error al eliminar subfrente:", error);
+        setError("Error al eliminar el subfrente");
+      }
+    }
+  };
+
+  const handleDeleteSubpartida = async (subpartidaId: number) => {
+    if (
+      window.confirm(
+        "¿Está seguro de que desea eliminar esta subpartida? Esta acción no se puede deshacer."
+      )
+    ) {
+      try {
+        await subpartidasApi.delete(subpartidaId);
+        await loadProjects();
+      } catch (error) {
+        console.error("Error al eliminar subpartida:", error);
+        setError("Error al eliminar la subpartida");
+      }
+    }
+  };
+
+  // Funciones para editar entidades principales
+  const handleEditEtapa = (etapa: Etapa) => {
+    setSelectedEtapa(etapa);
+    etapaForm.reset({
+      nombre: etapa.name,
+      descripcion: "", // No tenemos descripcion en la UI actual
+    });
+    openModal("editEtapa");
+  };
+
+  const handleEditSector = (sector: Sector) => {
+    setSelectedSector(sector);
+    sectorForm.reset({
+      nombre: sector.name,
+      descripcion: "",
+      ubicacion: "",
+      id_etapa: "", // Se mantendrá el mismo sector padre
+    });
+    openModal("editSector");
+  };
+
+  const handleEditFrente = (frente: Frente) => {
+    setSelectedFrente(frente);
+    frenteForm.reset({
+      nombre: frente.name,
+      descripcion: "",
+      responsable: "",
+      id_etapa: "",
+      id_sector: "",
+    });
+    openModal("editFrente");
+  };
+
+  const handleEditPartida = (partida: Partida) => {
+    setSelectedPartida(partida);
+    partidaForm.reset({
+      codigo: partida.codigo,
+      descripcion: partida.name,
+      unidad_medida: partida.unidad_medida || "",
+      cantidad: partida.cantidad.toString(),
+      precio_unitario: partida.precio_unitario
+        ? partida.precio_unitario.toString()
+        : "",
+      id_etapa: "",
+      id_sector: "",
+      id_frente: "",
+    });
+    openModal("editPartida");
+  };
+
+  // Funciones para editar entidades de subproyectos
+  const handleEditSubEtapa = (subEtapa: Etapa) => {
+    setSelectedSubEtapa(subEtapa);
+    subEtapaForm.reset({
+      id_subproyecto: "", // Se mantendrá el mismo subproyecto padre
+      nombre: subEtapa.name,
+      descripcion: "", // No tenemos descripción en la UI actual
+    });
+    openModal("editSubEtapa");
+  };
+
+  const handleEditSubsector = (subsector: Sector) => {
+    setSelectedSubsector(subsector);
+    subsectorForm.reset({
+      nombre: subsector.name,
+      descripcion: "",
+      ubicacion: "",
+      id_sub_etapa: "", // Se mantendrá la misma sub-etapa padre
+    });
+    openModal("editSubsector");
+  };
+
+  const handleEditSubfrente = (subfrente: Frente) => {
+    setSelectedSubfrente(subfrente);
+    subfrenteForm.reset({
+      nombre: subfrente.name,
+      descripcion: "",
+      responsable: "",
+      id_sub_etapa: "",
+      id_subsector: "",
+    });
+    openModal("editSubfrente");
+  };
+
+  const handleEditSubpartida = (subpartida: Partida) => {
+    setSelectedSubpartida(subpartida);
+    subpartidaForm.reset({
+      codigo: subpartida.codigo,
+      descripcion: subpartida.name,
+      unidad_medida: subpartida.unidad_medida || "",
+      cantidad: subpartida.cantidad.toString(),
+      precio_unitario: subpartida.precio_unitario
+        ? subpartida.precio_unitario.toString()
+        : "",
+      id_sub_etapa: "",
+      id_subsector: "",
+      id_subfrente: "",
+    });
+    openModal("editSubpartida");
   };
 
   const toggleProject = (projectId: number) => {
@@ -1201,6 +1967,13 @@ export default function ProyectosDashboard() {
             >
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Proyecto
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => openModal("newSubproject")}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Subproyecto
             </Button>
           </div>
         </div>
@@ -1437,6 +2210,10 @@ export default function ProyectosDashboard() {
                                       onDeleteSector={handleDeleteSector}
                                       onDeleteFrente={handleDeleteFrente}
                                       onDeletePartida={handleDeletePartida}
+                                      onEdit={handleEditEtapa}
+                                      onEditSector={handleEditSector}
+                                      onEditFrente={handleEditFrente}
+                                      onEditPartida={handleEditPartida}
                                     />
                                   ))}
                                 </div>
@@ -1455,10 +2232,19 @@ export default function ProyectosDashboard() {
                                           key={subproyecto.id}
                                           subproyecto={subproyecto}
                                           projectId={project.id}
-                                          onDeleteEtapa={handleDeleteEtapa}
-                                          onDeleteSector={handleDeleteSector}
-                                          onDeleteFrente={handleDeleteFrente}
-                                          onDeletePartida={handleDeletePartida}
+                                          onDeleteEtapa={handleDeleteSubEtapa}
+                                          onDeleteSector={handleDeleteSubsector}
+                                          onDeleteFrente={handleDeleteSubfrente}
+                                          onDeletePartida={
+                                            handleDeleteSubpartida
+                                          }
+                                          onEditEtapa={handleEditSubEtapa}
+                                          onEditSector={handleEditSubsector}
+                                          onEditFrente={handleEditSubfrente}
+                                          onEditPartida={handleEditSubpartida}
+                                          onSubproyectoAction={
+                                            handleSubproyectoAction
+                                          }
                                         />
                                       )
                                     )}
@@ -2283,6 +3069,1527 @@ export default function ProyectosDashboard() {
                 </Button>
                 <Button type="submit" className="bg-red-600 hover:bg-red-700">
                   Crear Partida
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Editar Etapa */}
+      <Dialog
+        open={modals.editEtapa}
+        onOpenChange={() => closeModal("editEtapa")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Etapa</DialogTitle>
+            {selectedEtapa && (
+              <p className="text-sm text-muted-foreground">
+                Editando: {selectedEtapa.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...etapaForm}>
+            <form
+              onSubmit={etapaForm.handleSubmit(onSubmitEtapa)}
+              className="space-y-4"
+            >
+              <FormField
+                control={etapaForm.control}
+                name="nombre"
+                rules={{ required: "El nombre es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre de la Etapa</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Cimentación, Estructura, Acabados"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={etapaForm.control}
+                name="descripcion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción de la etapa..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("editEtapa")}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  Guardar Cambios
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Editar Sector */}
+      <Dialog
+        open={modals.editSector}
+        onOpenChange={() => closeModal("editSector")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Sector</DialogTitle>
+            {selectedSector && (
+              <p className="text-sm text-muted-foreground">
+                Editando: {selectedSector.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...sectorForm}>
+            <form
+              onSubmit={sectorForm.handleSubmit(onSubmitSector)}
+              className="space-y-4"
+            >
+              <FormField
+                control={sectorForm.control}
+                name="nombre"
+                rules={{ required: "El nombre es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre del Sector</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Sector A - Zapatas, Sector 1 - Columnas"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={sectorForm.control}
+                name="descripcion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción del sector..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={sectorForm.control}
+                name="ubicacion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ubicación (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Bloque A, Zona Norte..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("editSector")}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Guardar Cambios
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Editar Frente */}
+      <Dialog
+        open={modals.editFrente}
+        onOpenChange={() => closeModal("editFrente")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Frente</DialogTitle>
+            {selectedFrente && (
+              <p className="text-sm text-muted-foreground">
+                Editando: {selectedFrente.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...frenteForm}>
+            <form
+              onSubmit={frenteForm.handleSubmit(onSubmitFrente)}
+              className="space-y-4"
+            >
+              <FormField
+                control={frenteForm.control}
+                name="nombre"
+                rules={{ required: "El nombre es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre del Frente</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Frente Norte, Frente Principal"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={frenteForm.control}
+                name="descripcion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción del frente..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={frenteForm.control}
+                name="responsable"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Responsable (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Nombre del responsable del frente"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("editFrente")}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  Guardar Cambios
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Editar Partida */}
+      <Dialog
+        open={modals.editPartida}
+        onOpenChange={() => closeModal("editPartida")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Partida</DialogTitle>
+            {selectedPartida && (
+              <p className="text-sm text-muted-foreground">
+                Editando: {selectedPartida.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...partidaForm}>
+            <form
+              onSubmit={partidaForm.handleSubmit(onSubmitPartida)}
+              className="space-y-4"
+            >
+              <FormField
+                control={partidaForm.control}
+                name="codigo"
+                rules={{ required: "El código es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código de la Partida</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: EXC-001, ARM-002" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={partidaForm.control}
+                name="descripcion"
+                rules={{ required: "La descripción es requerida" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Ej: Excavación masiva, Armado de acero..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={partidaForm.control}
+                  name="unidad_medida"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Unidad de Medida</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ej: m3, kg, m2" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={partidaForm.control}
+                  name="cantidad"
+                  rules={{ required: "La cantidad es requerida" }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cantidad</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={partidaForm.control}
+                name="precio_unitario"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Precio Unitario (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("editPartida")}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-red-600 hover:bg-red-700">
+                  Guardar Cambios
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Nuevo Subproyecto */}
+      <Dialog
+        open={modals.newSubproject}
+        onOpenChange={() => closeModal("newSubproject")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Crear Nuevo Subproyecto</DialogTitle>
+          </DialogHeader>
+          <Form {...subproyectoForm}>
+            <form
+              onSubmit={subproyectoForm.handleSubmit(onSubmitSubproyecto)}
+              className="space-y-4"
+            >
+              <FormField
+                control={subproyectoForm.control}
+                name="id_proyecto"
+                rules={{ required: "Debe seleccionar un proyecto" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Proyecto</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar proyecto..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map((project) => (
+                            <SelectItem
+                              key={project.id}
+                              value={project.id.toString()}
+                            >
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subproyectoForm.control}
+                name="nombre"
+                rules={{ required: "El nombre es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre del Subproyecto</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: Subproyecto A" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subproyectoForm.control}
+                name="descripcion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción del subproyecto..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("newSubproject")}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                  Crear Subproyecto
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Editar Subproyecto */}
+      <Dialog
+        open={modals.editSubproject}
+        onOpenChange={() => closeModal("editSubproject")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Subproyecto</DialogTitle>
+            {selectedSubproject && (
+              <p className="text-sm text-muted-foreground">
+                Editando: {selectedSubproject.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...subproyectoForm}>
+            <form
+              onSubmit={subproyectoForm.handleSubmit(onSubmitSubproyecto)}
+              className="space-y-4"
+            >
+              <FormField
+                control={subproyectoForm.control}
+                name="nombre"
+                rules={{ required: "El nombre es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre del Subproyecto</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: Subproyecto A" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subproyectoForm.control}
+                name="descripcion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción del subproyecto..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("editSubproject")}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                  Guardar Cambios
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Crear Sub-Etapa */}
+      <Dialog
+        open={modals.createSubEtapa}
+        onOpenChange={() => closeModal("createSubEtapa")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Crear Nueva Sub-Etapa</DialogTitle>
+            {selectedSubproject && (
+              <p className="text-sm text-muted-foreground">
+                Para: {selectedSubproject.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...subEtapaForm}>
+            <form
+              onSubmit={subEtapaForm.handleSubmit(onSubmitSubEtapa)}
+              className="space-y-4"
+            >
+              <FormField
+                control={subEtapaForm.control}
+                name="id_subproyecto"
+                rules={{ required: "Debe seleccionar un subproyecto" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Subproyecto</FormLabel>
+                    <FormControl>
+                      <Input
+                        value={selectedSubproject?.name || ""}
+                        disabled
+                        className="bg-gray-100"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subEtapaForm.control}
+                name="nombre"
+                rules={{ required: "El nombre es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre de la Sub-Etapa</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Sub-Cimentación, Sub-Estructura"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subEtapaForm.control}
+                name="descripcion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción de la sub-etapa..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("createSubEtapa")}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  Crear Sub-Etapa
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Crear Subsector */}
+      <Dialog
+        open={modals.createSubsector}
+        onOpenChange={() => closeModal("createSubsector")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Crear Nuevo Subsector</DialogTitle>
+            {selectedSubproject && (
+              <p className="text-sm text-muted-foreground">
+                Para: {selectedSubproject.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...subsectorForm}>
+            <form
+              onSubmit={subsectorForm.handleSubmit(onSubmitSubsector)}
+              className="space-y-4"
+            >
+              <FormField
+                control={subsectorForm.control}
+                name="id_sub_etapa"
+                rules={{ required: "Debe seleccionar una sub-etapa" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sub-Etapa</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar sub-etapa..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedSubproject &&
+                            getSubEtapasForSubproject(selectedSubproject).map(
+                              (subEtapa) => (
+                                <SelectItem
+                                  key={subEtapa.id}
+                                  value={subEtapa.id.toString()}
+                                >
+                                  {subEtapa.name}
+                                </SelectItem>
+                              )
+                            )}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subsectorForm.control}
+                name="nombre"
+                rules={{ required: "El nombre es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre del Subsector</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Subsector A - Zapatas"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subsectorForm.control}
+                name="descripcion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción del subsector..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subsectorForm.control}
+                name="ubicacion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ubicación (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Bloque A, Zona Norte..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("createSubsector")}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Crear Subsector
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Crear Subfrente */}
+      <Dialog
+        open={modals.createSubfrente}
+        onOpenChange={() => closeModal("createSubfrente")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Crear Nuevo Subfrente</DialogTitle>
+            {selectedSubproject && (
+              <p className="text-sm text-muted-foreground">
+                Para: {selectedSubproject.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...subfrenteForm}>
+            <form
+              onSubmit={subfrenteForm.handleSubmit(onSubmitSubfrente)}
+              className="space-y-4"
+            >
+              <FormField
+                control={subfrenteForm.control}
+                name="id_sub_etapa"
+                rules={{ required: "Debe seleccionar una sub-etapa" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sub-Etapa</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          setSelectedSubEtapaForSubfrente(value);
+                          setSelectedSubsectorForSubfrente("");
+                          subfrenteForm.setValue("id_subsector", "");
+                        }}
+                        defaultValue={field.value}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar sub-etapa..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedSubproject &&
+                            getSubEtapasForSubproject(selectedSubproject).map(
+                              (subEtapa) => (
+                                <SelectItem
+                                  key={subEtapa.id}
+                                  value={subEtapa.id.toString()}
+                                >
+                                  {subEtapa.name}
+                                </SelectItem>
+                              )
+                            )}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subfrenteForm.control}
+                name="id_subsector"
+                rules={{ required: "Debe seleccionar un subsector" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Subsector</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          setSelectedSubsectorForSubfrente(value);
+                        }}
+                        defaultValue={field.value}
+                        disabled={!selectedSubEtapaForSubfrente}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar subsector..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedSubproject &&
+                            selectedSubEtapaForSubfrente &&
+                            getSubsectoresForSubEtapa(
+                              selectedSubproject,
+                              selectedSubEtapaForSubfrente
+                            ).map((subsector) => (
+                              <SelectItem
+                                key={subsector.id}
+                                value={subsector.id.toString()}
+                              >
+                                {subsector.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subfrenteForm.control}
+                name="nombre"
+                rules={{ required: "El nombre es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre del Subfrente</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Subfrente Norte, Subfrente Principal"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subfrenteForm.control}
+                name="descripcion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción del subfrente..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subfrenteForm.control}
+                name="responsable"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Responsable (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Nombre del responsable del subfrente"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("createSubfrente")}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  Crear Subfrente
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Crear Subpartida */}
+      <Dialog
+        open={modals.createSubpartida}
+        onOpenChange={() => closeModal("createSubpartida")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Crear Nueva Subpartida</DialogTitle>
+            {selectedSubproject && (
+              <p className="text-sm text-muted-foreground">
+                Para: {selectedSubproject.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...subpartidaForm}>
+            <form
+              onSubmit={subpartidaForm.handleSubmit(onSubmitSubpartida)}
+              className="space-y-4"
+            >
+              <FormField
+                control={subpartidaForm.control}
+                name="id_sub_etapa"
+                rules={{ required: "Debe seleccionar una sub-etapa" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sub-Etapa</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          setSelectedSubEtapaForSubpartida(value);
+                          setSelectedSubsectorForSubpartida("");
+                          setSelectedSubfrenteForSubpartida("");
+                          subpartidaForm.setValue("id_subsector", "");
+                          subpartidaForm.setValue("id_subfrente", "");
+                        }}
+                        defaultValue={field.value}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar sub-etapa..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedSubproject &&
+                            getSubEtapasForSubproject(selectedSubproject).map(
+                              (subEtapa) => (
+                                <SelectItem
+                                  key={subEtapa.id}
+                                  value={subEtapa.id.toString()}
+                                >
+                                  {subEtapa.name}
+                                </SelectItem>
+                              )
+                            )}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subpartidaForm.control}
+                name="id_subsector"
+                rules={{ required: "Debe seleccionar un subsector" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Subsector</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          setSelectedSubsectorForSubpartida(value);
+                          setSelectedSubfrenteForSubpartida("");
+                          subpartidaForm.setValue("id_subfrente", "");
+                        }}
+                        defaultValue={field.value}
+                        disabled={!selectedSubEtapaForSubpartida}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar subsector..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedSubproject &&
+                            selectedSubEtapaForSubpartida &&
+                            getSubsectoresForSubEtapa(
+                              selectedSubproject,
+                              selectedSubEtapaForSubpartida
+                            ).map((subsector) => (
+                              <SelectItem
+                                key={subsector.id}
+                                value={subsector.id.toString()}
+                              >
+                                {subsector.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subpartidaForm.control}
+                name="id_subfrente"
+                rules={{ required: "Debe seleccionar un subfrente" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Subfrente</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          setSelectedSubfrenteForSubpartida(value);
+                        }}
+                        defaultValue={field.value}
+                        disabled={!selectedSubsectorForSubpartida}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar subfrente..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedSubproject &&
+                            selectedSubEtapaForSubpartida &&
+                            selectedSubsectorForSubpartida &&
+                            getSubfrentesForSubsector(
+                              selectedSubproject,
+                              selectedSubEtapaForSubpartida,
+                              selectedSubsectorForSubpartida
+                            ).map((subfrente) => (
+                              <SelectItem
+                                key={subfrente.id}
+                                value={subfrente.id.toString()}
+                              >
+                                {subfrente.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subpartidaForm.control}
+                name="codigo"
+                rules={{ required: "El código es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código de la Subpartida</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: SUB-EXC-001, SUB-ARM-002"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subpartidaForm.control}
+                name="descripcion"
+                rules={{ required: "La descripción es requerida" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Ej: Sub-excavación masiva, Sub-armado de acero..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={subpartidaForm.control}
+                  name="unidad_medida"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Unidad de Medida</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ej: m3, kg, m2" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={subpartidaForm.control}
+                  name="cantidad"
+                  rules={{ required: "La cantidad es requerida" }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cantidad</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={subpartidaForm.control}
+                name="precio_unitario"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Precio Unitario (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("createSubpartida")}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-red-600 hover:bg-red-700">
+                  Crear Subpartida
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Editar Sub-Etapa */}
+      <Dialog
+        open={modals.editSubEtapa}
+        onOpenChange={() => closeModal("editSubEtapa")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Sub-Etapa</DialogTitle>
+            {selectedSubEtapa && (
+              <p className="text-sm text-muted-foreground">
+                Editando: {selectedSubEtapa.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...subEtapaForm}>
+            <form
+              onSubmit={subEtapaForm.handleSubmit(onSubmitSubEtapa)}
+              className="space-y-4"
+            >
+              <FormField
+                control={subEtapaForm.control}
+                name="nombre"
+                rules={{ required: "El nombre es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre de la Sub-Etapa</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Sub-Cimentación, Sub-Estructura"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subEtapaForm.control}
+                name="descripcion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción de la sub-etapa..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("editSubEtapa")}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  Guardar Cambios
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Editar Subsector */}
+      <Dialog
+        open={modals.editSubsector}
+        onOpenChange={() => closeModal("editSubsector")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Subsector</DialogTitle>
+            {selectedSubsector && (
+              <p className="text-sm text-muted-foreground">
+                Editando: {selectedSubsector.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...subsectorForm}>
+            <form
+              onSubmit={subsectorForm.handleSubmit(onSubmitSubsector)}
+              className="space-y-4"
+            >
+              <FormField
+                control={subsectorForm.control}
+                name="nombre"
+                rules={{ required: "El nombre es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre del Subsector</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Subsector A - Zapatas"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subsectorForm.control}
+                name="descripcion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción del subsector..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subsectorForm.control}
+                name="ubicacion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ubicación (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Bloque A, Zona Norte..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("editSubsector")}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Guardar Cambios
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Editar Subfrente */}
+      <Dialog
+        open={modals.editSubfrente}
+        onOpenChange={() => closeModal("editSubfrente")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Subfrente</DialogTitle>
+            {selectedSubfrente && (
+              <p className="text-sm text-muted-foreground">
+                Editando: {selectedSubfrente.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...subfrenteForm}>
+            <form
+              onSubmit={subfrenteForm.handleSubmit(onSubmitSubfrente)}
+              className="space-y-4"
+            >
+              <FormField
+                control={subfrenteForm.control}
+                name="nombre"
+                rules={{ required: "El nombre es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre del Subfrente</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Subfrente Norte, Subfrente Principal"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subfrenteForm.control}
+                name="descripcion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción del subfrente..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subfrenteForm.control}
+                name="responsable"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Responsable (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Nombre del responsable del subfrente"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("editSubfrente")}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  Guardar Cambios
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Editar Subpartida */}
+      <Dialog
+        open={modals.editSubpartida}
+        onOpenChange={() => closeModal("editSubpartida")}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Subpartida</DialogTitle>
+            {selectedSubpartida && (
+              <p className="text-sm text-muted-foreground">
+                Editando: {selectedSubpartida.name}
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...subpartidaForm}>
+            <form
+              onSubmit={subpartidaForm.handleSubmit(onSubmitSubpartida)}
+              className="space-y-4"
+            >
+              <FormField
+                control={subpartidaForm.control}
+                name="codigo"
+                rules={{ required: "El código es requerido" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código de la Subpartida</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: SUB-EXC-001, SUB-ARM-002"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subpartidaForm.control}
+                name="descripcion"
+                rules={{ required: "La descripción es requerida" }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Ej: Sub-excavación masiva, Sub-armado de acero..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={subpartidaForm.control}
+                  name="unidad_medida"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Unidad de Medida</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ej: m3, kg, m2" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={subpartidaForm.control}
+                  name="cantidad"
+                  rules={{ required: "La cantidad es requerida" }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cantidad</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={subpartidaForm.control}
+                name="precio_unitario"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Precio Unitario (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => closeModal("editSubpartida")}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-red-600 hover:bg-red-700">
+                  Guardar Cambios
                 </Button>
               </DialogFooter>
             </form>

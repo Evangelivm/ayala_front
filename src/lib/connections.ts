@@ -1910,5 +1910,387 @@ export const programacionApi = {
   },
 };
 
+// ============ SUBPROYECTOS INTERFACES ============
+export interface SubproyectoData {
+  id_subproyecto?: number;
+  id_proyecto: number;
+  nombre: string;
+  descripcion?: string;
+  orden?: number;
+  activo?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  sub_etapas?: SubEtapaData[];
+}
+
+export interface SubEtapaData {
+  id_sub_etapa?: number;
+  id_subproyecto: number;
+  nombre: string;
+  descripcion?: string;
+  orden?: number;
+  activo?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  subsector?: SubsectorData[];
+}
+
+export interface SubsectorData {
+  id_subsector?: number;
+  id_sub_etapa: number;
+  nombre: string;
+  descripcion?: string;
+  ubicacion?: string;
+  orden?: number;
+  activo?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  subfrente?: SubfrenteData[];
+}
+
+export interface SubfrenteData {
+  id_subfrente?: number;
+  id_subsector: number;
+  nombre: string;
+  descripcion?: string;
+  responsable?: string;
+  orden?: number;
+  activo?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  subpartida?: SubpartidaData[];
+}
+
+export interface SubpartidaData {
+  id_subpartida?: number;
+  id_subfrente: number;
+  codigo: string;
+  descripcion: string;
+  unidad_medida?: string;
+  cantidad: number;
+  precio_unitario?: number;
+  total?: number;
+  orden?: number;
+  activo?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// ============ SUBPROYECTOS API ============
+export const subproyectosApi = {
+  // Obtener todos los subproyectos
+  getAll: async (): Promise<SubproyectoData[]> => {
+    try {
+      const response = await api.get("/subproyectos");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Subproyectos API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener subproyectos por proyecto
+  getByProyecto: async (idProyecto: number): Promise<SubproyectoData[]> => {
+    try {
+      const response = await api.get("/subproyectos", { params: { id_proyecto: idProyecto } });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Subproyectos API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener subproyecto por ID
+  getById: async (id: number): Promise<SubproyectoData> => {
+    try {
+      const response = await api.get(`/subproyectos/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Subproyectos API error:", error);
+      throw new Error("Subproyecto no encontrado");
+    }
+  },
+
+  // Crear nuevo subproyecto
+  create: async (data: Omit<SubproyectoData, "id_subproyecto" | "created_at" | "updated_at" | "sub_etapas">): Promise<SubproyectoData> => {
+    try {
+      const response = await api.post("/subproyectos", data);
+      return response.data;
+    } catch (error) {
+      console.error("Subproyectos API error:", error);
+      throw new Error("Error al crear subproyecto");
+    }
+  },
+
+  // Actualizar subproyecto
+  update: async (
+    id: number,
+    data: Partial<Omit<SubproyectoData, "id_subproyecto" | "created_at" | "updated_at" | "sub_etapas">>
+  ): Promise<SubproyectoData> => {
+    try {
+      const response = await api.patch(`/subproyectos/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Subproyectos API error:", error);
+      throw new Error("Error al actualizar subproyecto");
+    }
+  },
+
+  // Eliminar subproyecto (soft delete)
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/subproyectos/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Subproyectos API error:", error);
+      throw new Error("Error al eliminar subproyecto");
+    }
+  },
+};
+
+// ============ SUB-ETAPAS API ============
+export const subEtapasApi = {
+  // Obtener todas las sub-etapas
+  getAll: async (): Promise<SubEtapaData[]> => {
+    try {
+      const response = await api.get("/sub-etapas");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Sub-etapas API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener sub-etapas por subproyecto
+  getBySubproyecto: async (idSubproyecto: number): Promise<SubEtapaData[]> => {
+    try {
+      const response = await api.get("/sub-etapas", { params: { id_subproyecto: idSubproyecto } });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Sub-etapas API error:", error);
+      return [];
+    }
+  },
+
+  // Crear nueva sub-etapa
+  create: async (data: Omit<SubEtapaData, "id_sub_etapa" | "created_at" | "updated_at" | "subsector">): Promise<SubEtapaData> => {
+    try {
+      const response = await api.post("/sub-etapas", data);
+      return response.data;
+    } catch (error) {
+      console.error("Sub-etapas API error:", error);
+      throw new Error("Error al crear sub-etapa");
+    }
+  },
+
+  // Actualizar sub-etapa
+  update: async (
+    id: number,
+    data: Partial<Omit<SubEtapaData, "id_sub_etapa" | "created_at" | "updated_at" | "subsector">>
+  ): Promise<SubEtapaData> => {
+    try {
+      const response = await api.patch(`/sub-etapas/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Sub-etapas API error:", error);
+      throw new Error("Error al actualizar sub-etapa");
+    }
+  },
+
+  // Eliminar sub-etapa
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/sub-etapas/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Sub-etapas API error:", error);
+      throw new Error("Error al eliminar sub-etapa");
+    }
+  },
+};
+
+// ============ SUBSECTORES API ============
+export const subsectoresApi = {
+  // Obtener todos los subsectores
+  getAll: async (): Promise<SubsectorData[]> => {
+    try {
+      const response = await api.get("/subsectores");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Subsectores API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener subsectores por sub-etapa
+  getBySubEtapa: async (idSubEtapa: number): Promise<SubsectorData[]> => {
+    try {
+      const response = await api.get("/subsectores", { params: { id_sub_etapa: idSubEtapa } });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Subsectores API error:", error);
+      return [];
+    }
+  },
+
+  // Crear nuevo subsector
+  create: async (data: Omit<SubsectorData, "id_subsector" | "created_at" | "updated_at" | "subfrente">): Promise<SubsectorData> => {
+    try {
+      const response = await api.post("/subsectores", data);
+      return response.data;
+    } catch (error) {
+      console.error("Subsectores API error:", error);
+      throw new Error("Error al crear subsector");
+    }
+  },
+
+  // Actualizar subsector
+  update: async (
+    id: number,
+    data: Partial<Omit<SubsectorData, "id_subsector" | "created_at" | "updated_at" | "subfrente">>
+  ): Promise<SubsectorData> => {
+    try {
+      const response = await api.patch(`/subsectores/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Subsectores API error:", error);
+      throw new Error("Error al actualizar subsector");
+    }
+  },
+
+  // Eliminar subsector
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/subsectores/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Subsectores API error:", error);
+      throw new Error("Error al eliminar subsector");
+    }
+  },
+};
+
+// ============ SUBFRENTES API ============
+export const subfrentesApi = {
+  // Obtener todos los subfrentes
+  getAll: async (): Promise<SubfrenteData[]> => {
+    try {
+      const response = await api.get("/subfrentes");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Subfrentes API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener subfrentes por subsector
+  getBySubsector: async (idSubsector: number): Promise<SubfrenteData[]> => {
+    try {
+      const response = await api.get("/subfrentes", { params: { id_subsector: idSubsector } });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Subfrentes API error:", error);
+      return [];
+    }
+  },
+
+  // Crear nuevo subfrente
+  create: async (data: Omit<SubfrenteData, "id_subfrente" | "created_at" | "updated_at" | "subpartida">): Promise<SubfrenteData> => {
+    try {
+      const response = await api.post("/subfrentes", data);
+      return response.data;
+    } catch (error) {
+      console.error("Subfrentes API error:", error);
+      throw new Error("Error al crear subfrente");
+    }
+  },
+
+  // Actualizar subfrente
+  update: async (
+    id: number,
+    data: Partial<Omit<SubfrenteData, "id_subfrente" | "created_at" | "updated_at" | "subpartida">>
+  ): Promise<SubfrenteData> => {
+    try {
+      const response = await api.patch(`/subfrentes/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Subfrentes API error:", error);
+      throw new Error("Error al actualizar subfrente");
+    }
+  },
+
+  // Eliminar subfrente
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/subfrentes/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Subfrentes API error:", error);
+      throw new Error("Error al eliminar subfrente");
+    }
+  },
+};
+
+// ============ SUBPARTIDAS API ============
+export const subpartidasApi = {
+  // Obtener todas las subpartidas
+  getAll: async (): Promise<SubpartidaData[]> => {
+    try {
+      const response = await api.get("/subpartidas");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Subpartidas API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener subpartidas por subfrente
+  getBySubfrente: async (idSubfrente: number): Promise<SubpartidaData[]> => {
+    try {
+      const response = await api.get("/subpartidas", { params: { id_subfrente: idSubfrente } });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Subpartidas API error:", error);
+      return [];
+    }
+  },
+
+  // Crear nueva subpartida
+  create: async (data: Omit<SubpartidaData, "id_subpartida" | "created_at" | "updated_at">): Promise<SubpartidaData> => {
+    try {
+      const response = await api.post("/subpartidas", data);
+      return response.data;
+    } catch (error) {
+      console.error("Subpartidas API error:", error);
+      throw new Error("Error al crear subpartida");
+    }
+  },
+
+  // Actualizar subpartida
+  update: async (
+    id: number,
+    data: Partial<Omit<SubpartidaData, "id_subpartida" | "created_at" | "updated_at">>
+  ): Promise<SubpartidaData> => {
+    try {
+      const response = await api.patch(`/subpartidas/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Subpartidas API error:", error);
+      throw new Error("Error al actualizar subpartida");
+    }
+  },
+
+  // Eliminar subpartida
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/subpartidas/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Subpartidas API error:", error);
+      throw new Error("Error al eliminar subpartida");
+    }
+  },
+};
+
 // Exportar la instancia de axios para uso directo si es necesario
 export { api };
