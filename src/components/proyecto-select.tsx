@@ -5,17 +5,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { proyectosApi, type ProyectoData } from "@/lib/connections"
 
 interface ProyectoSelectProps {
-  value: string
-  onValueChange: (value: string) => void
+  value?: number
+  onChange: (id: number | undefined) => void
   onProyectoChange?: (proyecto: ProyectoData | null) => void
+  onNameChange?: (name: string) => void
   placeholder?: string
   className?: string
 }
 
 export function ProyectoSelect({
   value,
-  onValueChange,
+  onChange,
   onProyectoChange,
+  onNameChange,
   placeholder = "Seleccionar proyecto...",
   className,
 }: ProyectoSelectProps) {
@@ -30,7 +32,6 @@ export function ProyectoSelect({
         setProyectos(data)
       } catch (error) {
         console.error('Error fetching proyectos:', error)
-        // Fallback a datos vacíos en caso de error
         setProyectos([])
       } finally {
         setLoading(false)
@@ -41,11 +42,22 @@ export function ProyectoSelect({
   }, [])
 
   useEffect(() => {
-    if (value && onProyectoChange && proyectos.length > 0) {
-      const proyecto = proyectos.find(p => p.nombre === value) || null
-      onProyectoChange(proyecto)
+    if (value && proyectos.length > 0) {
+      const proyecto = proyectos.find(p => p.id === value) || null
+      if (onProyectoChange) {
+        onProyectoChange(proyecto)
+      }
+      if (onNameChange && proyecto) {
+        onNameChange(proyecto.nombre)
+      }
+    } else if (!value && onNameChange) {
+      onNameChange("")
     }
-  }, [value, onProyectoChange, proyectos])
+  }, [value, proyectos, onNameChange, onProyectoChange])
+
+  const handleValueChange = (val: string) => {
+    onChange(parseInt(val))
+  }
 
   if (loading) {
     return (
@@ -58,14 +70,13 @@ export function ProyectoSelect({
   }
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value ? value.toString() : undefined} onValueChange={handleValueChange}>
       <SelectTrigger className={className}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="default">-- Seleccionar --</SelectItem>
         {proyectos.map((proyecto) => (
-          <SelectItem key={proyecto.id} value={proyecto.nombre}>
+          <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
             {proyecto.nombre}
           </SelectItem>
         ))}

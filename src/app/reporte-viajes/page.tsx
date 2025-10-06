@@ -511,8 +511,8 @@ export default function DailyWorkReportViajes() {
                         PROYECTO
                       </label>
                       <ProyectoSelect
-                        value={headerData.proyecto}
-                        onValueChange={(value) => handleHeaderInputChange("proyecto", value)}
+                        value={headerData.proyecto ? Number(headerData.proyecto) : undefined}
+                        onChange={(value) => handleHeaderInputChange("proyecto", value?.toString() ?? "")}
                         onProyectoChange={setSelectedProyecto}
                         placeholder="Seleccionar proyecto..."
                         className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
@@ -555,9 +555,9 @@ export default function DailyWorkReportViajes() {
                         ETAPA
                       </label>
                       <EtapaSelect
-                        value={headerData.etapa}
-                        onValueChange={(value) => handleHeaderInputChange("etapa", value)}
-                        etapas={selectedProyecto?.etapas || []}
+                        value={headerData.etapa ? Number(headerData.etapa) : undefined}
+                        onChange={(value) => handleHeaderInputChange("etapa", value?.toString() ?? "")}
+                        idProyecto={headerData.proyecto ? Number(headerData.proyecto) : undefined}
                         placeholder="Seleccionar etapa..."
                         className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
                         disabled={!selectedProyecto}

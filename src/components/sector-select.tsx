@@ -8,71 +8,69 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { etapasApi, type EtapaData } from "@/lib/connections";
+import { sectoresApi, type SectorData } from "@/lib/connections";
 
-interface EtapaSelectProps {
+interface SectorSelectProps {
   value?: number;
   onChange: (id: number | undefined) => void;
   onNameChange?: (name: string) => void;
-  idProyecto?: number;
+  idEtapa?: number;
   placeholder?: string;
   className?: string;
-  disabled?: boolean;
 }
 
-export function EtapaSelect({
+export function SectorSelect({
   value,
   onChange,
   onNameChange,
-  idProyecto,
-  placeholder = "Seleccionar etapa...",
+  idEtapa,
+  placeholder = "Seleccionar sector...",
   className,
-  disabled = false,
-}: EtapaSelectProps) {
-  const [etapas, setEtapas] = useState<EtapaData[]>([]);
+}: SectorSelectProps) {
+  const [sectores, setSectores] = useState<SectorData[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!idProyecto) {
-      setEtapas([]);
+    if (!idEtapa) {
+      setSectores([]);
       if (onNameChange) onNameChange("");
       return;
     }
 
-    const fetchEtapas = async () => {
+    const fetchSectores = async () => {
       try {
         setLoading(true);
-        const data = await etapasApi.getByProyecto(idProyecto);
-        setEtapas(data);
+        const data = await sectoresApi.getByEtapa(idEtapa);
+        setSectores(data);
       } catch (error) {
-        console.error("Error fetching etapas:", error);
-        setEtapas([]);
+        console.error("Error fetching sectores:", error);
+        setSectores([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchEtapas();
-  }, [idProyecto]);
+    fetchSectores();
+  }, [idEtapa]);
 
   useEffect(() => {
-    if (value && etapas.length > 0 && onNameChange) {
-      const etapa = etapas.find(e => e.id_etapa === value);
-      onNameChange(etapa?.nombre || "");
+    if (value && sectores.length > 0 && onNameChange) {
+      const sector = sectores.find(s => s.id_sector === value);
+      onNameChange(sector?.nombre || "");
     } else if (!value && onNameChange) {
       onNameChange("");
     }
-  }, [value, etapas, onNameChange]);
+  }, [value, sectores, onNameChange]);
 
   const handleValueChange = (val: string) => {
     onChange(parseInt(val));
   };
 
-  if (!idProyecto) {
+  if (!idEtapa) {
     return (
       <Select disabled>
         <SelectTrigger className={className}>
-          <SelectValue placeholder="Seleccione primero un proyecto" />
+          <SelectValue placeholder="Seleccione primero una etapa" />
         </SelectTrigger>
       </Select>
     );
@@ -89,14 +87,14 @@ export function EtapaSelect({
   }
 
   return (
-    <Select value={value ? value.toString() : undefined} onValueChange={handleValueChange} disabled={disabled}>
+    <Select value={value ? value.toString() : undefined} onValueChange={handleValueChange}>
       <SelectTrigger className={className}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        {etapas.filter(e => e.id_etapa).map((etapa) => (
-          <SelectItem key={etapa.id_etapa} value={etapa.id_etapa!.toString()}>
-            {etapa.nombre}
+        {sectores.filter(s => s.id_sector).map((sector) => (
+          <SelectItem key={sector.id_sector} value={sector.id_sector!.toString()}>
+            {sector.nombre}
           </SelectItem>
         ))}
       </SelectContent>

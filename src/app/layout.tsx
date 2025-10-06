@@ -18,9 +18,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className="h-full" suppressHydrationWarning>
-      <body className={`${inter.className} h-full`}>
-        <main className="min-h-screen h-full flex flex-col">{children}</main>
+    <html lang="es" suppressHydrationWarning>
+      <body className={`${inter.className}`}>
+        <main>{children}</main>
         <Toaster position="top-right" richColors />
       </body>
     </html>

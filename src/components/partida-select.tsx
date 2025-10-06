@@ -8,71 +8,69 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { etapasApi, type EtapaData } from "@/lib/connections";
+import { partidasApi, type PartidaData } from "@/lib/connections";
 
-interface EtapaSelectProps {
+interface PartidaSelectProps {
   value?: number;
   onChange: (id: number | undefined) => void;
   onNameChange?: (name: string) => void;
-  idProyecto?: number;
+  idFrente?: number;
   placeholder?: string;
   className?: string;
-  disabled?: boolean;
 }
 
-export function EtapaSelect({
+export function PartidaSelect({
   value,
   onChange,
   onNameChange,
-  idProyecto,
-  placeholder = "Seleccionar etapa...",
+  idFrente,
+  placeholder = "Seleccionar partida...",
   className,
-  disabled = false,
-}: EtapaSelectProps) {
-  const [etapas, setEtapas] = useState<EtapaData[]>([]);
+}: PartidaSelectProps) {
+  const [partidas, setPartidas] = useState<PartidaData[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!idProyecto) {
-      setEtapas([]);
+    if (!idFrente) {
+      setPartidas([]);
       if (onNameChange) onNameChange("");
       return;
     }
 
-    const fetchEtapas = async () => {
+    const fetchPartidas = async () => {
       try {
         setLoading(true);
-        const data = await etapasApi.getByProyecto(idProyecto);
-        setEtapas(data);
+        const data = await partidasApi.getByFrente(idFrente);
+        setPartidas(data);
       } catch (error) {
-        console.error("Error fetching etapas:", error);
-        setEtapas([]);
+        console.error("Error fetching partidas:", error);
+        setPartidas([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchEtapas();
-  }, [idProyecto]);
+    fetchPartidas();
+  }, [idFrente]);
 
   useEffect(() => {
-    if (value && etapas.length > 0 && onNameChange) {
-      const etapa = etapas.find(e => e.id_etapa === value);
-      onNameChange(etapa?.nombre || "");
+    if (value && partidas.length > 0 && onNameChange) {
+      const partida = partidas.find(p => p.id_partida === value);
+      onNameChange(partida ? `${partida.codigo} - ${partida.descripcion}` : "");
     } else if (!value && onNameChange) {
       onNameChange("");
     }
-  }, [value, etapas, onNameChange]);
+  }, [value, partidas, onNameChange]);
 
   const handleValueChange = (val: string) => {
     onChange(parseInt(val));
   };
 
-  if (!idProyecto) {
+  if (!idFrente) {
     return (
       <Select disabled>
         <SelectTrigger className={className}>
-          <SelectValue placeholder="Seleccione primero un proyecto" />
+          <SelectValue placeholder="Seleccione primero un frente" />
         </SelectTrigger>
       </Select>
     );
@@ -89,14 +87,14 @@ export function EtapaSelect({
   }
 
   return (
-    <Select value={value ? value.toString() : undefined} onValueChange={handleValueChange} disabled={disabled}>
+    <Select value={value ? value.toString() : undefined} onValueChange={handleValueChange}>
       <SelectTrigger className={className}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        {etapas.filter(e => e.id_etapa).map((etapa) => (
-          <SelectItem key={etapa.id_etapa} value={etapa.id_etapa!.toString()}>
-            {etapa.nombre}
+        {partidas.filter(p => p.id_partida).map((partida) => (
+          <SelectItem key={partida.id_partida} value={partida.id_partida!.toString()}>
+            {partida.codigo} - {partida.descripcion}
           </SelectItem>
         ))}
       </SelectContent>

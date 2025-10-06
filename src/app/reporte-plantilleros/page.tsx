@@ -732,9 +732,9 @@ export default function ReporteDiarioPlantilleros() {
                     PROYECTO
                   </label>
                   <ProyectoSelect
-                    value={masterData.proyecto}
-                    onValueChange={(value) =>
-                      handleMasterInputChange("proyecto", value)
+                    value={masterData.proyecto ? Number(masterData.proyecto) : undefined}
+                    onChange={(value) =>
+                      handleMasterInputChange("proyecto", value?.toString() ?? "")
                     }
                     onProyectoChange={(proyecto) => {
                       setSelectedProyecto(proyecto);
@@ -815,12 +815,16 @@ export default function ReporteDiarioPlantilleros() {
                     ETAPA
                   </label>
                   <EtapaSelect
-                    value={masterData.etapa}
-                    onValueChange={(value) =>
-                      handleMasterInputChange("etapa", value)
-                    }
-                    onEtapaChange={(etapa) => setSelectedEtapa(etapa)}
-                    etapas={selectedProyecto?.etapas || []}
+                    value={masterData.etapa ? Number(masterData.etapa) : undefined}
+                    onChange={(value) => {
+                      handleMasterInputChange("etapa", value?.toString() ?? "");
+                      if (value && selectedProyecto?.etapas) {
+                        const etapa = selectedProyecto.etapas.find(e => e.id === value);
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        if (etapa) setSelectedEtapa(etapa as any);
+                      }
+                    }}
+                    idProyecto={masterData.proyecto ? Number(masterData.proyecto) : undefined}
                     placeholder="Seleccionar etapa..."
                     className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
                     disabled={!selectedProyecto}

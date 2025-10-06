@@ -952,9 +952,9 @@ export default function ReporteDiarioOperadores() {
                         PROYECTO
                       </label>
                       <ProyectoSelect
-                        value={masterData.proyecto || ""}
-                        onValueChange={(value) =>
-                          handleMasterInputChange("proyecto", value)
+                        value={masterData.proyecto ? Number(masterData.proyecto) : undefined}
+                        onChange={(value) =>
+                          handleMasterInputChange("proyecto", value?.toString() ?? "")
                         }
                         onProyectoChange={(proyecto) =>
                           setSelectedProyecto(proyecto)
@@ -1077,15 +1077,16 @@ export default function ReporteDiarioOperadores() {
                         ETAPA
                       </label>
                       <EtapaSelect
-                        value={masterData.etapa || ""}
-                        onValueChange={(value) =>
-                          handleMasterInputChange("etapa", value)
-                        }
-                        onEtapaChange={(etapa) => {
-                          console.log("Etapa seleccionada:", etapa);
-                          setSelectedEtapa(etapa);
+                        value={masterData.etapa ? Number(masterData.etapa) : undefined}
+                        onChange={(value) => {
+                          handleMasterInputChange("etapa", value?.toString() ?? "");
+                          const etapa = memoizedEtapas.find(e => e.id === value);
+                          if (etapa) {
+                            console.log("Etapa seleccionada:", etapa);
+                            setSelectedEtapa(etapa);
+                          }
                         }}
-                        etapas={memoizedEtapas}
+                        idProyecto={masterData.proyecto ? Number(masterData.proyecto) : undefined}
                         placeholder="Seleccionar etapa..."
                         className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
                         disabled={!selectedProyecto}
