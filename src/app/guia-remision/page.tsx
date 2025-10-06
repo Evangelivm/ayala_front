@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -492,6 +492,27 @@ export default function GuiaRemisionPage() {
       serie: tipoGRE === 7 ? "T001" : "V001",
     }));
   }, [tipoGRE]);
+
+  // Memoized callbacks for name changes
+  const handleProyectoNameChange = useCallback((name: string) => {
+    setSelectedNames((prev) => ({ ...prev, proyecto: name }));
+  }, []);
+
+  const handleEtapaNameChange = useCallback((name: string) => {
+    setSelectedNames((prev) => ({ ...prev, etapa: name }));
+  }, []);
+
+  const handleSectorNameChange = useCallback((name: string) => {
+    setSelectedNames((prev) => ({ ...prev, sector: name }));
+  }, []);
+
+  const handleFrenteNameChange = useCallback((name: string) => {
+    setSelectedNames((prev) => ({ ...prev, frente: name }));
+  }, []);
+
+  const handlePartidaNameChange = useCallback((name: string) => {
+    setSelectedNames((prev) => ({ ...prev, partida: name }));
+  }, []);
 
   // Actualizar observaciones cuando cambian los nombres seleccionados
   useEffect(() => {
@@ -1505,12 +1526,7 @@ export default function GuiaRemisionPage() {
                         handleInputChange("id_frente", undefined);
                         handleInputChange("id_partida", undefined);
                       }}
-                      onNameChange={(name) =>
-                        setSelectedNames((prev) => ({
-                          ...prev,
-                          proyecto: name,
-                        }))
-                      }
+                      onNameChange={handleProyectoNameChange}
                     />
                   </div>
 
@@ -1527,9 +1543,7 @@ export default function GuiaRemisionPage() {
                           handleInputChange("id_frente", undefined);
                           handleInputChange("id_partida", undefined);
                         }}
-                        onNameChange={(name) =>
-                          setSelectedNames((prev) => ({ ...prev, etapa: name }))
-                        }
+                        onNameChange={handleEtapaNameChange}
                       />
                     </div>
                   )}
@@ -1546,12 +1560,7 @@ export default function GuiaRemisionPage() {
                           handleInputChange("id_frente", undefined);
                           handleInputChange("id_partida", undefined);
                         }}
-                        onNameChange={(name) =>
-                          setSelectedNames((prev) => ({
-                            ...prev,
-                            sector: name,
-                          }))
-                        }
+                        onNameChange={handleSectorNameChange}
                       />
                     </div>
                   )}
@@ -1567,12 +1576,7 @@ export default function GuiaRemisionPage() {
                           // Limpiar selección dependiente
                           handleInputChange("id_partida", undefined);
                         }}
-                        onNameChange={(name) =>
-                          setSelectedNames((prev) => ({
-                            ...prev,
-                            frente: name,
-                          }))
-                        }
+                        onNameChange={handleFrenteNameChange}
                       />
                     </div>
                   )}
@@ -1584,12 +1588,7 @@ export default function GuiaRemisionPage() {
                         idFrente={formData.id_frente}
                         value={formData.id_partida}
                         onChange={(id) => handleInputChange("id_partida", id)}
-                        onNameChange={(name) =>
-                          setSelectedNames((prev) => ({
-                            ...prev,
-                            partida: name,
-                          }))
-                        }
+                        onNameChange={handlePartidaNameChange}
                       />
                     </div>
                   )}
