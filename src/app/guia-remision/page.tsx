@@ -74,7 +74,7 @@ export default function GuiaRemisionPage() {
   const [formData, setFormData] = useState({
     // Datos básicos
     operacion: "generar_guia",
-    serie: "T001",
+    serie: "T002",
     numero: 1,
     fecha_de_emision: new Date().toISOString().split("T")[0],
     fecha_de_inicio_de_traslado: new Date().toISOString().split("T")[0],
@@ -87,12 +87,12 @@ export default function GuiaRemisionPage() {
     cliente_email: "",
 
     // Traslado
-    motivo_de_traslado: "01", // Venta
+    motivo_de_traslado: "13", // Otros
     numero_de_bultos: 1,
 
     // Peso
     peso_bruto_total: 0,
-    peso_bruto_unidad_de_medida: "KGM",
+    peso_bruto_unidad_de_medida: "TNE",
 
     // Transporte
     transportista_placa_numero: "",
@@ -133,7 +133,7 @@ export default function GuiaRemisionPage() {
   // Items
   const [items, setItems] = useState<ItemGRE[]>([
     {
-      unidad_de_medida: "NIU",
+      unidad_de_medida: "MTR",
       codigo: "",
       descripcion: "",
       cantidad: 1,
@@ -155,7 +155,7 @@ export default function GuiaRemisionPage() {
     setItems([
       ...items,
       {
-        unidad_de_medida: "NIU",
+        unidad_de_medida: "MTR",
         codigo: "",
         descripcion: "",
         cantidad: 1,
@@ -408,7 +408,7 @@ export default function GuiaRemisionPage() {
   const resetForm = () => {
     setFormData({
       operacion: "generar_guia",
-      serie: tipoGRE === 7 ? "T001" : "V001",
+      serie: tipoGRE === 7 ? "T002" : "V001",
       numero: formData.numero + 1,
       fecha_de_emision: new Date().toISOString().split("T")[0],
       fecha_de_inicio_de_traslado: new Date().toISOString().split("T")[0],
@@ -417,10 +417,10 @@ export default function GuiaRemisionPage() {
       cliente_denominacion: "",
       cliente_direccion: "",
       cliente_email: "",
-      motivo_de_traslado: "01",
+      motivo_de_traslado: "13",
       numero_de_bultos: 1,
       peso_bruto_total: 0,
-      peso_bruto_unidad_de_medida: "KGM",
+      peso_bruto_unidad_de_medida: "TNE",
       transportista_placa_numero: "",
       transportista_documento_tipo: 6,
       transportista_documento_numero: "",
@@ -448,7 +448,7 @@ export default function GuiaRemisionPage() {
     });
     setItems([
       {
-        unidad_de_medida: "NIU",
+        unidad_de_medida: "MTR",
         codigo: "",
         descripcion: "",
         cantidad: 1,
@@ -489,7 +489,7 @@ export default function GuiaRemisionPage() {
   useEffect(() => {
     setFormData((prev) => ({
       ...prev,
-      serie: tipoGRE === 7 ? "T001" : "V001",
+      serie: tipoGRE === 7 ? "T002" : "V001",
     }));
   }, [tipoGRE]);
 
@@ -545,12 +545,12 @@ export default function GuiaRemisionPage() {
       <div className="max-w-7xl mx-auto pb-12">
         {/* Header */}
         <div className="mb-6">
-          <Link href="/home">
+          {/* <Link href="/home">
             <Button variant="ghost" size="sm" className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Volver al inicio
             </Button>
-          </Link>
+          </Link> */}
 
           <div className="flex items-center justify-between">
             <div>
@@ -569,7 +569,7 @@ export default function GuiaRemisionPage() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <Tabs
+          {/* <Tabs
             value={tipoGRE.toString()}
             onValueChange={(v) => setTipoGRE(parseInt(v))}
           >
@@ -582,7 +582,7 @@ export default function GuiaRemisionPage() {
                 <Truck className="h-4 w-4" />
                 GRE Transportista
               </TabsTrigger>
-            </TabsList>
+            </TabsList> */}
 
             {/* Contenido del formulario */}
             <div className="grid gap-6">
@@ -603,7 +603,7 @@ export default function GuiaRemisionPage() {
                       onChange={(e) =>
                         handleInputChange("serie", e.target.value)
                       }
-                      placeholder={tipoGRE === 7 ? "T001" : "V001"}
+                      placeholder={tipoGRE === 7 ? "T002" : "V001"}
                       maxLength={4}
                       required
                     />
@@ -663,9 +663,9 @@ export default function GuiaRemisionPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">DNI</SelectItem>
+                        {/* <SelectItem value="1">DNI</SelectItem> */}
                         <SelectItem value="6">RUC</SelectItem>
-                        <SelectItem value="4">Carnet de Extranjería</SelectItem>
+                        {/* <SelectItem value="4">Carnet de Extranjería</SelectItem> */}
                       </SelectContent>
                     </Select>
                   </div>
@@ -684,7 +684,7 @@ export default function GuiaRemisionPage() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <Label htmlFor="cliente_denom">Denominación *</Label>
+                    <Label htmlFor="cliente_denom">Razón Social *</Label>
                     <Input
                       id="cliente_denom"
                       value={formData.cliente_denominacion}
@@ -708,7 +708,7 @@ export default function GuiaRemisionPage() {
                       required
                     />
                   </div>
-                  <div>
+                  {/* <div>
                     <Label htmlFor="cliente_email">Email (Opcional)</Label>
                     <Input
                       id="cliente_email"
@@ -718,7 +718,7 @@ export default function GuiaRemisionPage() {
                         handleInputChange("cliente_email", e.target.value)
                       }
                     />
-                  </div>
+                  </div> */}
                 </CardContent>
               </Card>
 
@@ -741,20 +741,20 @@ export default function GuiaRemisionPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="01">Venta</SelectItem>
+                          {/* <SelectItem value="01">Venta</SelectItem>
                           <SelectItem value="02">Compra</SelectItem>
                           <SelectItem value="04">
                             Traslado entre establecimientos
                           </SelectItem>
                           <SelectItem value="08">Importación</SelectItem>
-                          <SelectItem value="09">Exportación</SelectItem>
+                          <SelectItem value="09">Exportación</SelectItem> */}
                           <SelectItem value="13">Otros</SelectItem>
-                          <SelectItem value="14">
+                          {/* <SelectItem value="14">
                             Venta sujeta a confirmación
                           </SelectItem>
                           <SelectItem value="18">
                             Traslado emisor itinerante CP
-                          </SelectItem>
+                          </SelectItem> */}
                         </SelectContent>
                       </Select>
                     </div>
@@ -772,6 +772,7 @@ export default function GuiaRemisionPage() {
                         }
                         min={1}
                         required
+                        disabled
                       />
                     </div>
 
@@ -785,7 +786,7 @@ export default function GuiaRemisionPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="01">Transporte Público</SelectItem>
+                          {/* <SelectItem value="01">Transporte Público</SelectItem> */}
                           <SelectItem value="02">Transporte Privado</SelectItem>
                         </SelectContent>
                       </Select>
@@ -843,7 +844,7 @@ export default function GuiaRemisionPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="KGM">Kilogramos (KGM)</SelectItem>
+                        {/* <SelectItem value="KGM">Kilogramos (KGM)</SelectItem> */}
                         <SelectItem value="TNE">Toneladas (TNE)</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1326,7 +1327,7 @@ export default function GuiaRemisionPage() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="NIU">
+                                {/* <SelectItem value="NIU">
                                   Unidad (NIU)
                                 </SelectItem>
                                 <SelectItem value="KGM">
@@ -1334,16 +1335,16 @@ export default function GuiaRemisionPage() {
                                 </SelectItem>
                                 <SelectItem value="TNE">
                                   Toneladas (TNE)
-                                </SelectItem>
+                                </SelectItem> */}
                                 <SelectItem value="MTR">
-                                  Metros (MTR)
+                                  Metros (M3)
                                 </SelectItem>
-                                <SelectItem value="LTR">
+                                {/* <SelectItem value="LTR">
                                   Litros (LTR)
                                 </SelectItem>
                                 <SelectItem value="ZZ">
                                   Servicio (ZZ)
-                                </SelectItem>
+                                </SelectItem> */}
                               </SelectContent>
                             </Select>
                           </div>
@@ -1395,8 +1396,8 @@ export default function GuiaRemisionPage() {
                 </CardContent>
               </Card>
 
-              {/* Documentos Relacionados */}
-              <Card>
+              {/* Documentos Relacionados - OCULTO */}
+              {/* <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span>Documentos Relacionados (Opcional)</span>
@@ -1503,7 +1504,7 @@ export default function GuiaRemisionPage() {
                     </p>
                   )}
                 </CardContent>
-              </Card>
+              </Card> */}
 
               {/* Proyecto (Opcional) */}
               <Card>
@@ -1644,7 +1645,7 @@ export default function GuiaRemisionPage() {
                 </Button>
               </div>
             </div>
-          </Tabs>
+          {/* </Tabs> */}
         </form>
       </div>
     </div>
