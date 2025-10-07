@@ -133,7 +133,7 @@ export default function GuiaRemisionPage() {
   // Items
   const [items, setItems] = useState<ItemGRE[]>([
     {
-      unidad_de_medida: "MTR",
+      unidad_de_medida: "ZZ",
       codigo: "",
       descripcion: "",
       cantidad: 1,
@@ -146,7 +146,10 @@ export default function GuiaRemisionPage() {
   >([]);
 
   // Manejo de cambios en el formulario
-  const handleInputChange = (field: string, value: string | number | undefined) => {
+  const handleInputChange = (
+    field: string,
+    value: string | number | undefined
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -155,7 +158,7 @@ export default function GuiaRemisionPage() {
     setItems([
       ...items,
       {
-        unidad_de_medida: "MTR",
+        unidad_de_medida: "ZZ",
         codigo: "",
         descripcion: "",
         cantidad: 1,
@@ -383,7 +386,18 @@ export default function GuiaRemisionPage() {
       }
 
       // Enviar a la API
-      const response = await guiasRemisionApi.create(guiaData as Omit<GuiaRemisionData, "id_guia" | "created_at" | "updated_at" | "estado_gre" | "enlace_del_pdf" | "enlace_del_xml" | "enlace_del_cdr">);
+      const response = await guiasRemisionApi.create(
+        guiaData as Omit<
+          GuiaRemisionData,
+          | "id_guia"
+          | "created_at"
+          | "updated_at"
+          | "estado_gre"
+          | "enlace_del_pdf"
+          | "enlace_del_xml"
+          | "enlace_del_cdr"
+        >
+      );
 
       toast.success("Guía de Remisión creada exitosamente", {
         description: `Serie: ${formData.serie}-${formData.numero}. El sistema procesará automáticamente la guía.`,
@@ -448,7 +462,7 @@ export default function GuiaRemisionPage() {
     });
     setItems([
       {
-        unidad_de_medida: "MTR",
+        unidad_de_medida: "ZZ",
         codigo: "",
         descripcion: "",
         cantidad: 1,
@@ -584,131 +598,123 @@ export default function GuiaRemisionPage() {
               </TabsTrigger>
             </TabsList> */}
 
-            {/* Contenido del formulario */}
-            <div className="grid gap-6">
-              {/* Datos Básicos */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Datos del Comprobante
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="serie">Serie *</Label>
-                    <Input
-                      id="serie"
-                      value={formData.serie}
-                      onChange={(e) =>
-                        handleInputChange("serie", e.target.value)
-                      }
-                      placeholder={tipoGRE === 7 ? "T002" : "V001"}
-                      maxLength={4}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="numero">Número *</Label>
-                    <Input
-                      id="numero"
-                      type="number"
-                      value={formData.numero}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "numero",
-                          parseInt(e.target.value) || 1
-                        )
-                      }
-                      required
-                      min={1}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="fecha_emision">Fecha de Emisión *</Label>
-                    <Input
-                      id="fecha_emision"
-                      type="date"
-                      value={formData.fecha_de_emision}
-                      onChange={(e) =>
-                        handleInputChange("fecha_de_emision", e.target.value)
-                      }
-                      required
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+          {/* Contenido del formulario */}
+          <div className="grid gap-6">
+            {/* Datos Básicos */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Datos del Comprobante
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="serie">Serie *</Label>
+                  <Input
+                    id="serie"
+                    value={formData.serie}
+                    onChange={(e) => handleInputChange("serie", e.target.value)}
+                    placeholder={tipoGRE === 7 ? "T002" : "V001"}
+                    maxLength={4}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="numero">Número *</Label>
+                  <Input
+                    id="numero"
+                    type="number"
+                    value={formData.numero}
+                    onChange={(e) =>
+                      handleInputChange("numero", parseInt(e.target.value) || 1)
+                    }
+                    required
+                    min={1}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="fecha_emision">Fecha de Emisión *</Label>
+                  <Input
+                    id="fecha_emision"
+                    type="date"
+                    value={formData.fecha_de_emision}
+                    onChange={(e) =>
+                      handleInputChange("fecha_de_emision", e.target.value)
+                    }
+                    required
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Cliente/Destinatario */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    {tipoGRE === 7 ? "Destinatario" : "Remitente"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Tipo de Documento *</Label>
-                    <Select
-                      value={formData.cliente_tipo_de_documento.toString()}
-                      onValueChange={(v) =>
-                        handleInputChange(
-                          "cliente_tipo_de_documento",
-                          parseInt(v)
-                        )
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {/* <SelectItem value="1">DNI</SelectItem> */}
-                        <SelectItem value="6">RUC</SelectItem>
-                        {/* <SelectItem value="4">Carnet de Extranjería</SelectItem> */}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="cliente_doc">Número de Documento *</Label>
-                    <Input
-                      id="cliente_doc"
-                      value={formData.cliente_numero_de_documento}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "cliente_numero_de_documento",
-                          e.target.value
-                        )
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <Label htmlFor="cliente_denom">Razón Social *</Label>
-                    <Input
-                      id="cliente_denom"
-                      value={formData.cliente_denominacion}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "cliente_denominacion",
-                          e.target.value
-                        )
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <Label htmlFor="cliente_dir">Dirección *</Label>
-                    <Input
-                      id="cliente_dir"
-                      value={formData.cliente_direccion}
-                      onChange={(e) =>
-                        handleInputChange("cliente_direccion", e.target.value)
-                      }
-                      required
-                    />
-                  </div>
-                  {/* <div>
+            {/* Cliente/Destinatario */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  {tipoGRE === 7 ? "Destinatario" : "Remitente"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Tipo de Documento *</Label>
+                  <Select
+                    value={formData.cliente_tipo_de_documento.toString()}
+                    onValueChange={(v) =>
+                      handleInputChange(
+                        "cliente_tipo_de_documento",
+                        parseInt(v)
+                      )
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* <SelectItem value="1">DNI</SelectItem> */}
+                      <SelectItem value="6">RUC</SelectItem>
+                      {/* <SelectItem value="4">Carnet de Extranjería</SelectItem> */}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="cliente_doc">Número de Documento *</Label>
+                  <Input
+                    id="cliente_doc"
+                    value={formData.cliente_numero_de_documento}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "cliente_numero_de_documento",
+                        e.target.value
+                      )
+                    }
+                    required
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="cliente_denom">Razón Social *</Label>
+                  <Input
+                    id="cliente_denom"
+                    value={formData.cliente_denominacion}
+                    onChange={(e) =>
+                      handleInputChange("cliente_denominacion", e.target.value)
+                    }
+                    required
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="cliente_dir">Dirección *</Label>
+                  <Input
+                    id="cliente_dir"
+                    value={formData.cliente_direccion}
+                    onChange={(e) =>
+                      handleInputChange("cliente_direccion", e.target.value)
+                    }
+                    required
+                  />
+                </div>
+                {/* <div>
                     <Label htmlFor="cliente_email">Email (Opcional)</Label>
                     <Input
                       id="cliente_email"
@@ -719,113 +725,195 @@ export default function GuiaRemisionPage() {
                       }
                     />
                   </div> */}
-                </CardContent>
-              </Card>
+              </CardContent>
+            </Card>
 
-              {/* Traslado - Solo para GRE Remitente */}
-              {tipoGRE === 7 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Datos del Traslado</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid md:grid-cols-3 gap-4">
-                    <div>
-                      <Label>Motivo de Traslado *</Label>
-                      <Select
-                        value={formData.motivo_de_traslado}
-                        onValueChange={(v) =>
-                          handleInputChange("motivo_de_traslado", v)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {/* <SelectItem value="01">Venta</SelectItem>
+            {/* Traslado - Solo para GRE Remitente */}
+            {tipoGRE === 7 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Datos del Traslado</CardTitle>
+                </CardHeader>
+                <CardContent className="grid md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Motivo de Traslado *</Label>
+                    <Select
+                      value={formData.motivo_de_traslado}
+                      onValueChange={(v) =>
+                        handleInputChange("motivo_de_traslado", v)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* <SelectItem value="01">Venta</SelectItem>
                           <SelectItem value="02">Compra</SelectItem>
                           <SelectItem value="04">
                             Traslado entre establecimientos
                           </SelectItem>
                           <SelectItem value="08">Importación</SelectItem>
                           <SelectItem value="09">Exportación</SelectItem> */}
-                          <SelectItem value="13">Otros</SelectItem>
-                          {/* <SelectItem value="14">
+                        <SelectItem value="13">Otros</SelectItem>
+                        {/* <SelectItem value="14">
                             Venta sujeta a confirmación
                           </SelectItem>
                           <SelectItem value="18">
                             Traslado emisor itinerante CP
                           </SelectItem> */}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                    <div>
-                      <Label>Número de Bultos *</Label>
-                      <Input
-                        type="number"
-                        value={formData.numero_de_bultos}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "numero_de_bultos",
-                            parseInt(e.target.value) || 1
-                          )
-                        }
-                        min={1}
-                        required
-                        disabled
-                      />
-                    </div>
+                  <div>
+                    <Label>Número de Bultos *</Label>
+                    <Input
+                      type="number"
+                      value={formData.numero_de_bultos}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "numero_de_bultos",
+                          parseInt(e.target.value) || 1
+                        )
+                      }
+                      min={1}
+                      required
+                      disabled
+                    />
+                  </div>
 
-                    <div>
-                      <Label>Tipo de Transporte *</Label>
-                      <Select
-                        value={tipoTransporte}
-                        onValueChange={setTipoTransporte}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {/* <SelectItem value="01">Transporte Público</SelectItem> */}
-                          <SelectItem value="02">Transporte Privado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div>
+                    <Label>Tipo de Transporte *</Label>
+                    <Select
+                      value={tipoTransporte}
+                      onValueChange={setTipoTransporte}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* <SelectItem value="01">Transporte Público</SelectItem> */}
+                        <SelectItem value="02">Transporte Privado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                    <div>
-                      <Label>Fecha Inicio Traslado *</Label>
-                      <Input
-                        type="date"
-                        value={formData.fecha_de_inicio_de_traslado}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "fecha_de_inicio_de_traslado",
-                            e.target.value
-                          )
-                        }
-                        required
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                  <div>
+                    <Label>Fecha Inicio Traslado *</Label>
+                    <Input
+                      type="date"
+                      value={formData.fecha_de_inicio_de_traslado}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "fecha_de_inicio_de_traslado",
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-              {/* Peso y Medidas */}
+            {/* Peso y Medidas */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Peso de la Carga</CardTitle>
+              </CardHeader>
+              <CardContent className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Peso Bruto Total *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.peso_bruto_total}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "peso_bruto_total",
+                        parseFloat(e.target.value) || 0
+                      )
+                    }
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label>Unidad de Medida *</Label>
+                  <Select
+                    value={formData.peso_bruto_unidad_de_medida}
+                    onValueChange={(v) =>
+                      handleInputChange("peso_bruto_unidad_de_medida", v)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* <SelectItem value="KGM">Kilogramos (KGM)</SelectItem> */}
+                      <SelectItem value="TNE">Toneladas (TNE)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Transportista - Solo para transporte público */}
+            {tipoGRE === 7 && tipoTransporte === "01" && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Peso de la Carga</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Truck className="h-5 w-5" />
+                    Datos del Transportista
+                  </CardTitle>
+                  <CardDescription>
+                    Obligatorio para transporte público
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Peso Bruto Total *</Label>
+                    <Label>Tipo Documento *</Label>
+                    <Select
+                      value={formData.transportista_documento_tipo.toString()}
+                      onValueChange={(v) =>
+                        handleInputChange(
+                          "transportista_documento_tipo",
+                          parseInt(v)
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="6">RUC</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>RUC Transportista *</Label>
                     <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.peso_bruto_total}
+                      value={formData.transportista_documento_numero}
                       onChange={(e) =>
                         handleInputChange(
-                          "peso_bruto_total",
-                          parseFloat(e.target.value) || 0
+                          "transportista_documento_numero",
+                          e.target.value
+                        )
+                      }
+                      maxLength={11}
+                      required
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label>Razón Social *</Label>
+                    <Input
+                      value={formData.transportista_denominacion}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "transportista_denominacion",
+                          e.target.value
                         )
                       }
                       required
@@ -833,501 +921,408 @@ export default function GuiaRemisionPage() {
                   </div>
 
                   <div>
-                    <Label>Unidad de Medida *</Label>
+                    <Label>Placa del Vehículo *</Label>
+                    <Input
+                      value={formData.transportista_placa_numero}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "transportista_placa_numero",
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Placa para transporte privado */}
+            {tipoGRE === 7 && tipoTransporte === "02" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Vehículo</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div>
+                    <Label>Placa del Vehículo *</Label>
+                    <Input
+                      value={formData.transportista_placa_numero}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "transportista_placa_numero",
+                          e.target.value
+                        )
+                      }
+                      placeholder="ABC-123"
+                      required
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Placa para GRE Transportista */}
+            {tipoGRE === 8 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Vehículo</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div>
+                    <Label>Placa del Vehículo *</Label>
+                    <Input
+                      value={formData.transportista_placa_numero}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "transportista_placa_numero",
+                          e.target.value
+                        )
+                      }
+                      placeholder="ABC-123"
+                      required
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Conductor - Para transporte privado o GRE Transportista */}
+            {(tipoGRE === 8 || (tipoGRE === 7 && tipoTransporte === "02")) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Datos del Conductor
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Tipo Documento *</Label>
                     <Select
-                      value={formData.peso_bruto_unidad_de_medida}
+                      value={formData.conductor_documento_tipo.toString()}
                       onValueChange={(v) =>
-                        handleInputChange("peso_bruto_unidad_de_medida", v)
+                        handleInputChange(
+                          "conductor_documento_tipo",
+                          parseInt(v)
+                        )
                       }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {/* <SelectItem value="KGM">Kilogramos (KGM)</SelectItem> */}
-                        <SelectItem value="TNE">Toneladas (TNE)</SelectItem>
+                        <SelectItem value="1">DNI</SelectItem>
+                        <SelectItem value="4">Carnet de Extranjería</SelectItem>
+                        <SelectItem value="7">Pasaporte</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div>
+                    <Label>Número de Documento *</Label>
+                    <Input
+                      value={formData.conductor_documento_numero}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "conductor_documento_numero",
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Nombres *</Label>
+                    <Input
+                      value={formData.conductor_nombre}
+                      onChange={(e) =>
+                        handleInputChange("conductor_nombre", e.target.value)
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Apellidos *</Label>
+                    <Input
+                      value={formData.conductor_apellidos}
+                      onChange={(e) =>
+                        handleInputChange("conductor_apellidos", e.target.value)
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Número de Licencia *</Label>
+                    <Input
+                      value={formData.conductor_numero_licencia}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "conductor_numero_licencia",
+                          e.target.value
+                        )
+                      }
+                      placeholder="Q12345678"
+                      required
+                    />
+                  </div>
                 </CardContent>
               </Card>
+            )}
 
-              {/* Transportista - Solo para transporte público */}
-              {tipoGRE === 7 && tipoTransporte === "01" && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Truck className="h-5 w-5" />
-                      Datos del Transportista
-                    </CardTitle>
-                    <CardDescription>
-                      Obligatorio para transporte público
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Tipo Documento *</Label>
-                      <Select
-                        value={formData.transportista_documento_tipo.toString()}
-                        onValueChange={(v) =>
-                          handleInputChange(
-                            "transportista_documento_tipo",
-                            parseInt(v)
-                          )
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="6">RUC</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>RUC Transportista *</Label>
-                      <Input
-                        value={formData.transportista_documento_numero}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "transportista_documento_numero",
-                            e.target.value
-                          )
-                        }
-                        maxLength={11}
-                        required
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <Label>Razón Social *</Label>
-                      <Input
-                        value={formData.transportista_denominacion}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "transportista_denominacion",
-                            e.target.value
-                          )
-                        }
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Placa del Vehículo *</Label>
-                      <Input
-                        value={formData.transportista_placa_numero}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "transportista_placa_numero",
-                            e.target.value
-                          )
-                        }
-                        required
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Placa para transporte privado */}
-              {tipoGRE === 7 && tipoTransporte === "02" && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Vehículo</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div>
-                      <Label>Placa del Vehículo *</Label>
-                      <Input
-                        value={formData.transportista_placa_numero}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "transportista_placa_numero",
-                            e.target.value
-                          )
-                        }
-                        placeholder="ABC-123"
-                        required
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Placa para GRE Transportista */}
-              {tipoGRE === 8 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Vehículo</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div>
-                      <Label>Placa del Vehículo *</Label>
-                      <Input
-                        value={formData.transportista_placa_numero}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "transportista_placa_numero",
-                            e.target.value
-                          )
-                        }
-                        placeholder="ABC-123"
-                        required
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Conductor - Para transporte privado o GRE Transportista */}
-              {(tipoGRE === 8 ||
-                (tipoGRE === 7 && tipoTransporte === "02")) && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="h-5 w-5" />
-                      Datos del Conductor
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Tipo Documento *</Label>
-                      <Select
-                        value={formData.conductor_documento_tipo.toString()}
-                        onValueChange={(v) =>
-                          handleInputChange(
-                            "conductor_documento_tipo",
-                            parseInt(v)
-                          )
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">DNI</SelectItem>
-                          <SelectItem value="4">
-                            Carnet de Extranjería
-                          </SelectItem>
-                          <SelectItem value="7">Pasaporte</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Número de Documento *</Label>
-                      <Input
-                        value={formData.conductor_documento_numero}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "conductor_documento_numero",
-                            e.target.value
-                          )
-                        }
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Nombres *</Label>
-                      <Input
-                        value={formData.conductor_nombre}
-                        onChange={(e) =>
-                          handleInputChange("conductor_nombre", e.target.value)
-                        }
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Apellidos *</Label>
-                      <Input
-                        value={formData.conductor_apellidos}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "conductor_apellidos",
-                            e.target.value
-                          )
-                        }
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Número de Licencia *</Label>
-                      <Input
-                        value={formData.conductor_numero_licencia}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "conductor_numero_licencia",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Q12345678"
-                        required
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Destinatario - Solo para GRE Transportista */}
-              {tipoGRE === 8 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Datos del Destinatario</CardTitle>
-                    <CardDescription>
-                      Obligatorio para GRE Transportista
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Tipo Documento *</Label>
-                      <Select
-                        value={formData.destinatario_documento_tipo.toString()}
-                        onValueChange={(v) =>
-                          handleInputChange(
-                            "destinatario_documento_tipo",
-                            parseInt(v)
-                          )
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">DNI</SelectItem>
-                          <SelectItem value="6">RUC</SelectItem>
-                          <SelectItem value="4">
-                            Carnet de Extranjería
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Número de Documento *</Label>
-                      <Input
-                        value={formData.destinatario_documento_numero}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "destinatario_documento_numero",
-                            e.target.value
-                          )
-                        }
-                        required
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <Label>Denominación *</Label>
-                      <Input
-                        value={formData.destinatario_denominacion}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "destinatario_denominacion",
-                            e.target.value
-                          )
-                        }
-                        required
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Ubicaciones */}
+            {/* Destinatario - Solo para GRE Transportista */}
+            {tipoGRE === 8 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    Punto de Partida y Llegada
-                  </CardTitle>
+                  <CardTitle>Datos del Destinatario</CardTitle>
+                  <CardDescription>
+                    Obligatorio para GRE Transportista
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="grid md:grid-cols-2 gap-6">
-                  {/* Punto de Partida */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
-                      Punto de Partida
-                    </h3>
-
-                    <div>
-                      <Label>Ubigeo (6 dígitos) *</Label>
-                      <Input
-                        value={formData.punto_de_partida_ubigeo}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "punto_de_partida_ubigeo",
-                            e.target.value
-                          )
-                        }
-                        placeholder="150101"
-                        maxLength={6}
-                        required
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Ejemplo: 150101 (Lima - Lima - Lima)
-                      </p>
-                    </div>
-
-                    <div>
-                      <Label>Dirección *</Label>
-                      <Textarea
-                        value={formData.punto_de_partida_direccion}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "punto_de_partida_direccion",
-                            e.target.value
-                          )
-                        }
-                        required
-                      />
-                    </div>
-
-                    {/* Código establecimiento SUNAT - Solo para motivos 04 y 18 */}
-                    {tipoGRE === 7 &&
-                      (formData.motivo_de_traslado === "04" ||
-                        formData.motivo_de_traslado === "18") && (
-                        <div>
-                          <Label>Código Establecimiento SUNAT</Label>
-                          <Input
-                            value={
-                              formData.punto_de_partida_codigo_establecimiento_sunat
-                            }
-                            onChange={(e) =>
-                              handleInputChange(
-                                "punto_de_partida_codigo_establecimiento_sunat",
-                                e.target.value
-                              )
-                            }
-                            placeholder="0000"
-                            maxLength={4}
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Requerido para motivos 04 y 18. Ejemplo: 0000
-                          </p>
-                        </div>
-                      )}
-                  </div>
-
-                  {/* Punto de Llegada */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
-                      Punto de Llegada
-                    </h3>
-
-                    <div>
-                      <Label>Ubigeo (6 dígitos) *</Label>
-                      <Input
-                        value={formData.punto_de_llegada_ubigeo}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "punto_de_llegada_ubigeo",
-                            e.target.value
-                          )
-                        }
-                        placeholder="150101"
-                        maxLength={6}
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Dirección *</Label>
-                      <Textarea
-                        value={formData.punto_de_llegada_direccion}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "punto_de_llegada_direccion",
-                            e.target.value
-                          )
-                        }
-                        required
-                      />
-                    </div>
-
-                    {/* Código establecimiento SUNAT - Solo para motivos 04 y 18 */}
-                    {tipoGRE === 7 &&
-                      (formData.motivo_de_traslado === "04" ||
-                        formData.motivo_de_traslado === "18") && (
-                        <div>
-                          <Label>Código Establecimiento SUNAT</Label>
-                          <Input
-                            value={
-                              formData.punto_de_llegada_codigo_establecimiento_sunat
-                            }
-                            onChange={(e) =>
-                              handleInputChange(
-                                "punto_de_llegada_codigo_establecimiento_sunat",
-                                e.target.value
-                              )
-                            }
-                            placeholder="0000"
-                            maxLength={4}
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Requerido para motivos 04 y 18. Ejemplo: 0000
-                          </p>
-                        </div>
-                      )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Items / Productos */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Package className="h-5 w-5" />
-                      Productos a Transportar
-                    </span>
-                    <Button
-                      type="button"
-                      onClick={addItem}
-                      variant="outline"
-                      size="sm"
+                <CardContent className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Tipo Documento *</Label>
+                    <Select
+                      value={formData.destinatario_documento_tipo.toString()}
+                      onValueChange={(v) =>
+                        handleInputChange(
+                          "destinatario_documento_tipo",
+                          parseInt(v)
+                        )
+                      }
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Agregar Item
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {items.map((item, index) => (
-                      <div
-                        key={index}
-                        className="border rounded-lg p-4 relative"
-                      >
-                        {items.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeItem(index)}
-                            className="absolute top-2 right-2"
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        )}
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">DNI</SelectItem>
+                        <SelectItem value="6">RUC</SelectItem>
+                        <SelectItem value="4">Carnet de Extranjería</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                        <div className="grid md:grid-cols-4 gap-4">
-                          <div>
-                            <Label>Unidad de Medida *</Label>
-                            <Select
-                              value={item.unidad_de_medida}
-                              onValueChange={(v) =>
-                                updateItem(index, "unidad_de_medida", v)
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {/* <SelectItem value="NIU">
+                  <div>
+                    <Label>Número de Documento *</Label>
+                    <Input
+                      value={formData.destinatario_documento_numero}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "destinatario_documento_numero",
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label>Denominación *</Label>
+                    <Input
+                      value={formData.destinatario_denominacion}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "destinatario_denominacion",
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Ubicaciones */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Punto de Partida y Llegada
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid md:grid-cols-2 gap-6">
+                {/* Punto de Partida */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
+                    Punto de Partida
+                  </h3>
+
+                  <div>
+                    <Label>Ubigeo (6 dígitos) *</Label>
+                    <Input
+                      value={formData.punto_de_partida_ubigeo}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "punto_de_partida_ubigeo",
+                          e.target.value
+                        )
+                      }
+                      placeholder="150101"
+                      maxLength={6}
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Ejemplo: 150101 (Lima - Lima - Lima)
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label>Dirección *</Label>
+                    <Textarea
+                      value={formData.punto_de_partida_direccion}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "punto_de_partida_direccion",
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+
+                  {/* Código establecimiento SUNAT - Solo para motivos 04 y 18 */}
+                  {tipoGRE === 7 &&
+                    (formData.motivo_de_traslado === "04" ||
+                      formData.motivo_de_traslado === "18") && (
+                      <div>
+                        <Label>Código Establecimiento SUNAT</Label>
+                        <Input
+                          value={
+                            formData.punto_de_partida_codigo_establecimiento_sunat
+                          }
+                          onChange={(e) =>
+                            handleInputChange(
+                              "punto_de_partida_codigo_establecimiento_sunat",
+                              e.target.value
+                            )
+                          }
+                          placeholder="0000"
+                          maxLength={4}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Requerido para motivos 04 y 18. Ejemplo: 0000
+                        </p>
+                      </div>
+                    )}
+                </div>
+
+                {/* Punto de Llegada */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
+                    Punto de Llegada
+                  </h3>
+
+                  <div>
+                    <Label>Ubigeo (6 dígitos) *</Label>
+                    <Input
+                      value={formData.punto_de_llegada_ubigeo}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "punto_de_llegada_ubigeo",
+                          e.target.value
+                        )
+                      }
+                      placeholder="150101"
+                      maxLength={6}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Dirección *</Label>
+                    <Textarea
+                      value={formData.punto_de_llegada_direccion}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "punto_de_llegada_direccion",
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+
+                  {/* Código establecimiento SUNAT - Solo para motivos 04 y 18 */}
+                  {tipoGRE === 7 &&
+                    (formData.motivo_de_traslado === "04" ||
+                      formData.motivo_de_traslado === "18") && (
+                      <div>
+                        <Label>Código Establecimiento SUNAT</Label>
+                        <Input
+                          value={
+                            formData.punto_de_llegada_codigo_establecimiento_sunat
+                          }
+                          onChange={(e) =>
+                            handleInputChange(
+                              "punto_de_llegada_codigo_establecimiento_sunat",
+                              e.target.value
+                            )
+                          }
+                          placeholder="0000"
+                          maxLength={4}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Requerido para motivos 04 y 18. Ejemplo: 0000
+                        </p>
+                      </div>
+                    )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Items / Productos */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Productos a Transportar
+                  </span>
+                  <Button
+                    type="button"
+                    onClick={addItem}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agregar Item
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {items.map((item, index) => (
+                    <div key={index} className="border rounded-lg p-4 relative">
+                      {items.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem(index)}
+                          className="absolute top-2 right-2"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      )}
+
+                      <div className="grid md:grid-cols-4 gap-4">
+                        <div>
+                          <Label>Unidad de Medida *</Label>
+                          <Select
+                            value={item.unidad_de_medida}
+                            onValueChange={(v) =>
+                              updateItem(index, "unidad_de_medida", v)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {/* <SelectItem value="NIU">
                                   Unidad (NIU)
                                 </SelectItem>
                                 <SelectItem value="KGM">
@@ -1336,68 +1331,66 @@ export default function GuiaRemisionPage() {
                                 <SelectItem value="TNE">
                                   Toneladas (TNE)
                                 </SelectItem> */}
-                                <SelectItem value="MTR">
-                                  Metros (M3)
-                                </SelectItem>
-                                {/* <SelectItem value="LTR">
+                              <SelectItem value="ZZ">Metros (M3)</SelectItem>
+                              {/* <SelectItem value="LTR">
                                   Litros (LTR)
                                 </SelectItem>
                                 <SelectItem value="ZZ">
                                   Servicio (ZZ)
                                 </SelectItem> */}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                          <div>
-                            <Label>Código</Label>
-                            <Input
-                              value={item.codigo}
-                              onChange={(e) =>
-                                updateItem(index, "codigo", e.target.value)
-                              }
-                              placeholder="Opcional"
-                            />
-                          </div>
+                        <div>
+                          <Label>Código</Label>
+                          <Input
+                            value={item.codigo}
+                            onChange={(e) =>
+                              updateItem(index, "codigo", e.target.value)
+                            }
+                            placeholder="Opcional"
+                          />
+                        </div>
 
-                          <div className="md:col-span-2">
-                            <Label>Descripción *</Label>
-                            <Input
-                              value={item.descripcion}
-                              onChange={(e) =>
-                                updateItem(index, "descripcion", e.target.value)
-                              }
-                              placeholder="Descripción del producto"
-                              required
-                            />
-                          </div>
+                        <div className="md:col-span-2">
+                          <Label>Descripción *</Label>
+                          <Input
+                            value={item.descripcion}
+                            onChange={(e) =>
+                              updateItem(index, "descripcion", e.target.value)
+                            }
+                            placeholder="Descripción del producto"
+                            required
+                          />
+                        </div>
 
-                          <div>
-                            <Label>Cantidad *</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={item.cantidad}
-                              onChange={(e) =>
-                                updateItem(
-                                  index,
-                                  "cantidad",
-                                  parseFloat(e.target.value) || 1
-                                )
-                              }
-                              min={0.01}
-                              required
-                            />
-                          </div>
+                        <div>
+                          <Label>Cantidad *</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={item.cantidad}
+                            onChange={(e) =>
+                              updateItem(
+                                index,
+                                "cantidad",
+                                parseFloat(e.target.value) || 1
+                              )
+                            }
+                            min={0.01}
+                            required
+                          />
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Documentos Relacionados - OCULTO */}
-              {/* <Card>
+            {/* Documentos Relacionados - OCULTO */}
+            {/* <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span>Documentos Relacionados (Opcional)</span>
@@ -1506,145 +1499,145 @@ export default function GuiaRemisionPage() {
                 </CardContent>
               </Card> */}
 
-              {/* Proyecto (Opcional) */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    Relacionar con Proyecto (Opcional)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid md:grid-cols-3 gap-4">
+            {/* Proyecto (Opcional) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Relacionar con Proyecto (Opcional)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Proyecto</Label>
+                  <ProyectoSelect
+                    value={formData.id_proyecto}
+                    onChange={(id) => {
+                      handleInputChange("id_proyecto", id);
+                      // Limpiar selecciones dependientes
+                      handleInputChange("id_etapa", undefined);
+                      handleInputChange("id_sector", undefined);
+                      handleInputChange("id_frente", undefined);
+                      handleInputChange("id_partida", undefined);
+                    }}
+                    onNameChange={handleProyectoNameChange}
+                  />
+                </div>
+
+                {formData.id_proyecto && (
                   <div>
-                    <Label>Proyecto</Label>
-                    <ProyectoSelect
-                      value={formData.id_proyecto}
+                    <Label>Etapa</Label>
+                    <EtapaSelect
+                      idProyecto={formData.id_proyecto}
+                      value={formData.id_etapa}
                       onChange={(id) => {
-                        handleInputChange("id_proyecto", id);
+                        handleInputChange("id_etapa", id);
                         // Limpiar selecciones dependientes
-                        handleInputChange("id_etapa", undefined);
                         handleInputChange("id_sector", undefined);
                         handleInputChange("id_frente", undefined);
                         handleInputChange("id_partida", undefined);
                       }}
-                      onNameChange={handleProyectoNameChange}
+                      onNameChange={handleEtapaNameChange}
                     />
                   </div>
+                )}
 
-                  {formData.id_proyecto && (
-                    <div>
-                      <Label>Etapa</Label>
-                      <EtapaSelect
-                        idProyecto={formData.id_proyecto}
-                        value={formData.id_etapa}
-                        onChange={(id) => {
-                          handleInputChange("id_etapa", id);
-                          // Limpiar selecciones dependientes
-                          handleInputChange("id_sector", undefined);
-                          handleInputChange("id_frente", undefined);
-                          handleInputChange("id_partida", undefined);
-                        }}
-                        onNameChange={handleEtapaNameChange}
-                      />
-                    </div>
-                  )}
+                {formData.id_etapa && (
+                  <div>
+                    <Label>Sector</Label>
+                    <SectorSelect
+                      idEtapa={formData.id_etapa}
+                      value={formData.id_sector}
+                      onChange={(id) => {
+                        handleInputChange("id_sector", id);
+                        // Limpiar selecciones dependientes
+                        handleInputChange("id_frente", undefined);
+                        handleInputChange("id_partida", undefined);
+                      }}
+                      onNameChange={handleSectorNameChange}
+                    />
+                  </div>
+                )}
 
-                  {formData.id_etapa && (
-                    <div>
-                      <Label>Sector</Label>
-                      <SectorSelect
-                        idEtapa={formData.id_etapa}
-                        value={formData.id_sector}
-                        onChange={(id) => {
-                          handleInputChange("id_sector", id);
-                          // Limpiar selecciones dependientes
-                          handleInputChange("id_frente", undefined);
-                          handleInputChange("id_partida", undefined);
-                        }}
-                        onNameChange={handleSectorNameChange}
-                      />
-                    </div>
-                  )}
+                {formData.id_sector && (
+                  <div>
+                    <Label>Frente</Label>
+                    <FrenteSelectBySector
+                      idSector={formData.id_sector}
+                      value={formData.id_frente}
+                      onChange={(id) => {
+                        handleInputChange("id_frente", id);
+                        // Limpiar selección dependiente
+                        handleInputChange("id_partida", undefined);
+                      }}
+                      onNameChange={handleFrenteNameChange}
+                    />
+                  </div>
+                )}
 
-                  {formData.id_sector && (
-                    <div>
-                      <Label>Frente</Label>
-                      <FrenteSelectBySector
-                        idSector={formData.id_sector}
-                        value={formData.id_frente}
-                        onChange={(id) => {
-                          handleInputChange("id_frente", id);
-                          // Limpiar selección dependiente
-                          handleInputChange("id_partida", undefined);
-                        }}
-                        onNameChange={handleFrenteNameChange}
-                      />
-                    </div>
-                  )}
+                {formData.id_frente && (
+                  <div>
+                    <Label>Partida</Label>
+                    <PartidaSelect
+                      idFrente={formData.id_frente}
+                      value={formData.id_partida}
+                      onChange={(id) => handleInputChange("id_partida", id)}
+                      onNameChange={handlePartidaNameChange}
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                  {formData.id_frente && (
-                    <div>
-                      <Label>Partida</Label>
-                      <PartidaSelect
-                        idFrente={formData.id_frente}
-                        value={formData.id_partida}
-                        onChange={(id) => handleInputChange("id_partida", id)}
-                        onNameChange={handlePartidaNameChange}
-                      />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+            {/* Observaciones */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Observaciones</CardTitle>
+                <CardDescription>
+                  Se genera automáticamente con los datos del proyecto
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={formData.observaciones}
+                  readOnly
+                  placeholder="Seleccione un proyecto, etapa, sector, frente y partida para generar las observaciones automáticamente..."
+                  rows={6}
+                  className="bg-gray-50 dark:bg-gray-900"
+                />
+              </CardContent>
+            </Card>
 
-              {/* Observaciones */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Observaciones</CardTitle>
-                  <CardDescription>
-                    Se genera automáticamente con los datos del proyecto
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Textarea
-                    value={formData.observaciones}
-                    readOnly
-                    placeholder="Seleccione un proyecto, etapa, sector, frente y partida para generar las observaciones automáticamente..."
-                    rows={6}
-                    className="bg-gray-50 dark:bg-gray-900"
-                  />
-                </CardContent>
-              </Card>
+            {/* Botones de Acción */}
+            <div className="flex gap-4 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetForm}
+                disabled={loading}
+              >
+                Limpiar Formulario
+              </Button>
 
-              {/* Botones de Acción */}
-              <div className="flex gap-4 justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={resetForm}
-                  disabled={loading}
-                >
-                  Limpiar Formulario
-                </Button>
-
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="min-w-[200px]"
-                >
-                  {loading ? (
-                    <>
-                      <span className="animate-spin mr-2">⏳</span>
-                      Procesando...
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Crear Guía de Remisión
-                    </>
-                  )}
-                </Button>
-              </div>
+              <Button
+                type="submit"
+                disabled={loading}
+                className="min-w-[200px]"
+              >
+                {loading ? (
+                  <>
+                    <span className="animate-spin mr-2">⏳</span>
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Crear Guía de Remisión
+                  </>
+                )}
+              </Button>
             </div>
+          </div>
           {/* </Tabs> */}
         </form>
       </div>
