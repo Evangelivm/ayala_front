@@ -41,6 +41,10 @@ import { FrenteSelectBySector } from "@/components/frente-select-by-sector";
 import { PartidaSelect } from "@/components/partida-select";
 import { guiasRemisionApi, type GuiaRemisionData } from "@/lib/connections";
 import { toast } from "sonner";
+import { UbigeoDialog } from "@/components/ubigeo-dialog";
+import { CamionDialog } from "@/components/camion-dialog";
+import { EmpresaDialog } from "@/components/empresa-dialog";
+import { ubigeosLima } from "@/lib/ubigeos-lima";
 
 interface ItemGRE {
   unidad_de_medida: string;
@@ -651,9 +655,18 @@ export default function GuiaRemisionPage() {
             {/* Cliente/Destinatario */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  {tipoGRE === 7 ? "Destinatario" : "Remitente"}
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    {tipoGRE === 7 ? "Destinatario" : "Remitente"}
+                  </span>
+                  <EmpresaDialog
+                    onAccept={(empresaData) => {
+                      handleInputChange("cliente_numero_de_documento", empresaData.numeroDocumento);
+                      handleInputChange("cliente_denominacion", empresaData.razonSocial);
+                      handleInputChange("cliente_direccion", empresaData.direccion);
+                    }}
+                  />
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid md:grid-cols-2 gap-4">
@@ -937,66 +950,43 @@ export default function GuiaRemisionPage() {
               </Card>
             )}
 
-            {/* Placa para transporte privado */}
-            {tipoGRE === 7 && tipoTransporte === "02" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Vehículo</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div>
-                    <Label>Placa del Vehículo *</Label>
-                    <Input
-                      value={formData.transportista_placa_numero}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "transportista_placa_numero",
-                          e.target.value
-                        )
-                      }
-                      placeholder="ABC-123"
-                      required
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Placa para GRE Transportista */}
-            {tipoGRE === 8 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Vehículo</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div>
-                    <Label>Placa del Vehículo *</Label>
-                    <Input
-                      value={formData.transportista_placa_numero}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "transportista_placa_numero",
-                          e.target.value
-                        )
-                      }
-                      placeholder="ABC-123"
-                      required
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Conductor - Para transporte privado o GRE Transportista */}
+            {/* Vehículo y Conductor - Para transporte privado o GRE Transportista */}
             {(tipoGRE === 8 || (tipoGRE === 7 && tipoTransporte === "02")) && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Datos del Conductor
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Truck className="h-5 w-5" />
+                      Vehículo y Conductor
+                    </span>
+                    <CamionDialog
+                      onAccept={(camionData) => {
+                        handleInputChange("transportista_placa_numero", camionData.placa);
+                        handleInputChange("conductor_documento_tipo", 1); // DNI
+                        handleInputChange("conductor_documento_numero", camionData.dni);
+                        handleInputChange("conductor_nombre", camionData.nombreChofer);
+                        handleInputChange("conductor_apellidos", camionData.apellidoChofer);
+                        handleInputChange("conductor_numero_licencia", camionData.numeroLicencia);
+                      }}
+                    />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <Label>Placa del Vehículo *</Label>
+                    <Input
+                      value={formData.transportista_placa_numero}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "transportista_placa_numero",
+                          e.target.value
+                        )
+                      }
+                      placeholder="ABC-123"
+                      required
+                    />
+                  </div>
+
                   <div>
                     <Label>Tipo Documento *</Label>
                     <Select
@@ -1055,7 +1045,7 @@ export default function GuiaRemisionPage() {
                     />
                   </div>
 
-                  <div>
+                  <div className="md:col-span-2">
                     <Label>Número de Licencia *</Label>
                     <Input
                       value={formData.conductor_numero_licencia}
@@ -1147,42 +1137,36 @@ export default function GuiaRemisionPage() {
               <CardContent className="grid md:grid-cols-2 gap-6">
                 {/* Punto de Partida */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
-                    Punto de Partida
-                  </h3>
-
-                  <div>
-                    <Label>Ubigeo (6 dígitos) *</Label>
-                    <Input
-                      value={formData.punto_de_partida_ubigeo}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "punto_de_partida_ubigeo",
-                          e.target.value
-                        )
-                      }
-                      placeholder="150101"
-                      maxLength={6}
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Ejemplo: 150101 (Lima - Lima - Lima)
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label>Dirección *</Label>
-                    <Textarea
-                      value={formData.punto_de_partida_direccion}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "punto_de_partida_direccion",
-                          e.target.value
-                        )
-                      }
-                      required
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
+                      Punto de Partida
+                    </h3>
+                    <UbigeoDialog
+                      title="Seleccionar Punto de Partida"
+                      description="Seleccione el distrito y escriba la dirección de partida"
+                      buttonText="Seleccionar"
+                      currentUbigeo={formData.punto_de_partida_ubigeo}
+                      currentDireccion={formData.punto_de_partida_direccion}
+                      onAccept={(ubigeo, direccion) => {
+                        handleInputChange("punto_de_partida_ubigeo", ubigeo);
+                        handleInputChange("punto_de_partida_direccion", direccion);
+                      }}
                     />
                   </div>
+
+                  {formData.punto_de_partida_ubigeo && formData.punto_de_partida_direccion && (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        {ubigeosLima.find(u => u.codigo === formData.punto_de_partida_ubigeo)?.distrito || formData.punto_de_partida_ubigeo}
+                      </p>
+                      <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                        Ubigeo: {formData.punto_de_partida_ubigeo}
+                      </p>
+                      <p className="text-sm text-blue-800 dark:text-blue-200 mt-2">
+                        {formData.punto_de_partida_direccion}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Código establecimiento SUNAT - Solo para motivos 04 y 18 */}
                   {tipoGRE === 7 &&
@@ -1212,39 +1196,36 @@ export default function GuiaRemisionPage() {
 
                 {/* Punto de Llegada */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
-                    Punto de Llegada
-                  </h3>
-
-                  <div>
-                    <Label>Ubigeo (6 dígitos) *</Label>
-                    <Input
-                      value={formData.punto_de_llegada_ubigeo}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "punto_de_llegada_ubigeo",
-                          e.target.value
-                        )
-                      }
-                      placeholder="150101"
-                      maxLength={6}
-                      required
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
+                      Punto de Llegada
+                    </h3>
+                    <UbigeoDialog
+                      title="Seleccionar Punto de Llegada"
+                      description="Seleccione el distrito y escriba la dirección de llegada"
+                      buttonText="Seleccionar"
+                      currentUbigeo={formData.punto_de_llegada_ubigeo}
+                      currentDireccion={formData.punto_de_llegada_direccion}
+                      onAccept={(ubigeo, direccion) => {
+                        handleInputChange("punto_de_llegada_ubigeo", ubigeo);
+                        handleInputChange("punto_de_llegada_direccion", direccion);
+                      }}
                     />
                   </div>
 
-                  <div>
-                    <Label>Dirección *</Label>
-                    <Textarea
-                      value={formData.punto_de_llegada_direccion}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "punto_de_llegada_direccion",
-                          e.target.value
-                        )
-                      }
-                      required
-                    />
-                  </div>
+                  {formData.punto_de_llegada_ubigeo && formData.punto_de_llegada_direccion && (
+                    <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
+                      <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                        {ubigeosLima.find(u => u.codigo === formData.punto_de_llegada_ubigeo)?.distrito || formData.punto_de_llegada_ubigeo}
+                      </p>
+                      <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                        Ubigeo: {formData.punto_de_llegada_ubigeo}
+                      </p>
+                      <p className="text-sm text-green-800 dark:text-green-200 mt-2">
+                        {formData.punto_de_llegada_direccion}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Código establecimiento SUNAT - Solo para motivos 04 y 18 */}
                   {tipoGRE === 7 &&

@@ -2455,5 +2455,195 @@ export const subpartidasApi = {
   },
 };
 
+// ============ EMPRESAS API ============
+export interface EmpresaData {
+  C_digo: string;
+  Raz_n_social?: string | null;
+  N__documento?: string | null;
+  Tipo?: string | null;
+  Direcci_n?: string | null;
+}
+
+export const empresasApi = {
+  // Obtener todas las empresas
+  getAll: async (): Promise<EmpresaData[]> => {
+    try {
+      const response = await api.get("/empresas");
+
+      // Verificar si la respuesta tiene estructura paginada
+      let empresasData: EmpresaData[];
+      if (
+        response.data &&
+        typeof response.data === "object" &&
+        response.data.data
+      ) {
+        // Respuesta paginada: { data: [...], pagination: {...} }
+        empresasData = Array.isArray(response.data.data)
+          ? response.data.data
+          : [];
+      } else if (Array.isArray(response.data)) {
+        // Respuesta directa: [...]
+        empresasData = response.data;
+      } else {
+        console.warn("Empresas API returned unexpected format:", response.data);
+        return [];
+      }
+
+      return empresasData;
+    } catch (error) {
+      console.error("Empresas API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener empresa por código
+  getByCodigo: async (codigo: string): Promise<EmpresaData> => {
+    try {
+      const response = await api.get(`/empresas/${codigo}`);
+      return response.data;
+    } catch (error) {
+      console.error("Empresas API error:", error);
+      throw new Error("Empresa no encontrada");
+    }
+  },
+
+  // Crear nueva empresa
+  create: async (
+    data: Omit<EmpresaData, "C_digo">
+  ): Promise<EmpresaData> => {
+    try {
+      const response = await api.post("/empresas", data);
+      return response.data;
+    } catch (error) {
+      console.error("Empresas API error:", error);
+      throw new Error("Error al crear empresa");
+    }
+  },
+
+  // Actualizar empresa
+  update: async (
+    codigo: string,
+    data: Partial<EmpresaData>
+  ): Promise<EmpresaData> => {
+    try {
+      const response = await api.put(`/empresas/${codigo}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Empresas API error:", error);
+      throw new Error("Error al actualizar empresa");
+    }
+  },
+
+  // Eliminar empresa
+  delete: async (codigo: string): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/empresas/${codigo}`);
+      return response.data;
+    } catch (error) {
+      console.error("Empresas API error:", error);
+      throw new Error("Error al eliminar empresa");
+    }
+  },
+};
+
+// ============ CAMIONES API ============
+export interface CamionData {
+  id_camion: number;
+  placa: string;
+  marca?: string;
+  modelo?: string;
+  año?: number;
+  capacidad_tanque?: number;
+  id_tipo_combustible_preferido?: number;
+  activo?: boolean;
+  fecha_registro?: string;
+  dni?: string;
+  nombre_chofer?: string;
+  apellido_chofer?: string;
+  numero_licencia?: string;
+}
+
+export const camionesApi = {
+  // Obtener todos los camiones
+  getAll: async (): Promise<CamionData[]> => {
+    try {
+      const response = await api.get("/camiones");
+
+      // Verificar si la respuesta tiene estructura paginada
+      let camionesData: CamionData[];
+      if (
+        response.data &&
+        typeof response.data === "object" &&
+        response.data.data
+      ) {
+        // Respuesta paginada: { data: [...], pagination: {...} }
+        camionesData = Array.isArray(response.data.data)
+          ? response.data.data
+          : [];
+      } else if (Array.isArray(response.data)) {
+        // Respuesta directa: [...]
+        camionesData = response.data;
+      } else {
+        console.warn("Camiones API returned unexpected format:", response.data);
+        return [];
+      }
+
+      return camionesData;
+    } catch (error) {
+      console.error("Camiones API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener camión por ID
+  getById: async (id: number): Promise<CamionData> => {
+    try {
+      const response = await api.get(`/camiones/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Camiones API error:", error);
+      throw new Error("Camión no encontrado");
+    }
+  },
+
+  // Crear nuevo camión
+  create: async (
+    data: Omit<CamionData, "id_camion" | "fecha_registro">
+  ): Promise<CamionData> => {
+    try {
+      const response = await api.post("/camiones", data);
+      return response.data;
+    } catch (error) {
+      console.error("Camiones API error:", error);
+      throw new Error("Error al crear camión");
+    }
+  },
+
+  // Actualizar camión
+  update: async (
+    id: number,
+    data: Partial<CamionData>
+  ): Promise<CamionData> => {
+    try {
+      const response = await api.put(`/camiones/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Camiones API error:", error);
+      throw new Error("Error al actualizar camión");
+    }
+  },
+
+  // Eliminar camión
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/camiones/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Camiones API error:", error);
+      throw new Error("Error al eliminar camión");
+    }
+  },
+};
+
 // Exportar la instancia de axios para uso directo si es necesario
 export { api };
