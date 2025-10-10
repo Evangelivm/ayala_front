@@ -2071,6 +2071,52 @@ export const programacionApi = {
       throw new Error("Error al eliminar el registro");
     }
   },
+
+  // Obtener programación técnica por ID
+  getTecnicaById: async (id: number): Promise<{
+    id: number;
+    guia_numero_documento: string | null;
+    guia_destinatario_denominacion: string | null;
+    guia_destinatario_direccion: string | null;
+    guia_traslado_peso_bruto: string | null;
+    guia_traslado_vehiculo_placa: string | null;
+    guia_conductor_dni_numero: string | null;
+    guia_conductor_nombres: string | null;
+    guia_conductor_apellidos: string | null;
+    guia_conductor_num_licencia: string | null;
+    guia_partida_ubigeo: string | null;
+    guia_partida_direccion: string | null;
+    guia_llegada_ubigeo: string | null;
+    guia_llegada_direccion: string | null;
+  }> => {
+    try {
+      const response = await api.get(`/programacion/tecnica/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Programación Técnica API error:", error);
+      throw new Error("Programación técnica no encontrada");
+    }
+  },
+
+  // Actualizar programación técnica con IDs de proyecto
+  updateTecnica: async (
+    id: number,
+    data: {
+      id_proyecto?: number;
+      id_etapa?: number;
+      id_sector?: number;
+      id_frente?: number;
+      id_partida?: number;
+    }
+  ): Promise<{ message: string }> => {
+    try {
+      const response = await api.patch(`/programacion/tecnica/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Programación Técnica Update API error:", error);
+      throw new Error("Error al actualizar programación técnica");
+    }
+  },
 };
 
 // ============ SUBPROYECTOS INTERFACES ============

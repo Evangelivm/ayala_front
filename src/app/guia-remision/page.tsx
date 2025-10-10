@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,7 +40,7 @@ import { EtapaSelect } from "@/components/etapa-select";
 import { SectorSelect } from "@/components/sector-select";
 import { FrenteSelectBySector } from "@/components/frente-select-by-sector";
 import { PartidaSelect } from "@/components/partida-select";
-import { guiasRemisionApi, type GuiaRemisionData } from "@/lib/connections";
+import { guiasRemisionApi, programacionApi, type GuiaRemisionData } from "@/lib/connections";
 import { toast } from "sonner";
 import { UbigeoDialog } from "@/components/ubigeo-dialog";
 import { CamionDialog } from "@/components/camion-dialog";
@@ -59,7 +60,10 @@ interface DocumentoRelacionado {
   numero: number;
 }
 
-export default function GuiaRemisionPage() {
+function GuiaRemisionContent() {
+  const searchParams = useSearchParams();
+  const programacionId = searchParams.get("id");
+
   const [tipoGRE, setTipoGRE] = useState<number>(7); // 7 = Remitente, 8 = Transportista
   const [tipoTransporte, setTipoTransporte] = useState<string>("02"); // 01 = Público, 02 = Privado
   const [loading, setLoading] = useState(false);
@@ -403,6 +407,23 @@ export default function GuiaRemisionPage() {
         >
       );
 
+      // Si hay programacionId, actualizar la programación técnica con los IDs del proyecto
+      if (programacionId && (formData.id_proyecto || formData.id_etapa || formData.id_sector || formData.id_frente || formData.id_partida)) {
+        try {
+          await programacionApi.updateTecnica(parseInt(programacionId), {
+            id_proyecto: formData.id_proyecto,
+            id_etapa: formData.id_etapa,
+            id_sector: formData.id_sector,
+            id_frente: formData.id_frente,
+            id_partida: formData.id_partida,
+          });
+          console.log("Programación técnica actualizada exitosamente con los IDs del proyecto");
+        } catch (updateError) {
+          console.error("Error al actualizar programación técnica:", updateError);
+          // No lanzar error, solo registrar en consola ya que la guía se creó exitosamente
+        }
+      }
+
       toast.success("Guía de Remisión creada exitosamente", {
         description: `Serie: ${formData.serie}-${formData.numero}. El sistema procesará automáticamente la guía.`,
       });
@@ -482,6 +503,45 @@ export default function GuiaRemisionPage() {
     });
   };
 
+  // Cargar datos de programación técnica si hay ID en query params
+  useEffect(() => {
+    const loadProgramacionData = async () => {
+      if (!programacionId) return;
+
+      try {
+        setLoading(true);
+        const data = await programacionApi.getTecnicaById(parseInt(programacionId));
+
+        // Prellenar el formulario con los datos obtenidos
+        setFormData((prev) => ({
+          ...prev,
+          cliente_numero_de_documento: data.guia_numero_documento || "",
+          cliente_denominacion: data.guia_destinatario_denominacion || "",
+          cliente_direccion: data.guia_destinatario_direccion || "",
+          peso_bruto_total: parseFloat(data.guia_traslado_peso_bruto || "0"),
+          transportista_placa_numero: data.guia_traslado_vehiculo_placa || "",
+          conductor_documento_numero: data.guia_conductor_dni_numero || "",
+          conductor_nombre: data.guia_conductor_nombres || "",
+          conductor_apellidos: data.guia_conductor_apellidos || "",
+          conductor_numero_licencia: data.guia_conductor_num_licencia || "",
+          punto_de_partida_ubigeo: data.guia_partida_ubigeo || "",
+          punto_de_partida_direccion: data.guia_partida_direccion || "",
+          punto_de_llegada_ubigeo: data.guia_llegada_ubigeo || "",
+          punto_de_llegada_direccion: data.guia_llegada_direccion || "",
+        }));
+
+        toast.success("Datos cargados desde programación técnica");
+      } catch (error) {
+        console.error("Error cargando programación técnica:", error);
+        toast.error("No se pudo cargar los datos de programación técnica");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProgramacionData();
+  }, [programacionId]);
+
   // Cargar el último número al iniciar
   useEffect(() => {
     const fetchLastNumber = async () => {
@@ -532,6 +592,23 @@ export default function GuiaRemisionPage() {
     setSelectedNames((prev) => ({ ...prev, partida: name }));
   }, []);
 
+  const handlePartidaDataChange = useCallback((data: { codigo: string; descripcion: string } | null) => {
+    if (data) {
+      // Actualizar el primer item con los datos de la partida
+      setItems((prevItems) => {
+        const newItems = [...prevItems];
+        if (newItems.length > 0) {
+          newItems[0] = {
+            ...newItems[0],
+            codigo: data.codigo,
+            descripcion: data.descripcion,
+          };
+        }
+        return newItems;
+      });
+    }
+  }, []);
+
   // Actualizar observaciones cuando cambian los nombres seleccionados
   useEffect(() => {
     let observacionesText = "";
@@ -556,7 +633,13 @@ export default function GuiaRemisionPage() {
       ...prev,
       observaciones: observacionesText.trim(),
     }));
-  }, [selectedNames]);
+  }, [
+    selectedNames.proyecto,
+    selectedNames.etapa,
+    selectedNames.sector,
+    selectedNames.frente,
+    selectedNames.partida
+  ]);
 
   return (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-6 min-h-screen">
@@ -1564,6 +1647,7 @@ export default function GuiaRemisionPage() {
                       value={formData.id_partida}
                       onChange={(id) => handleInputChange("id_partida", id)}
                       onNameChange={handlePartidaNameChange}
+                      onPartidaDataChange={handlePartidaDataChange}
                     />
                   </div>
                 )}
@@ -1623,5 +1707,20 @@ export default function GuiaRemisionPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function GuiaRemisionPage() {
+  return (
+    <Suspense fallback={
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-6 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-white mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">Cargando...</p>
+        </div>
+      </div>
+    }>
+      <GuiaRemisionContent />
+    </Suspense>
   );
 }

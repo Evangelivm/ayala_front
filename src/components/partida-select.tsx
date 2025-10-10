@@ -14,6 +14,7 @@ interface PartidaSelectProps {
   value?: number;
   onChange: (id: number | undefined) => void;
   onNameChange?: (name: string) => void;
+  onPartidaDataChange?: (data: { codigo: string; descripcion: string } | null) => void;
   idFrente?: number;
   placeholder?: string;
   className?: string;
@@ -23,6 +24,7 @@ export function PartidaSelect({
   value,
   onChange,
   onNameChange,
+  onPartidaDataChange,
   idFrente,
   placeholder = "Seleccionar partida...",
   className,
@@ -54,13 +56,27 @@ export function PartidaSelect({
   }, [idFrente]);
 
   useEffect(() => {
-    if (value && partidas.length > 0 && onNameChange) {
+    if (value && partidas.length > 0) {
       const partida = partidas.find(p => p.id_partida === value);
-      onNameChange(partida ? `${partida.codigo} - ${partida.descripcion}` : "");
-    } else if (!value && onNameChange) {
-      onNameChange("");
+      if (partida) {
+        if (onNameChange) {
+          onNameChange(`${partida.codigo} - ${partida.descripcion}`);
+        }
+        if (onPartidaDataChange) {
+          onPartidaDataChange({
+            codigo: partida.codigo,
+            descripcion: partida.descripcion,
+          });
+        }
+      } else {
+        if (onNameChange) onNameChange("");
+        if (onPartidaDataChange) onPartidaDataChange(null);
+      }
+    } else if (!value) {
+      if (onNameChange) onNameChange("");
+      if (onPartidaDataChange) onPartidaDataChange(null);
     }
-  }, [value, partidas, onNameChange]);
+  }, [value, partidas, onNameChange, onPartidaDataChange]);
 
   const handleValueChange = (val: string) => {
     onChange(parseInt(val));
