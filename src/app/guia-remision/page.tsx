@@ -794,6 +794,7 @@ function GuiaRemisionContent() {
                         parseInt(v)
                       )
                     }
+                    disabled
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -817,6 +818,7 @@ function GuiaRemisionContent() {
                       )
                     }
                     required
+                    disabled
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -828,6 +830,7 @@ function GuiaRemisionContent() {
                       handleInputChange("cliente_denominacion", e.target.value)
                     }
                     required
+                    disabled
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -839,6 +842,7 @@ function GuiaRemisionContent() {
                       handleInputChange("cliente_direccion", e.target.value)
                     }
                     required
+                    disabled
                   />
                 </div>
                 {/* <div>
