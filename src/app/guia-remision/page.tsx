@@ -40,7 +40,11 @@ import { EtapaSelect } from "@/components/etapa-select";
 import { SectorSelect } from "@/components/sector-select";
 import { FrenteSelectBySector } from "@/components/frente-select-by-sector";
 import { PartidaSelect } from "@/components/partida-select";
-import { guiasRemisionApi, programacionApi, type GuiaRemisionData } from "@/lib/connections";
+import {
+  guiasRemisionApi,
+  programacionApi,
+  type GuiaRemisionData,
+} from "@/lib/connections";
 import { toast } from "sonner";
 import { UbigeoDialog } from "@/components/ubigeo-dialog";
 import { CamionDialog } from "@/components/camion-dialog";
@@ -408,7 +412,14 @@ function GuiaRemisionContent() {
       );
 
       // Si hay programacionId, actualizar la programación técnica con los IDs del proyecto
-      if (programacionId && (formData.id_proyecto || formData.id_etapa || formData.id_sector || formData.id_frente || formData.id_partida)) {
+      if (
+        programacionId &&
+        (formData.id_proyecto ||
+          formData.id_etapa ||
+          formData.id_sector ||
+          formData.id_frente ||
+          formData.id_partida)
+      ) {
         try {
           await programacionApi.updateTecnica(parseInt(programacionId), {
             id_proyecto: formData.id_proyecto,
@@ -417,9 +428,14 @@ function GuiaRemisionContent() {
             id_frente: formData.id_frente,
             id_partida: formData.id_partida,
           });
-          console.log("Programación técnica actualizada exitosamente con los IDs del proyecto");
+          console.log(
+            "Programación técnica actualizada exitosamente con los IDs del proyecto"
+          );
         } catch (updateError) {
-          console.error("Error al actualizar programación técnica:", updateError);
+          console.error(
+            "Error al actualizar programación técnica:",
+            updateError
+          );
           // No lanzar error, solo registrar en consola ya que la guía se creó exitosamente
         }
       }
@@ -510,7 +526,9 @@ function GuiaRemisionContent() {
 
       try {
         setLoading(true);
-        const data = await programacionApi.getTecnicaById(parseInt(programacionId));
+        const data = await programacionApi.getTecnicaById(
+          parseInt(programacionId)
+        );
 
         // Prellenar el formulario con los datos obtenidos
         setFormData((prev) => ({
@@ -592,22 +610,25 @@ function GuiaRemisionContent() {
     setSelectedNames((prev) => ({ ...prev, partida: name }));
   }, []);
 
-  const handlePartidaDataChange = useCallback((data: { codigo: string; descripcion: string } | null) => {
-    if (data) {
-      // Actualizar el primer item con los datos de la partida
-      setItems((prevItems) => {
-        const newItems = [...prevItems];
-        if (newItems.length > 0) {
-          newItems[0] = {
-            ...newItems[0],
-            codigo: data.codigo,
-            descripcion: data.descripcion,
-          };
-        }
-        return newItems;
-      });
-    }
-  }, []);
+  const handlePartidaDataChange = useCallback(
+    (data: { codigo: string; descripcion: string } | null) => {
+      if (data) {
+        // Actualizar el primer item con los datos de la partida
+        setItems((prevItems) => {
+          const newItems = [...prevItems];
+          if (newItems.length > 0) {
+            newItems[0] = {
+              ...newItems[0],
+              codigo: data.codigo,
+              descripcion: data.descripcion,
+            };
+          }
+          return newItems;
+        });
+      }
+    },
+    []
+  );
 
   // Actualizar observaciones cuando cambian los nombres seleccionados
   useEffect(() => {
@@ -638,12 +659,12 @@ function GuiaRemisionContent() {
     selectedNames.etapa,
     selectedNames.sector,
     selectedNames.frente,
-    selectedNames.partida
+    selectedNames.partida,
   ]);
 
   return (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-6 min-h-screen">
-      <div className="max-w-7xl mx-auto pb-12">
+      <div className="max-w-2xl mx-auto pb-12">
         {/* Header */}
         <div className="mb-6">
           {/* <Link href="/home">
@@ -705,6 +726,7 @@ function GuiaRemisionContent() {
                     placeholder={tipoGRE === 7 ? "T002" : "V001"}
                     maxLength={4}
                     required
+                    disabled
                   />
                 </div>
                 <div>
@@ -745,9 +767,18 @@ function GuiaRemisionContent() {
                   </span>
                   <EmpresaDialog
                     onAccept={(empresaData) => {
-                      handleInputChange("cliente_numero_de_documento", empresaData.numeroDocumento);
-                      handleInputChange("cliente_denominacion", empresaData.razonSocial);
-                      handleInputChange("cliente_direccion", empresaData.direccion);
+                      handleInputChange(
+                        "cliente_numero_de_documento",
+                        empresaData.numeroDocumento
+                      );
+                      handleInputChange(
+                        "cliente_denominacion",
+                        empresaData.razonSocial
+                      );
+                      handleInputChange(
+                        "cliente_direccion",
+                        empresaData.direccion
+                      );
                     }}
                   />
                 </CardTitle>
@@ -1044,12 +1075,27 @@ function GuiaRemisionContent() {
                     </span>
                     <CamionDialog
                       onAccept={(camionData) => {
-                        handleInputChange("transportista_placa_numero", camionData.placa);
+                        handleInputChange(
+                          "transportista_placa_numero",
+                          camionData.placa
+                        );
                         handleInputChange("conductor_documento_tipo", 1); // DNI
-                        handleInputChange("conductor_documento_numero", camionData.dni);
-                        handleInputChange("conductor_nombre", camionData.nombreChofer);
-                        handleInputChange("conductor_apellidos", camionData.apellidoChofer);
-                        handleInputChange("conductor_numero_licencia", camionData.numeroLicencia);
+                        handleInputChange(
+                          "conductor_documento_numero",
+                          camionData.dni
+                        );
+                        handleInputChange(
+                          "conductor_nombre",
+                          camionData.nombreChofer
+                        );
+                        handleInputChange(
+                          "conductor_apellidos",
+                          camionData.apellidoChofer
+                        );
+                        handleInputChange(
+                          "conductor_numero_licencia",
+                          camionData.numeroLicencia
+                        );
                       }}
                     />
                   </CardTitle>
@@ -1067,6 +1113,7 @@ function GuiaRemisionContent() {
                       }
                       placeholder="ABC-123"
                       required
+                      disabled
                     />
                   </div>
 
@@ -1080,6 +1127,7 @@ function GuiaRemisionContent() {
                           parseInt(v)
                         )
                       }
+                      disabled
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -1103,6 +1151,7 @@ function GuiaRemisionContent() {
                         )
                       }
                       required
+                      disabled
                     />
                   </div>
 
@@ -1114,6 +1163,7 @@ function GuiaRemisionContent() {
                         handleInputChange("conductor_nombre", e.target.value)
                       }
                       required
+                      disabled
                     />
                   </div>
 
@@ -1125,6 +1175,7 @@ function GuiaRemisionContent() {
                         handleInputChange("conductor_apellidos", e.target.value)
                       }
                       required
+                      disabled
                     />
                   </div>
 
@@ -1140,6 +1191,7 @@ function GuiaRemisionContent() {
                       }
                       placeholder="Q12345678"
                       required
+                      disabled
                     />
                   </div>
                 </CardContent>
@@ -1232,24 +1284,30 @@ function GuiaRemisionContent() {
                       currentDireccion={formData.punto_de_partida_direccion}
                       onAccept={(ubigeo, direccion) => {
                         handleInputChange("punto_de_partida_ubigeo", ubigeo);
-                        handleInputChange("punto_de_partida_direccion", direccion);
+                        handleInputChange(
+                          "punto_de_partida_direccion",
+                          direccion
+                        );
                       }}
                     />
                   </div>
 
-                  {formData.punto_de_partida_ubigeo && formData.punto_de_partida_direccion && (
-                    <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
-                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                        {ubigeosLima.find(u => u.codigo === formData.punto_de_partida_ubigeo)?.distrito || formData.punto_de_partida_ubigeo}
-                      </p>
-                      <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                        Ubigeo: {formData.punto_de_partida_ubigeo}
-                      </p>
-                      <p className="text-sm text-blue-800 dark:text-blue-200 mt-2">
-                        {formData.punto_de_partida_direccion}
-                      </p>
-                    </div>
-                  )}
+                  {formData.punto_de_partida_ubigeo &&
+                    formData.punto_de_partida_direccion && (
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                          {ubigeosLima.find(
+                            (u) => u.codigo === formData.punto_de_partida_ubigeo
+                          )?.distrito || formData.punto_de_partida_ubigeo}
+                        </p>
+                        <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                          Ubigeo: {formData.punto_de_partida_ubigeo}
+                        </p>
+                        <p className="text-sm text-blue-800 dark:text-blue-200 mt-2">
+                          {formData.punto_de_partida_direccion}
+                        </p>
+                      </div>
+                    )}
 
                   {/* Código establecimiento SUNAT - Solo para motivos 04 y 18 */}
                   {tipoGRE === 7 &&
@@ -1291,24 +1349,30 @@ function GuiaRemisionContent() {
                       currentDireccion={formData.punto_de_llegada_direccion}
                       onAccept={(ubigeo, direccion) => {
                         handleInputChange("punto_de_llegada_ubigeo", ubigeo);
-                        handleInputChange("punto_de_llegada_direccion", direccion);
+                        handleInputChange(
+                          "punto_de_llegada_direccion",
+                          direccion
+                        );
                       }}
                     />
                   </div>
 
-                  {formData.punto_de_llegada_ubigeo && formData.punto_de_llegada_direccion && (
-                    <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
-                      <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                        {ubigeosLima.find(u => u.codigo === formData.punto_de_llegada_ubigeo)?.distrito || formData.punto_de_llegada_ubigeo}
-                      </p>
-                      <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                        Ubigeo: {formData.punto_de_llegada_ubigeo}
-                      </p>
-                      <p className="text-sm text-green-800 dark:text-green-200 mt-2">
-                        {formData.punto_de_llegada_direccion}
-                      </p>
-                    </div>
-                  )}
+                  {formData.punto_de_llegada_ubigeo &&
+                    formData.punto_de_llegada_direccion && (
+                      <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
+                        <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                          {ubigeosLima.find(
+                            (u) => u.codigo === formData.punto_de_llegada_ubigeo
+                          )?.distrito || formData.punto_de_llegada_ubigeo}
+                        </p>
+                        <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                          Ubigeo: {formData.punto_de_llegada_ubigeo}
+                        </p>
+                        <p className="text-sm text-green-800 dark:text-green-200 mt-2">
+                          {formData.punto_de_llegada_direccion}
+                        </p>
+                      </div>
+                    )}
 
                   {/* Código establecimiento SUNAT - Solo para motivos 04 y 18 */}
                   {tipoGRE === 7 &&
@@ -1712,14 +1776,16 @@ function GuiaRemisionContent() {
 
 export default function GuiaRemisionPage() {
   return (
-    <Suspense fallback={
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-6 min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-white mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">Cargando...</p>
+    <Suspense
+      fallback={
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-6 min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-white mx-auto"></div>
+            <p className="mt-4 text-gray-600 dark:text-gray-300">Cargando...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <GuiaRemisionContent />
     </Suspense>
   );
