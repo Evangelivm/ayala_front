@@ -1998,6 +1998,26 @@ export interface ProgramacionData {
   comentarios?: string;
 }
 
+export interface ProgramacionTecnicaData {
+  id: number;
+  fecha: string | null;
+  unidad: string | null;
+  proveedor: string | null;
+  apellidos_nombres: string | null;
+  proyectos: string | null;
+  programacion: string | null;
+  hora_partida: string | null;
+  estado_programacion: string | null;
+  comentarios: string | null;
+  validacion: string | null;
+  identificador_unico: string | null;
+  km_del_dia: string | null;
+  mes: string | null;
+  num_semana: string | null;
+  m3: string | null;
+  cantidad_viaje: string | null;
+}
+
 export interface ProgramacionResponse {
   message: string;
   totalRecords: number;
@@ -2026,27 +2046,14 @@ export const programacionApi = {
     }
   },
 
-  // Obtener registros de programación paginados
-  getAll: async (page: number = 1, limit: number = 50): Promise<{
-    data: ProgramacionData[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
-  }> => {
+  // Obtener todos los registros de programación
+  getAll: async (): Promise<ProgramacionData[]> => {
     try {
-      const response = await api.get("/programacion", {
-        params: { page, limit },
-      });
-      return response.data;
+      const response = await api.get("/programacion");
+      return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
       console.error("Programación API error:", error);
-      return {
-        data: [],
-        pagination: { page: 1, limit: 50, total: 0, totalPages: 0 },
-      };
+      return [];
     }
   },
 
@@ -2115,6 +2122,17 @@ export const programacionApi = {
     } catch (error) {
       console.error("Programación Técnica Update API error:", error);
       throw new Error("Error al actualizar programación técnica");
+    }
+  },
+
+  // Obtener todos los registros de programación técnica
+  getAllTecnica: async (): Promise<ProgramacionTecnicaData[]> => {
+    try {
+      const response = await api.get("/programacion/tecnica");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Programación Técnica API error:", error);
+      return [];
     }
   },
 };

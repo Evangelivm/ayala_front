@@ -65,6 +65,12 @@ const menuItems = [
         isActive: false,
       },
       {
+        title: "Programación Técnica",
+        url: "/prog-tecnica",
+        icon: FileText,
+        isActive: false,
+      },
+      {
         title: "Orden de Compra",
         url: "/orden-compra",
         icon: ShoppingCart,
