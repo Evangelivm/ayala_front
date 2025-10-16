@@ -1404,6 +1404,9 @@ export interface GuiaRemisionData {
   enlace_del_xml?: string;
   enlace_del_cdr?: string;
 
+  // Identificador único de la programación técnica
+  identificador_unico?: string;
+
   created_at?: string;
   updated_at?: string;
 }
@@ -2036,6 +2039,10 @@ export interface ProgramacionTecnicaData {
   guia_partida_ubigeo: string | null;
   guia_llegada_direccion: string | null;
   guia_llegada_ubigeo: string | null;
+  // Enlaces de archivos de guía de remisión (desde JOIN)
+  enlace_del_pdf: string | null;
+  enlace_del_xml: string | null;
+  enlace_del_cdr: string | null;
 }
 
 export interface ProgramacionResponse {
@@ -2102,6 +2109,7 @@ export const programacionApi = {
   // Obtener programación técnica por ID
   getTecnicaById: async (id: number): Promise<{
     id: number;
+    identificador_unico: string | null;
     guia_numero_documento: string | null;
     guia_destinatario_denominacion: string | null;
     guia_destinatario_direccion: string | null;

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -66,12 +66,14 @@ interface DocumentoRelacionado {
 
 function GuiaRemisionContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const programacionId = searchParams.get("id");
 
   const [tipoGRE, setTipoGRE] = useState<number>(7); // 7 = Remitente, 8 = Transportista
   const [tipoTransporte, setTipoTransporte] = useState<string>("02"); // 01 = Público, 02 = Privado
   const [loading, setLoading] = useState(false);
   const [loadingNumber, setLoadingNumber] = useState(true);
+  const [identificadorUnico, setIdentificadorUnico] = useState<string>("");
 
   // Estados para los nombres seleccionados
   const [selectedNames, setSelectedNames] = useState({
@@ -86,7 +88,7 @@ function GuiaRemisionContent() {
   const [formData, setFormData] = useState({
     // Datos básicos
     operacion: "generar_guia",
-    serie: "T002",
+    serie: "TTT1",
     numero: 1,
     fecha_de_emision: new Date().toISOString().split("T")[0],
     fecha_de_inicio_de_traslado: new Date().toISOString().split("T")[0],
@@ -140,6 +142,7 @@ function GuiaRemisionContent() {
     id_partida: undefined as number | undefined,
 
     observaciones: "",
+    identificador_unico: "",
   });
 
   // Items
@@ -441,11 +444,16 @@ function GuiaRemisionContent() {
       }
 
       toast.success("Guía de Remisión creada exitosamente", {
-        description: `Serie: ${formData.serie}-${formData.numero}. El sistema procesará automáticamente la guía.`,
+        description: `Serie: ${formData.serie}-${formData.numero}. Redirigiendo a Programación Técnica...`,
       });
 
       // Resetear formulario
       resetForm();
+
+      // Redirigir a la página de programación técnica
+      setTimeout(() => {
+        router.push("/prog-tecnica");
+      }, 1500);
     } catch (error: unknown) {
       console.error("Error creando guía:", error);
       const errorMessage =
@@ -463,7 +471,7 @@ function GuiaRemisionContent() {
   const resetForm = () => {
     setFormData({
       operacion: "generar_guia",
-      serie: tipoGRE === 7 ? "T002" : "V001",
+      serie: tipoGRE === 7 ? "TTT1" : "V001",
       numero: formData.numero + 1,
       fecha_de_emision: new Date().toISOString().split("T")[0],
       fecha_de_inicio_de_traslado: new Date().toISOString().split("T")[0],
@@ -500,6 +508,7 @@ function GuiaRemisionContent() {
       id_frente: undefined,
       id_partida: undefined,
       observaciones: "",
+      identificador_unico: "",
     });
     setItems([
       {
@@ -530,6 +539,9 @@ function GuiaRemisionContent() {
           parseInt(programacionId)
         );
 
+        // Guardar el identificador único
+        setIdentificadorUnico(data.identificador_unico || "");
+
         // Prellenar el formulario con los datos obtenidos
         setFormData((prev) => ({
           ...prev,
@@ -546,6 +558,7 @@ function GuiaRemisionContent() {
           punto_de_partida_direccion: data.guia_partida_direccion || "",
           punto_de_llegada_ubigeo: data.guia_llegada_ubigeo || "",
           punto_de_llegada_direccion: data.guia_llegada_direccion || "",
+          identificador_unico: data.identificador_unico || "",
         }));
 
         toast.success("Datos cargados desde programación técnica");
@@ -585,7 +598,7 @@ function GuiaRemisionContent() {
   useEffect(() => {
     setFormData((prev) => ({
       ...prev,
-      serie: tipoGRE === 7 ? "T002" : "V001",
+      serie: tipoGRE === 7 ? "TTT1" : "V001",
     }));
   }, [tipoGRE]);
 
@@ -680,9 +693,14 @@ function GuiaRemisionContent() {
                 <FileText className="h-8 w-8" />
                 Guía de Remisión Electrónica
               </h1>
-              {/* <p className="text-gray-600 dark:text-gray-300 mt-2">
-                Sistema integrado con SUNAT mediante NUBEFACT API
-              </p> */}
+              {identificadorUnico && (
+                <p className="text-gray-600 dark:text-gray-300 mt-2 font-medium">
+                  Identificador:{" "}
+                  <span className="text-blue-600 dark:text-blue-400">
+                    {identificadorUnico}
+                  </span>
+                </p>
+              )}
             </div>
             <Badge variant="outline" className="text-lg px-4 py-2">
               {formData.serie}-{formData.numero.toString().padStart(4, "0")}
@@ -723,7 +741,7 @@ function GuiaRemisionContent() {
                     id="serie"
                     value={formData.serie}
                     onChange={(e) => handleInputChange("serie", e.target.value)}
-                    placeholder={tipoGRE === 7 ? "T002" : "V001"}
+                    placeholder={tipoGRE === 7 ? "TTT1" : "V001"}
                     maxLength={4}
                     required
                     disabled

@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { FileText } from "lucide-react";
+import { FileText, ExternalLink } from "lucide-react";
 import { programacionApi, type ProgramacionTecnicaData } from "@/lib/connections";
 
 export default function ProgTecnicaPage() {
@@ -148,6 +148,7 @@ export default function ProgTecnicaPage() {
                       <TableHead className="w-[120px]">Estado</TableHead>
                       <TableHead className="w-[80px]">M3</TableHead>
                       <TableHead className="w-[100px]">Cant. Viaje</TableHead>
+                      <TableHead className="w-[180px] text-center">Archivos</TableHead>
                       <TableHead className="w-[150px] text-center">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -241,15 +242,57 @@ export default function ProgTecnicaPage() {
                         <TableCell>{item.m3 || "-"}</TableCell>
                         <TableCell>{item.cantidad_viaje || "-"}</TableCell>
                         <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleGenerarGuia(item.id)}
-                            className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300"
-                          >
-                            <FileText className="h-4 w-4 mr-2" />
-                            Generar Guía
-                          </Button>
+                          <div className="flex gap-1 justify-center items-center">
+                            {item.enlace_del_pdf ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(item.enlace_del_pdf!, "_blank")}
+                                className="bg-red-50 hover:bg-red-100 text-red-700 border-red-300 px-2 py-1 h-7 text-xs"
+                              >
+                                PDF
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                            {item.enlace_del_xml ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(item.enlace_del_xml!, "_blank")}
+                                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-300 px-2 py-1 h-7 text-xs"
+                              >
+                                XML
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                            {item.enlace_del_cdr ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(item.enlace_del_cdr!, "_blank")}
+                                className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300 px-2 py-1 h-7 text-xs"
+                              >
+                                CDR
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {hasGuiaCompleta(item) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleGenerarGuia(item.id)}
+                              className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300"
+                            >
+                              <FileText className="h-4 w-4 mr-2" />
+                              Generar Guía
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
