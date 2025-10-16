@@ -42,6 +42,56 @@ export default function ProgTecnicaPage() {
     router.push(`/guia-remision?id=${id}`);
   };
 
+  // Función para verificar si todos los campos de guía están llenos
+  const hasGuiaCompleta = (item: ProgramacionTecnicaData): boolean => {
+    return !!(
+      item.guia_numero_documento &&
+      item.guia_destinatario_denominacion &&
+      item.guia_destinatario_direccion &&
+      item.guia_traslado_motivo &&
+      item.guia_traslado_bultos &&
+      item.guia_traslado_tipo_transporte &&
+      item.guia_traslado_fecha_inicio &&
+      item.guia_traslado_peso_bruto &&
+      item.guia_traslado_unidad_medida &&
+      item.guia_traslado_vehiculo_placa &&
+      item.guia_conductor_tipo_dni &&
+      item.guia_conductor_dni_numero &&
+      item.guia_conductor_nombres &&
+      item.guia_conductor_apellidos &&
+      item.guia_conductor_num_licencia &&
+      item.guia_partida_direccion &&
+      item.guia_partida_ubigeo &&
+      item.guia_llegada_direccion &&
+      item.guia_llegada_ubigeo
+    );
+  };
+
+  // Función para formatear hora a HH:MM
+  const formatearHora = (horaCompleta: string | null): string => {
+    if (!horaCompleta) return "-";
+
+    try {
+      // Si viene como ISO date (1970-01-01T08:00), extraer solo la hora
+      if (horaCompleta.includes("T")) {
+        const horaParte = horaCompleta.split("T")[1];
+        const partes = horaParte.split(":");
+        if (partes.length >= 2) {
+          return `${partes[0]}:${partes[1]}`;
+        }
+      }
+
+      // Si viene como "HH:MM:SS", extraer solo HH:MM
+      const partes = horaCompleta.split(":");
+      if (partes.length >= 2) {
+        return `${partes[0]}:${partes[1]}`;
+      }
+      return horaCompleta;
+    } catch (error) {
+      return horaCompleta;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
@@ -103,7 +153,10 @@ export default function ProgTecnicaPage() {
                   </TableHeader>
                   <TableBody>
                     {data.map((item) => (
-                      <TableRow key={item.id}>
+                      <TableRow
+                        key={item.id}
+                        className={hasGuiaCompleta(item) ? "bg-green-100 hover:bg-green-200 border-l-4 border-green-500" : ""}
+                      >
                         <TableCell className="font-medium">{item.id}</TableCell>
                         <TableCell>
                           {item.fecha
@@ -169,7 +222,7 @@ export default function ProgTecnicaPage() {
                         </TableCell>
                         <TableCell>
                           <span className="font-mono text-sm font-medium text-blue-700">
-                            {item.hora_partida || "-"}
+                            {formatearHora(item.hora_partida)}
                           </span>
                         </TableCell>
                         <TableCell className="min-w-32">

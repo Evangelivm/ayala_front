@@ -2016,6 +2016,26 @@ export interface ProgramacionTecnicaData {
   num_semana: string | null;
   m3: string | null;
   cantidad_viaje: string | null;
+  // Campos de guía
+  guia_numero_documento: string | null;
+  guia_destinatario_denominacion: string | null;
+  guia_destinatario_direccion: string | null;
+  guia_traslado_motivo: string | null;
+  guia_traslado_bultos: string | null;
+  guia_traslado_tipo_transporte: string | null;
+  guia_traslado_fecha_inicio: string | null;
+  guia_traslado_peso_bruto: string | null;
+  guia_traslado_unidad_medida: string | null;
+  guia_traslado_vehiculo_placa: string | null;
+  guia_conductor_tipo_dni: string | null;
+  guia_conductor_dni_numero: string | null;
+  guia_conductor_nombres: string | null;
+  guia_conductor_apellidos: string | null;
+  guia_conductor_num_licencia: string | null;
+  guia_partida_direccion: string | null;
+  guia_partida_ubigeo: string | null;
+  guia_llegada_direccion: string | null;
+  guia_llegada_ubigeo: string | null;
 }
 
 export interface ProgramacionResponse {
