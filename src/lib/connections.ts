@@ -2163,6 +2163,17 @@ export const programacionApi = {
       return [];
     }
   },
+
+  // Obtener identificadores únicos que tienen guía generada
+  getIdentificadoresConGuia: async (): Promise<string[]> => {
+    try {
+      const response = await api.get("/programacion/tecnica/con-guia");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Programación Técnica Con Guía API error:", error);
+      return [];
+    }
+  },
 };
 
 // ============ SUBPROYECTOS INTERFACES ============

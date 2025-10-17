@@ -14,18 +14,26 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { FileText, ExternalLink } from "lucide-react";
-import { programacionApi, type ProgramacionTecnicaData } from "@/lib/connections";
+import {
+  programacionApi,
+  type ProgramacionTecnicaData,
+} from "@/lib/connections";
 
 export default function ProgTecnicaPage() {
   const router = useRouter();
   const [data, setData] = useState<ProgramacionTecnicaData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [identificadoresConGuia, setIdentificadoresConGuia] = useState<string[]>([]);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const result = await programacionApi.getAllTecnica();
-      setData(result);
+      const [tecnicaData, idsConGuia] = await Promise.all([
+        programacionApi.getAllTecnica(),
+        programacionApi.getIdentificadoresConGuia(),
+      ]);
+      setData(tecnicaData);
+      setIdentificadoresConGuia(idsConGuia);
     } catch (error) {
       toast.error("Error al cargar los datos");
       console.error("Error fetching data:", error);
@@ -42,28 +50,20 @@ export default function ProgTecnicaPage() {
     router.push(`/guia-remision?id=${id}`);
   };
 
-  // Función para verificar si todos los campos de guía están llenos
-  const hasGuiaCompleta = (item: ProgramacionTecnicaData): boolean => {
+  // Función para verificar si tiene los archivos generados
+  const hasArchivosGenerados = (item: ProgramacionTecnicaData): boolean => {
     return !!(
-      item.guia_numero_documento &&
-      item.guia_destinatario_denominacion &&
-      item.guia_destinatario_direccion &&
-      item.guia_traslado_motivo &&
-      item.guia_traslado_bultos &&
-      item.guia_traslado_tipo_transporte &&
-      item.guia_traslado_fecha_inicio &&
-      item.guia_traslado_peso_bruto &&
-      item.guia_traslado_unidad_medida &&
-      item.guia_traslado_vehiculo_placa &&
-      item.guia_conductor_tipo_dni &&
-      item.guia_conductor_dni_numero &&
-      item.guia_conductor_nombres &&
-      item.guia_conductor_apellidos &&
-      item.guia_conductor_num_licencia &&
-      item.guia_partida_direccion &&
-      item.guia_partida_ubigeo &&
-      item.guia_llegada_direccion &&
-      item.guia_llegada_ubigeo
+      item.enlace_del_pdf &&
+      item.enlace_del_xml &&
+      item.enlace_del_cdr
+    );
+  };
+
+  // Función para verificar si tiene guía generada (en proceso)
+  const hasGuiaEnProceso = (item: ProgramacionTecnicaData): boolean => {
+    return !!(
+      item.identificador_unico &&
+      identificadoresConGuia.includes(item.identificador_unico)
     );
   };
 
@@ -104,10 +104,10 @@ export default function ProgTecnicaPage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-orange-700">
-                  Programación Técnica
+                  Gestión de Guias de Remisión
                 </h1>
                 <p className="text-sm text-slate-600">
-                  Listado de registros de programación técnica
+                  Listado de Guias de Remisión
                 </p>
               </div>
             </div>
@@ -120,7 +120,9 @@ export default function ProgTecnicaPage() {
         <Card>
           <CardHeader>
             <CardTitle>
-              {data.length > 0 ? `${data.length} registros encontrados` : "Programación Técnica"}
+              {data.length > 0
+                ? `${data.length} registros encontrados`
+                : "Programación Técnica"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -141,22 +143,34 @@ export default function ProgTecnicaPage() {
                       <TableHead className="w-[100px]">Fecha</TableHead>
                       <TableHead className="min-w-[120px]">Unidad</TableHead>
                       <TableHead className="min-w-[150px]">Proveedor</TableHead>
-                      <TableHead className="min-w-[180px]">Apellidos y Nombres</TableHead>
+                      <TableHead className="min-w-[180px]">
+                        Apellidos y Nombres
+                      </TableHead>
                       <TableHead className="min-w-[150px]">Proyectos</TableHead>
                       <TableHead className="w-[120px]">Programación</TableHead>
                       <TableHead className="w-[80px]">H.P</TableHead>
                       <TableHead className="w-[120px]">Estado</TableHead>
                       <TableHead className="w-[80px]">M3</TableHead>
                       <TableHead className="w-[100px]">Cant. Viaje</TableHead>
-                      <TableHead className="w-[180px] text-center">Archivos</TableHead>
-                      <TableHead className="w-[150px] text-center">Acciones</TableHead>
+                      <TableHead className="w-[180px] text-center">
+                        Archivos
+                      </TableHead>
+                      <TableHead className="w-[150px] text-center">
+                        Acciones
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.map((item) => (
                       <TableRow
                         key={item.id}
-                        className={hasGuiaCompleta(item) ? "bg-green-100 hover:bg-green-200 border-l-4 border-green-500" : ""}
+                        className={
+                          hasArchivosGenerados(item)
+                            ? "bg-green-100 hover:bg-green-200 border-l-4 border-green-500"
+                            : hasGuiaEnProceso(item)
+                            ? "bg-cyan-100 hover:bg-cyan-200 border-l-4 border-cyan-500"
+                            : ""
+                        }
                       >
                         <TableCell className="font-medium">{item.id}</TableCell>
                         <TableCell>
@@ -247,7 +261,9 @@ export default function ProgTecnicaPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => window.open(item.enlace_del_pdf!, "_blank")}
+                                onClick={() =>
+                                  window.open(item.enlace_del_pdf!, "_blank")
+                                }
                                 className="bg-red-50 hover:bg-red-100 text-red-700 border-red-300 px-2 py-1 h-7 text-xs"
                               >
                                 PDF
@@ -259,7 +275,9 @@ export default function ProgTecnicaPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => window.open(item.enlace_del_xml!, "_blank")}
+                                onClick={() =>
+                                  window.open(item.enlace_del_xml!, "_blank")
+                                }
                                 className="bg-green-50 hover:bg-green-100 text-green-700 border-green-300 px-2 py-1 h-7 text-xs"
                               >
                                 XML
@@ -271,7 +289,9 @@ export default function ProgTecnicaPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => window.open(item.enlace_del_cdr!, "_blank")}
+                                onClick={() =>
+                                  window.open(item.enlace_del_cdr!, "_blank")
+                                }
                                 className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300 px-2 py-1 h-7 text-xs"
                               >
                                 CDR
@@ -282,17 +302,15 @@ export default function ProgTecnicaPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
-                          {hasGuiaCompleta(item) && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleGenerarGuia(item.id)}
-                              className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300"
-                            >
-                              <FileText className="h-4 w-4 mr-2" />
-                              Generar Guía
-                            </Button>
-                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleGenerarGuia(item.id)}
+                            className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300"
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            Generar Guía
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
