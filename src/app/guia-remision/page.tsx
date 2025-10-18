@@ -675,6 +675,111 @@ function GuiaRemisionContent() {
     selectedNames.partida,
   ]);
 
+  // Funciones de validación para cada sección
+  const isDatosBasicosComplete = () => {
+    return (
+      formData.serie.trim() !== "" &&
+      formData.numero > 0 &&
+      formData.fecha_de_emision !== ""
+    );
+  };
+
+  const isDestinatarioComplete = () => {
+    return (
+      formData.cliente_numero_de_documento.trim() !== "" &&
+      formData.cliente_denominacion.trim() !== "" &&
+      formData.cliente_direccion.trim() !== ""
+    );
+  };
+
+  const isTrasladoComplete = () => {
+    if (tipoGRE !== 7) return true; // No aplica para GRE Transportista
+    return (
+      formData.motivo_de_traslado !== "" &&
+      formData.numero_de_bultos >= 1 &&
+      formData.fecha_de_inicio_de_traslado !== ""
+    );
+  };
+
+  const isPesoComplete = () => {
+    return (
+      formData.peso_bruto_total > 0 &&
+      formData.peso_bruto_unidad_de_medida !== ""
+    );
+  };
+
+  const isTransportistaComplete = () => {
+    // Solo aplica para transporte público (GRE Remitente tipo 01)
+    if (tipoGRE !== 7 || tipoTransporte !== "01") return true;
+    return (
+      formData.transportista_documento_numero.trim() !== "" &&
+      formData.transportista_denominacion.trim() !== "" &&
+      formData.transportista_placa_numero.trim() !== ""
+    );
+  };
+
+  const isVehiculoConductorComplete = () => {
+    // Solo aplica para GRE Transportista o transporte privado
+    if (tipoGRE !== 8 && !(tipoGRE === 7 && tipoTransporte === "02"))
+      return true;
+    return (
+      formData.transportista_placa_numero.trim() !== "" &&
+      formData.conductor_documento_numero.trim() !== "" &&
+      formData.conductor_nombre.trim() !== "" &&
+      formData.conductor_apellidos.trim() !== "" &&
+      formData.conductor_numero_licencia.trim() !== ""
+    );
+  };
+
+  const isDestinatarioGREComplete = () => {
+    // Solo aplica para GRE Transportista
+    if (tipoGRE !== 8) return true;
+    return (
+      formData.destinatario_documento_numero.trim() !== "" &&
+      formData.destinatario_denominacion.trim() !== ""
+    );
+  };
+
+  const isUbicacionesComplete = () => {
+    const basicoComplete =
+      formData.punto_de_partida_ubigeo.length === 6 &&
+      formData.punto_de_partida_direccion.trim() !== "" &&
+      formData.punto_de_llegada_ubigeo.length === 6 &&
+      formData.punto_de_llegada_direccion.trim() !== "";
+
+    // Validar códigos de establecimiento SUNAT para motivos 04 y 18
+    if (
+      tipoGRE === 7 &&
+      (formData.motivo_de_traslado === "04" ||
+        formData.motivo_de_traslado === "18")
+    ) {
+      return (
+        basicoComplete &&
+        formData.punto_de_partida_codigo_establecimiento_sunat.length === 4 &&
+        formData.punto_de_llegada_codigo_establecimiento_sunat.length === 4
+      );
+    }
+
+    return basicoComplete;
+  };
+
+  const isItemsComplete = () => {
+    return (
+      items.length > 0 &&
+      items.every((item) => item.descripcion.trim() !== "" && item.cantidad > 0)
+    );
+  };
+
+  const isProyectoComplete = () => {
+    return (
+      formData.id_proyecto !== undefined &&
+      formData.id_etapa !== undefined &&
+      formData.id_sector !== undefined &&
+      formData.id_frente !== undefined &&
+      formData.id_partida !== undefined
+    );
+  };
+
   return (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-6 min-h-screen">
       <div className="max-w-2xl mx-auto pb-12">
@@ -727,11 +832,22 @@ function GuiaRemisionContent() {
           {/* Contenido del formulario */}
           <div className="grid gap-6">
             {/* Datos Básicos */}
-            <Card>
+            <Card
+              className={
+                isDatosBasicosComplete()
+                  ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                  : ""
+              }
+            >
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
                   Datos del Comprobante
+                  {isDatosBasicosComplete() && (
+                    <span className="ml-auto text-green-600 dark:text-green-400">
+                      ✓
+                    </span>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid md:grid-cols-3 gap-4">
@@ -758,6 +874,7 @@ function GuiaRemisionContent() {
                     }
                     required
                     min={1}
+                    disabled
                   />
                 </div>
                 <div>
@@ -775,13 +892,126 @@ function GuiaRemisionContent() {
               </CardContent>
             </Card>
 
+            {/* Proyecto */}
+            <Card
+              className={
+                isProyectoComplete()
+                  ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                  : ""
+              }
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Relacionar con Proyecto
+                  {isProyectoComplete() && (
+                    <span className="ml-auto text-green-600 dark:text-green-400">
+                      ✓
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Proyecto</Label>
+                  <ProyectoSelect
+                    value={formData.id_proyecto}
+                    onChange={(id) => {
+                      handleInputChange("id_proyecto", id);
+                      // Limpiar selecciones dependientes
+                      handleInputChange("id_etapa", undefined);
+                      handleInputChange("id_sector", undefined);
+                      handleInputChange("id_frente", undefined);
+                      handleInputChange("id_partida", undefined);
+                    }}
+                    onNameChange={handleProyectoNameChange}
+                  />
+                </div>
+
+                {formData.id_proyecto && (
+                  <div>
+                    <Label>Etapa</Label>
+                    <EtapaSelect
+                      idProyecto={formData.id_proyecto}
+                      value={formData.id_etapa}
+                      onChange={(id) => {
+                        handleInputChange("id_etapa", id);
+                        // Limpiar selecciones dependientes
+                        handleInputChange("id_sector", undefined);
+                        handleInputChange("id_frente", undefined);
+                        handleInputChange("id_partida", undefined);
+                      }}
+                      onNameChange={handleEtapaNameChange}
+                    />
+                  </div>
+                )}
+
+                {formData.id_etapa && (
+                  <div>
+                    <Label>Sector</Label>
+                    <SectorSelect
+                      idEtapa={formData.id_etapa}
+                      value={formData.id_sector}
+                      onChange={(id) => {
+                        handleInputChange("id_sector", id);
+                        // Limpiar selecciones dependientes
+                        handleInputChange("id_frente", undefined);
+                        handleInputChange("id_partida", undefined);
+                      }}
+                      onNameChange={handleSectorNameChange}
+                    />
+                  </div>
+                )}
+
+                {formData.id_sector && (
+                  <div>
+                    <Label>Frente</Label>
+                    <FrenteSelectBySector
+                      idSector={formData.id_sector}
+                      value={formData.id_frente}
+                      onChange={(id) => {
+                        handleInputChange("id_frente", id);
+                        // Limpiar selección dependiente
+                        handleInputChange("id_partida", undefined);
+                      }}
+                      onNameChange={handleFrenteNameChange}
+                    />
+                  </div>
+                )}
+
+                {formData.id_frente && (
+                  <div>
+                    <Label>Partida</Label>
+                    <PartidaSelect
+                      idFrente={formData.id_frente}
+                      value={formData.id_partida}
+                      onChange={(id) => handleInputChange("id_partida", id)}
+                      onNameChange={handlePartidaNameChange}
+                      onPartidaDataChange={handlePartidaDataChange}
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Cliente/Destinatario */}
-            <Card>
+            <Card
+              className={
+                isDestinatarioComplete()
+                  ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                  : ""
+              }
+            >
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <User className="h-5 w-5" />
                     {tipoGRE === 7 ? "Destinatario" : "Remitente"}
+                    {isDestinatarioComplete() && (
+                      <span className="text-green-600 dark:text-green-400">
+                        ✓
+                      </span>
+                    )}
                   </span>
                   <EmpresaDialog
                     onAccept={(empresaData) => {
@@ -879,9 +1109,22 @@ function GuiaRemisionContent() {
 
             {/* Traslado - Solo para GRE Remitente */}
             {tipoGRE === 7 && (
-              <Card>
+              <Card
+                className={
+                  isTrasladoComplete()
+                    ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                    : ""
+                }
+              >
                 <CardHeader>
-                  <CardTitle>Datos del Traslado</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    Datos del Traslado
+                    {isTrasladoComplete() && (
+                      <span className="ml-auto text-green-600 dark:text-green-400">
+                        ✓
+                      </span>
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-3 gap-4">
                   <div>
@@ -891,6 +1134,7 @@ function GuiaRemisionContent() {
                       onValueChange={(v) =>
                         handleInputChange("motivo_de_traslado", v)
                       }
+                      disabled
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -936,6 +1180,7 @@ function GuiaRemisionContent() {
                     <Select
                       value={tipoTransporte}
                       onValueChange={setTipoTransporte}
+                      disabled
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -959,6 +1204,7 @@ function GuiaRemisionContent() {
                         )
                       }
                       required
+                      disabled
                     />
                   </div>
                 </CardContent>
@@ -966,9 +1212,22 @@ function GuiaRemisionContent() {
             )}
 
             {/* Peso y Medidas */}
-            <Card>
+            <Card
+              className={
+                isPesoComplete()
+                  ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                  : ""
+              }
+            >
               <CardHeader>
-                <CardTitle>Peso de la Carga</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Peso de la Carga
+                  {isPesoComplete() && (
+                    <span className="ml-auto text-green-600 dark:text-green-400">
+                      ✓
+                    </span>
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent className="grid md:grid-cols-2 gap-4">
                 <div>
@@ -994,6 +1253,7 @@ function GuiaRemisionContent() {
                     onValueChange={(v) =>
                       handleInputChange("peso_bruto_unidad_de_medida", v)
                     }
+                    disabled
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -1009,11 +1269,22 @@ function GuiaRemisionContent() {
 
             {/* Transportista - Solo para transporte público */}
             {tipoGRE === 7 && tipoTransporte === "01" && (
-              <Card>
+              <Card
+                className={
+                  isTransportistaComplete()
+                    ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                    : ""
+                }
+              >
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Truck className="h-5 w-5" />
                     Datos del Transportista
+                    {isTransportistaComplete() && (
+                      <span className="ml-auto text-green-600 dark:text-green-400">
+                        ✓
+                      </span>
+                    )}
                   </CardTitle>
                   <CardDescription>
                     Obligatorio para transporte público
@@ -1088,12 +1359,23 @@ function GuiaRemisionContent() {
 
             {/* Vehículo y Conductor - Para transporte privado o GRE Transportista */}
             {(tipoGRE === 8 || (tipoGRE === 7 && tipoTransporte === "02")) && (
-              <Card>
+              <Card
+                className={
+                  isVehiculoConductorComplete()
+                    ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                    : ""
+                }
+              >
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <Truck className="h-5 w-5" />
                       Vehículo y Conductor
+                      {isVehiculoConductorComplete() && (
+                        <span className="text-green-600 dark:text-green-400">
+                          ✓
+                        </span>
+                      )}
                     </span>
                     <CamionDialog
                       onAccept={(camionData) => {
@@ -1222,9 +1504,22 @@ function GuiaRemisionContent() {
 
             {/* Destinatario - Solo para GRE Transportista */}
             {tipoGRE === 8 && (
-              <Card>
+              <Card
+                className={
+                  isDestinatarioGREComplete()
+                    ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                    : ""
+                }
+              >
                 <CardHeader>
-                  <CardTitle>Datos del Destinatario</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    Datos del Destinatario
+                    {isDestinatarioGREComplete() && (
+                      <span className="ml-auto text-green-600 dark:text-green-400">
+                        ✓
+                      </span>
+                    )}
+                  </CardTitle>
                   <CardDescription>
                     Obligatorio para GRE Transportista
                   </CardDescription>
@@ -1284,11 +1579,22 @@ function GuiaRemisionContent() {
             )}
 
             {/* Ubicaciones */}
-            <Card>
+            <Card
+              className={
+                isUbicacionesComplete()
+                  ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                  : ""
+              }
+            >
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
                   Punto de Partida y Llegada
+                  {isUbicacionesComplete() && (
+                    <span className="ml-auto text-green-600 dark:text-green-400">
+                      ✓
+                    </span>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid md:grid-cols-2 gap-6">
@@ -1425,14 +1731,25 @@ function GuiaRemisionContent() {
             </Card>
 
             {/* Items / Productos */}
-            <Card>
+            <Card
+              className={
+                isItemsComplete()
+                  ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                  : ""
+              }
+            >
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
                     Productos a Transportar
+                    {isItemsComplete() && (
+                      <span className="text-green-600 dark:text-green-400">
+                        ✓
+                      </span>
+                    )}
                   </span>
-                  <Button
+                  {/* <Button
                     type="button"
                     onClick={addItem}
                     variant="outline"
@@ -1440,7 +1757,7 @@ function GuiaRemisionContent() {
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Agregar Item
-                  </Button>
+                  </Button> */}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1467,6 +1784,7 @@ function GuiaRemisionContent() {
                             onValueChange={(v) =>
                               updateItem(index, "unidad_de_medida", v)
                             }
+                            disabled
                           >
                             <SelectTrigger>
                               <SelectValue />
@@ -1500,6 +1818,7 @@ function GuiaRemisionContent() {
                               updateItem(index, "codigo", e.target.value)
                             }
                             placeholder="Opcional"
+                            disabled
                           />
                         </div>
 
@@ -1512,6 +1831,7 @@ function GuiaRemisionContent() {
                             }
                             placeholder="Descripción del producto"
                             required
+                            disabled
                           />
                         </div>
 
@@ -1530,6 +1850,7 @@ function GuiaRemisionContent() {
                             }
                             min={0.01}
                             required
+                            disabled
                           />
                         </div>
                       </div>
@@ -1648,97 +1969,6 @@ function GuiaRemisionContent() {
                   )}
                 </CardContent>
               </Card> */}
-
-            {/* Proyecto (Opcional) */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  Relacionar con Proyecto (Opcional)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid md:grid-cols-3 gap-4">
-                <div>
-                  <Label>Proyecto</Label>
-                  <ProyectoSelect
-                    value={formData.id_proyecto}
-                    onChange={(id) => {
-                      handleInputChange("id_proyecto", id);
-                      // Limpiar selecciones dependientes
-                      handleInputChange("id_etapa", undefined);
-                      handleInputChange("id_sector", undefined);
-                      handleInputChange("id_frente", undefined);
-                      handleInputChange("id_partida", undefined);
-                    }}
-                    onNameChange={handleProyectoNameChange}
-                  />
-                </div>
-
-                {formData.id_proyecto && (
-                  <div>
-                    <Label>Etapa</Label>
-                    <EtapaSelect
-                      idProyecto={formData.id_proyecto}
-                      value={formData.id_etapa}
-                      onChange={(id) => {
-                        handleInputChange("id_etapa", id);
-                        // Limpiar selecciones dependientes
-                        handleInputChange("id_sector", undefined);
-                        handleInputChange("id_frente", undefined);
-                        handleInputChange("id_partida", undefined);
-                      }}
-                      onNameChange={handleEtapaNameChange}
-                    />
-                  </div>
-                )}
-
-                {formData.id_etapa && (
-                  <div>
-                    <Label>Sector</Label>
-                    <SectorSelect
-                      idEtapa={formData.id_etapa}
-                      value={formData.id_sector}
-                      onChange={(id) => {
-                        handleInputChange("id_sector", id);
-                        // Limpiar selecciones dependientes
-                        handleInputChange("id_frente", undefined);
-                        handleInputChange("id_partida", undefined);
-                      }}
-                      onNameChange={handleSectorNameChange}
-                    />
-                  </div>
-                )}
-
-                {formData.id_sector && (
-                  <div>
-                    <Label>Frente</Label>
-                    <FrenteSelectBySector
-                      idSector={formData.id_sector}
-                      value={formData.id_frente}
-                      onChange={(id) => {
-                        handleInputChange("id_frente", id);
-                        // Limpiar selección dependiente
-                        handleInputChange("id_partida", undefined);
-                      }}
-                      onNameChange={handleFrenteNameChange}
-                    />
-                  </div>
-                )}
-
-                {formData.id_frente && (
-                  <div>
-                    <Label>Partida</Label>
-                    <PartidaSelect
-                      idFrente={formData.id_frente}
-                      value={formData.id_partida}
-                      onChange={(id) => handleInputChange("id_partida", id)}
-                      onNameChange={handlePartidaNameChange}
-                      onPartidaDataChange={handlePartidaDataChange}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
             {/* Observaciones */}
             <Card>
