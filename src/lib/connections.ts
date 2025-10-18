@@ -2174,6 +2174,19 @@ export const programacionApi = {
       return [];
     }
   },
+
+  // Obtener datos completos de registros recién completados (con enlaces PDF/XML/CDR)
+  getRecienCompletados: async (segundos: number = 30): Promise<ProgramacionTecnicaData[]> => {
+    try {
+      const response = await api.get("/programacion/tecnica/recien-completados", {
+        params: { segundos },
+      });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Programación Técnica Recién Completados API error:", error);
+      return [];
+    }
+  },
 };
 
 // ============ SUBPROYECTOS INTERFACES ============

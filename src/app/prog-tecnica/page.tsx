@@ -44,6 +44,59 @@ export default function ProgTecnicaPage() {
 
   useEffect(() => {
     fetchData();
+
+    // Polling ligero: consultar cada 10 segundos si hay registros recién completados
+    const interval = setInterval(async () => {
+      try {
+        // Consultar datos completos de registros completados en los últimos 15 segundos
+        const registrosRecientes = await programacionApi.getRecienCompletados(15);
+
+        if (registrosRecientes.length > 0) {
+          // Actualizar solo los registros que cambiaron en lugar de recargar toda la tabla
+          setData((prevData) => {
+            // Crear un mapa con los IDs de los registros recientes para búsqueda rápida
+            const registrosMap = new Map(
+              registrosRecientes.map((reg) => [reg.id, reg])
+            );
+
+            // Actualizar los registros existentes o agregarlos si son nuevos
+            const dataActualizada = prevData.map((item) => {
+              const registroActualizado = registrosMap.get(item.id);
+              if (registroActualizado) {
+                // Eliminar del mapa para saber cuáles son nuevos después
+                registrosMap.delete(item.id);
+                return registroActualizado;
+              }
+              return item;
+            });
+
+            // Agregar registros nuevos que no existían en la tabla
+            const registrosNuevos = Array.from(registrosMap.values());
+
+            return [...registrosNuevos, ...dataActualizada];
+          });
+
+          // Actualizar también la lista de identificadores con guía
+          const nuevosIdentificadores = registrosRecientes
+            .map((reg) => reg.identificador_unico)
+            .filter((id): id is string => id !== null);
+
+          setIdentificadoresConGuia((prev) => {
+            const set = new Set([...prev, ...nuevosIdentificadores]);
+            return Array.from(set);
+          });
+
+          toast.success(
+            `${registrosRecientes.length} guía${registrosRecientes.length > 1 ? 's' : ''} procesada${registrosRecientes.length > 1 ? 's' : ''}`
+          );
+        }
+      } catch (error) {
+        // Silenciar errores de polling para no molestar al usuario
+        console.error("Error en polling:", error);
+      }
+    }, 10000); // Cada 10 segundos
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleGenerarGuia = (id: number) => {
