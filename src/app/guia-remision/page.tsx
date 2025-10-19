@@ -50,6 +50,7 @@ import { UbigeoDialog } from "@/components/ubigeo-dialog";
 import { CamionDialog } from "@/components/camion-dialog";
 import { EmpresaDialog } from "@/components/empresa-dialog";
 import { ubigeosLima } from "@/lib/ubigeos-lima";
+import dayjs from "dayjs";
 
 interface ItemGRE {
   unidad_de_medida: string;
@@ -90,8 +91,8 @@ function GuiaRemisionContent() {
     operacion: "generar_guia",
     serie: "TTT1",
     numero: 1,
-    fecha_de_emision: new Date().toISOString().split("T")[0],
-    fecha_de_inicio_de_traslado: new Date().toISOString().split("T")[0],
+    fecha_de_emision: dayjs().format("YYYY-MM-DD"),
+    fecha_de_inicio_de_traslado: dayjs().format("YYYY-MM-DD"),
 
     // Cliente/Destinatario
     cliente_tipo_de_documento: 6, // RUC por defecto
@@ -473,8 +474,8 @@ function GuiaRemisionContent() {
       operacion: "generar_guia",
       serie: tipoGRE === 7 ? "TTT1" : "V001",
       numero: formData.numero + 1,
-      fecha_de_emision: new Date().toISOString().split("T")[0],
-      fecha_de_inicio_de_traslado: new Date().toISOString().split("T")[0],
+      fecha_de_emision: dayjs().format("YYYY-MM-DD"),
+      fecha_de_inicio_de_traslado: dayjs().format("YYYY-MM-DD"),
       cliente_tipo_de_documento: 6,
       cliente_numero_de_documento: "",
       cliente_denominacion: "",
@@ -1204,7 +1205,6 @@ function GuiaRemisionContent() {
                         )
                       }
                       required
-                      disabled
                     />
                   </div>
                 </CardContent>
