@@ -676,6 +676,20 @@ function GuiaRemisionContent() {
     selectedNames.partida,
   ]);
 
+  // Actualizar cantidad del primer ítem cuando cambia el peso bruto total
+  useEffect(() => {
+    setItems((prevItems) => {
+      const newItems = [...prevItems];
+      if (newItems.length > 0) {
+        newItems[0] = {
+          ...newItems[0],
+          cantidad: formData.peso_bruto_total,
+        };
+      }
+      return newItems;
+    });
+  }, [formData.peso_bruto_total]);
+
   // Funciones de validación para cada sección
   const isDatosBasicosComplete = () => {
     return (
