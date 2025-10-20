@@ -2142,6 +2142,7 @@ export const programacionApi = {
       id_sector?: number;
       id_frente?: number;
       id_partida?: number;
+      m3?: string;
     }
   ): Promise<{ message: string }> => {
     try {

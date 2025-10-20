@@ -415,14 +415,15 @@ function GuiaRemisionContent() {
         >
       );
 
-      // Si hay programacionId, actualizar la programación técnica con los IDs del proyecto
+      // Si hay programacionId, actualizar la programación técnica con los IDs del proyecto y el m3
       if (
         programacionId &&
         (formData.id_proyecto ||
           formData.id_etapa ||
           formData.id_sector ||
           formData.id_frente ||
-          formData.id_partida)
+          formData.id_partida ||
+          items[0]?.cantidad)
       ) {
         try {
           await programacionApi.updateTecnica(parseInt(programacionId), {
@@ -431,9 +432,10 @@ function GuiaRemisionContent() {
             id_sector: formData.id_sector,
             id_frente: formData.id_frente,
             id_partida: formData.id_partida,
+            m3: items[0]?.cantidad?.toString() || "0",
           });
           console.log(
-            "Programación técnica actualizada exitosamente con los IDs del proyecto"
+            "Programación técnica actualizada exitosamente con los IDs del proyecto y m3"
           );
         } catch (updateError) {
           console.error(

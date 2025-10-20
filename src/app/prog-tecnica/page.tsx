@@ -120,6 +120,29 @@ export default function ProgTecnicaPage() {
     );
   };
 
+  // Función para formatear fecha sin problemas de timezone
+  const formatearFecha = (fecha: string | null): string => {
+    if (!fecha) return "-";
+
+    try {
+      // Extraer año, mes, día del string sin usar Date()
+      // Esto evita conversiones de timezone
+      const fechaStr = fecha.split("T")[0]; // "2025-01-18"
+      const [year, month, day] = fechaStr.split("-");
+
+      // Crear fecha en timezone local
+      const fechaLocal = new Date(
+        parseInt(year),
+        parseInt(month) - 1, // Los meses en JS van de 0-11
+        parseInt(day)
+      );
+
+      return fechaLocal.toLocaleDateString("es-ES");
+    } catch (error) {
+      return fecha;
+    }
+  };
+
   // Función para formatear hora a HH:MM
   const formatearHora = (horaCompleta: string | null): string => {
     if (!horaCompleta) return "-";
@@ -227,9 +250,7 @@ export default function ProgTecnicaPage() {
                       >
                         <TableCell className="font-medium">{item.id}</TableCell>
                         <TableCell>
-                          {item.fecha
-                            ? new Date(item.fecha).toLocaleDateString("es-ES")
-                            : "-"}
+                          {formatearFecha(item.fecha)}
                         </TableCell>
                         <TableCell className="min-w-24">
                           <div
