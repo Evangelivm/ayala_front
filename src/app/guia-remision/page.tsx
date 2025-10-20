@@ -149,7 +149,7 @@ function GuiaRemisionContent() {
   // Items
   const [items, setItems] = useState<ItemGRE[]>([
     {
-      unidad_de_medida: "ZZ",
+      unidad_de_medida: "MTQ",
       codigo: "",
       descripcion: "",
       cantidad: 1,
@@ -174,7 +174,7 @@ function GuiaRemisionContent() {
     setItems([
       ...items,
       {
-        unidad_de_medida: "ZZ",
+        unidad_de_medida: "MTQ",
         codigo: "",
         descripcion: "",
         cantidad: 1,
@@ -513,7 +513,7 @@ function GuiaRemisionContent() {
     });
     setItems([
       {
-        unidad_de_medida: "ZZ",
+        unidad_de_medida: "MTQ",
         codigo: "",
         descripcion: "",
         cantidad: 1,
@@ -1799,7 +1799,7 @@ function GuiaRemisionContent() {
                                 <SelectItem value="TNE">
                                   Toneladas (TNE)
                                 </SelectItem> */}
-                              <SelectItem value="ZZ">Metros (M3)</SelectItem>
+                              <SelectItem value="MTQ">Metros (M3)</SelectItem>
                               {/* <SelectItem value="LTR">
                                   Litros (LTR)
                                 </SelectItem>
