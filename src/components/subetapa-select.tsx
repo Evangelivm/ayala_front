@@ -62,7 +62,8 @@ export function SubEtapaSelect({
     } else if (!value && onNameChange) {
       onNameChange("");
     }
-  }, [value, subEtapas, onNameChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, subEtapas]);
 
   const handleValueChange = (val: string) => {
     onChange(parseInt(val));

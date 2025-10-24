@@ -62,7 +62,8 @@ export function SubfrenteSelect({
     } else if (!value && onNameChange) {
       onNameChange("");
     }
-  }, [value, subfrentes, onNameChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, subfrentes]);
 
   const handleValueChange = (val: string) => {
     onChange(parseInt(val));

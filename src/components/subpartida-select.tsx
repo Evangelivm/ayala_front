@@ -74,7 +74,8 @@ export function SubpartidaSelect({
       if (onNameChange) onNameChange("");
       if (onSubpartidaDataChange) onSubpartidaDataChange(null);
     }
-  }, [value, subpartidas, onNameChange, onSubpartidaDataChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, subpartidas]);
 
   const handleValueChange = (val: string) => {
     onChange(parseInt(val));
