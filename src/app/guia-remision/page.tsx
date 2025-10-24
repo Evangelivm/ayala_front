@@ -40,6 +40,10 @@ import { EtapaSelect } from "@/components/etapa-select";
 import { SectorSelect } from "@/components/sector-select";
 import { FrenteSelectBySector } from "@/components/frente-select-by-sector";
 import { PartidaSelect } from "@/components/partida-select";
+import { SubEtapaSelect } from "@/components/subetapa-select";
+import { SubsectorSelect } from "@/components/subsector-select";
+import { SubfrenteSelect } from "@/components/subfrente-select";
+import { SubpartidaSelect } from "@/components/subpartida-select";
 import {
   guiasRemisionApi,
   programacionApi,
@@ -50,7 +54,15 @@ import { UbigeoDialog } from "@/components/ubigeo-dialog";
 import { CamionDialog } from "@/components/camion-dialog";
 import { EmpresaDialog } from "@/components/empresa-dialog";
 import { ubigeosLima } from "@/lib/ubigeos-lima";
-import dayjs from "dayjs";
+
+// Función helper para obtener fecha local en formato YYYY-MM-DD sin problemas de timezone
+const getFechaLocal = (): string => {
+  const hoy = new Date();
+  const year = hoy.getFullYear();
+  const month = String(hoy.getMonth() + 1).padStart(2, "0");
+  const day = String(hoy.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 interface ItemGRE {
   unidad_de_medida: string;
@@ -76,6 +88,9 @@ function GuiaRemisionContent() {
   const [loadingNumber, setLoadingNumber] = useState(true);
   const [identificadorUnico, setIdentificadorUnico] = useState<string>("");
 
+  // Estado para rastrear si se seleccionó proyecto o subproyecto
+  const [selectionType, setSelectionType] = useState<"proyecto" | "subproyecto" | null>(null);
+
   // Estados para los nombres seleccionados
   const [selectedNames, setSelectedNames] = useState({
     proyecto: "",
@@ -83,6 +98,11 @@ function GuiaRemisionContent() {
     sector: "",
     frente: "",
     partida: "",
+    subproyecto: "",
+    subetapa: "",
+    subsector: "",
+    subfrente: "",
+    subpartida: "",
   });
 
   // Estado del formulario
@@ -91,8 +111,8 @@ function GuiaRemisionContent() {
     operacion: "generar_guia",
     serie: "TTT1",
     numero: 1,
-    fecha_de_emision: dayjs().format("YYYY-MM-DD"),
-    fecha_de_inicio_de_traslado: dayjs().format("YYYY-MM-DD"),
+    fecha_de_emision: getFechaLocal(),
+    fecha_de_inicio_de_traslado: getFechaLocal(),
 
     // Cliente/Destinatario
     cliente_tipo_de_documento: 6, // RUC por defecto
@@ -141,6 +161,13 @@ function GuiaRemisionContent() {
     id_sector: undefined as number | undefined,
     id_frente: undefined as number | undefined,
     id_partida: undefined as number | undefined,
+
+    // Subproyecto (opcional)
+    id_subproyecto: undefined as number | undefined,
+    id_subetapa: undefined as number | undefined,
+    id_subsector: undefined as number | undefined,
+    id_subfrente: undefined as number | undefined,
+    id_subpartida: undefined as number | undefined,
 
     observaciones: "",
     identificador_unico: "",
@@ -415,7 +442,7 @@ function GuiaRemisionContent() {
         >
       );
 
-      // Si hay programacionId, actualizar la programación técnica con los IDs del proyecto y el m3
+      // Si hay programacionId, actualizar la programación técnica con los IDs del proyecto/subproyecto y el m3
       if (
         programacionId &&
         (formData.id_proyecto ||
@@ -423,6 +450,11 @@ function GuiaRemisionContent() {
           formData.id_sector ||
           formData.id_frente ||
           formData.id_partida ||
+          formData.id_subproyecto ||
+          formData.id_subetapa ||
+          formData.id_subsector ||
+          formData.id_subfrente ||
+          formData.id_subpartida ||
           items[0]?.cantidad)
       ) {
         try {
@@ -432,10 +464,15 @@ function GuiaRemisionContent() {
             id_sector: formData.id_sector,
             id_frente: formData.id_frente,
             id_partida: formData.id_partida,
+            id_subproyecto: formData.id_subproyecto,
+            id_subetapa: formData.id_subetapa,
+            id_subsector: formData.id_subsector,
+            id_subfrente: formData.id_subfrente,
+            id_subpartida: formData.id_subpartida,
             m3: items[0]?.cantidad?.toString() || "0",
           });
           console.log(
-            "Programación técnica actualizada exitosamente con los IDs del proyecto y m3"
+            "Programación técnica actualizada exitosamente con los IDs del proyecto/subproyecto y m3"
           );
         } catch (updateError) {
           console.error(
@@ -476,8 +513,8 @@ function GuiaRemisionContent() {
       operacion: "generar_guia",
       serie: tipoGRE === 7 ? "TTT1" : "V001",
       numero: formData.numero + 1,
-      fecha_de_emision: dayjs().format("YYYY-MM-DD"),
-      fecha_de_inicio_de_traslado: dayjs().format("YYYY-MM-DD"),
+      fecha_de_emision: getFechaLocal(),
+      fecha_de_inicio_de_traslado: getFechaLocal(),
       cliente_tipo_de_documento: 6,
       cliente_numero_de_documento: "",
       cliente_denominacion: "",
@@ -510,6 +547,11 @@ function GuiaRemisionContent() {
       id_sector: undefined,
       id_frente: undefined,
       id_partida: undefined,
+      id_subproyecto: undefined,
+      id_subetapa: undefined,
+      id_subsector: undefined,
+      id_subfrente: undefined,
+      id_subpartida: undefined,
       observaciones: "",
       identificador_unico: "",
     });
@@ -528,7 +570,13 @@ function GuiaRemisionContent() {
       sector: "",
       frente: "",
       partida: "",
+      subproyecto: "",
+      subetapa: "",
+      subsector: "",
+      subfrente: "",
+      subpartida: "",
     });
+    setSelectionType(null);
   };
 
   // Cargar datos de programación técnica si hay ID en query params
@@ -646,24 +694,86 @@ function GuiaRemisionContent() {
     []
   );
 
+  // Callbacks para subproyectos
+  const handleSubproyectoNameChange = useCallback((name: string) => {
+    setSelectedNames((prev) => ({ ...prev, subproyecto: name }));
+  }, []);
+
+  const handleSubEtapaNameChange = useCallback((name: string) => {
+    setSelectedNames((prev) => ({ ...prev, subetapa: name }));
+  }, []);
+
+  const handleSubsectorNameChange = useCallback((name: string) => {
+    setSelectedNames((prev) => ({ ...prev, subsector: name }));
+  }, []);
+
+  const handleSubfrenteNameChange = useCallback((name: string) => {
+    setSelectedNames((prev) => ({ ...prev, subfrente: name }));
+  }, []);
+
+  const handleSubpartidaNameChange = useCallback((name: string) => {
+    setSelectedNames((prev) => ({ ...prev, subpartida: name }));
+  }, []);
+
+  const handleSubpartidaDataChange = useCallback(
+    (data: { codigo: string; descripcion: string } | null) => {
+      if (data) {
+        // Actualizar el primer item con los datos de la subpartida
+        setItems((prevItems) => {
+          const newItems = [...prevItems];
+          if (newItems.length > 0) {
+            newItems[0] = {
+              ...newItems[0],
+              codigo: data.codigo,
+              descripcion: data.descripcion,
+            };
+          }
+          return newItems;
+        });
+      }
+    },
+    []
+  );
+
   // Actualizar observaciones cuando cambian los nombres seleccionados
   useEffect(() => {
     let observacionesText = "";
 
-    if (selectedNames.proyecto) {
-      observacionesText += `Proyecto: ${selectedNames.proyecto}\n`;
+    // Si se seleccionó un proyecto
+    if (selectionType === "proyecto") {
+      if (selectedNames.proyecto) {
+        observacionesText += `Proyecto: ${selectedNames.proyecto}\n`;
+      }
+      if (selectedNames.etapa) {
+        observacionesText += `Etapa: ${selectedNames.etapa}\n`;
+      }
+      if (selectedNames.sector) {
+        observacionesText += `Sector: ${selectedNames.sector}\n`;
+      }
+      if (selectedNames.frente) {
+        observacionesText += `Frente: ${selectedNames.frente}\n`;
+      }
+      if (selectedNames.partida) {
+        observacionesText += `Partida: ${selectedNames.partida}`;
+      }
     }
-    if (selectedNames.etapa) {
-      observacionesText += `Etapa: ${selectedNames.etapa}\n`;
-    }
-    if (selectedNames.sector) {
-      observacionesText += `Sector: ${selectedNames.sector}\n`;
-    }
-    if (selectedNames.frente) {
-      observacionesText += `Frente: ${selectedNames.frente}\n`;
-    }
-    if (selectedNames.partida) {
-      observacionesText += `Partida: ${selectedNames.partida}`;
+    // Si se seleccionó un subproyecto
+    else if (selectionType === "subproyecto") {
+      if (selectedNames.subproyecto) {
+        observacionesText += `Subproyecto: ${selectedNames.subproyecto}\n`;
+      }
+      if (selectedNames.subetapa) {
+        observacionesText += `Sub-Etapa: ${selectedNames.subetapa}\n`;
+      }
+      if (selectedNames.subsector) {
+        observacionesText += `Subsector: ${selectedNames.subsector}\n`;
+      }
+      if (selectedNames.subfrente) {
+        observacionesText += `Subfrente: ${selectedNames.subfrente}\n`;
+      }
+      if (selectedNames.subpartida) {
+        observacionesText += `Subpartida: ${selectedNames.subpartida}`;
+      }
     }
 
     setFormData((prev) => ({
@@ -671,11 +781,17 @@ function GuiaRemisionContent() {
       observaciones: observacionesText.trim(),
     }));
   }, [
+    selectionType,
     selectedNames.proyecto,
     selectedNames.etapa,
     selectedNames.sector,
     selectedNames.frente,
     selectedNames.partida,
+    selectedNames.subproyecto,
+    selectedNames.subetapa,
+    selectedNames.subsector,
+    selectedNames.subfrente,
+    selectedNames.subpartida,
   ]);
 
   // Actualizar cantidad del primer ítem cuando cambia el peso bruto total
@@ -683,12 +799,16 @@ function GuiaRemisionContent() {
     setItems((prevItems) => {
       const newItems = [...prevItems];
       if (newItems.length > 0) {
-        newItems[0] = {
-          ...newItems[0],
-          cantidad: formData.peso_bruto_total,
-        };
+        // Solo actualizar si el valor es diferente para evitar ciclos infinitos
+        if (newItems[0].cantidad !== formData.peso_bruto_total) {
+          newItems[0] = {
+            ...newItems[0],
+            cantidad: formData.peso_bruto_total,
+          };
+          return newItems;
+        }
       }
-      return newItems;
+      return prevItems; // Retornar el array anterior si no hay cambios
     });
   }, [formData.peso_bruto_total]);
 
@@ -788,13 +908,27 @@ function GuiaRemisionContent() {
   };
 
   const isProyectoComplete = () => {
-    return (
-      formData.id_proyecto !== undefined &&
-      formData.id_etapa !== undefined &&
-      formData.id_sector !== undefined &&
-      formData.id_frente !== undefined &&
-      formData.id_partida !== undefined
-    );
+    // Si se seleccionó un proyecto
+    if (selectionType === "proyecto") {
+      return (
+        formData.id_proyecto !== undefined &&
+        formData.id_etapa !== undefined &&
+        formData.id_sector !== undefined &&
+        formData.id_frente !== undefined &&
+        formData.id_partida !== undefined
+      );
+    }
+    // Si se seleccionó un subproyecto
+    else if (selectionType === "subproyecto") {
+      return (
+        formData.id_subproyecto !== undefined &&
+        formData.id_subetapa !== undefined &&
+        formData.id_subsector !== undefined &&
+        formData.id_subfrente !== undefined &&
+        formData.id_subpartida !== undefined
+      );
+    }
+    return false;
   };
 
   return (
@@ -930,83 +1064,190 @@ function GuiaRemisionContent() {
               </CardHeader>
               <CardContent className="grid md:grid-cols-3 gap-4">
                 <div>
-                  <Label>Proyecto</Label>
+                  <Label>Proyecto / Subproyecto</Label>
                   <ProyectoSelect
-                    value={formData.id_proyecto}
-                    onChange={(id) => {
-                      handleInputChange("id_proyecto", id);
-                      // Limpiar selecciones dependientes
-                      handleInputChange("id_etapa", undefined);
-                      handleInputChange("id_sector", undefined);
-                      handleInputChange("id_frente", undefined);
-                      handleInputChange("id_partida", undefined);
-                    }}
-                    onNameChange={handleProyectoNameChange}
-                  />
-                </div>
+                    value={
+                      selectionType === "proyecto"
+                        ? `p-${formData.id_proyecto}`
+                        : selectionType === "subproyecto"
+                        ? `s-${formData.id_subproyecto}`
+                        : undefined
+                    }
+                    onChange={(id, type) => {
+                      setSelectionType(type);
 
-                {formData.id_proyecto && (
-                  <div>
-                    <Label>Etapa</Label>
-                    <EtapaSelect
-                      idProyecto={formData.id_proyecto}
-                      value={formData.id_etapa}
-                      onChange={(id) => {
-                        handleInputChange("id_etapa", id);
-                        // Limpiar selecciones dependientes
+                      if (type === "proyecto") {
+                        // Limpiar todos los campos de subproyecto
+                        handleInputChange("id_subproyecto", undefined);
+                        handleInputChange("id_subetapa", undefined);
+                        handleInputChange("id_subsector", undefined);
+                        handleInputChange("id_subfrente", undefined);
+                        handleInputChange("id_subpartida", undefined);
+
+                        // Establecer proyecto y limpiar sus dependientes
+                        handleInputChange("id_proyecto", id);
+                        handleInputChange("id_etapa", undefined);
                         handleInputChange("id_sector", undefined);
                         handleInputChange("id_frente", undefined);
                         handleInputChange("id_partida", undefined);
-                      }}
-                      onNameChange={handleEtapaNameChange}
-                    />
-                  </div>
-                )}
-
-                {formData.id_etapa && (
-                  <div>
-                    <Label>Sector</Label>
-                    <SectorSelect
-                      idEtapa={formData.id_etapa}
-                      value={formData.id_sector}
-                      onChange={(id) => {
-                        handleInputChange("id_sector", id);
-                        // Limpiar selecciones dependientes
+                      } else if (type === "subproyecto") {
+                        // Limpiar todos los campos de proyecto
+                        handleInputChange("id_proyecto", undefined);
+                        handleInputChange("id_etapa", undefined);
+                        handleInputChange("id_sector", undefined);
                         handleInputChange("id_frente", undefined);
                         handleInputChange("id_partida", undefined);
-                      }}
-                      onNameChange={handleSectorNameChange}
-                    />
-                  </div>
+
+                        // Establecer subproyecto y limpiar sus dependientes
+                        handleInputChange("id_subproyecto", id);
+                        handleInputChange("id_subetapa", undefined);
+                        handleInputChange("id_subsector", undefined);
+                        handleInputChange("id_subfrente", undefined);
+                        handleInputChange("id_subpartida", undefined);
+                      }
+                    }}
+                    onNameChange={(name) => {
+                      if (selectionType === "proyecto") {
+                        handleProyectoNameChange(name);
+                      } else if (selectionType === "subproyecto") {
+                        handleSubproyectoNameChange(name);
+                      }
+                    }}
+                  />
+                </div>
+
+                {/* Flujo de PROYECTO */}
+                {selectionType === "proyecto" && formData.id_proyecto && (
+                  <>
+                    <div>
+                      <Label>Etapa</Label>
+                      <EtapaSelect
+                        idProyecto={formData.id_proyecto}
+                        value={formData.id_etapa}
+                        onChange={(id) => {
+                          handleInputChange("id_etapa", id);
+                          // Limpiar selecciones dependientes
+                          handleInputChange("id_sector", undefined);
+                          handleInputChange("id_frente", undefined);
+                          handleInputChange("id_partida", undefined);
+                        }}
+                        onNameChange={handleEtapaNameChange}
+                      />
+                    </div>
+
+                    {formData.id_etapa && (
+                      <div>
+                        <Label>Sector</Label>
+                        <SectorSelect
+                          idEtapa={formData.id_etapa}
+                          value={formData.id_sector}
+                          onChange={(id) => {
+                            handleInputChange("id_sector", id);
+                            // Limpiar selecciones dependientes
+                            handleInputChange("id_frente", undefined);
+                            handleInputChange("id_partida", undefined);
+                          }}
+                          onNameChange={handleSectorNameChange}
+                        />
+                      </div>
+                    )}
+
+                    {formData.id_sector && (
+                      <div>
+                        <Label>Frente</Label>
+                        <FrenteSelectBySector
+                          idSector={formData.id_sector}
+                          value={formData.id_frente}
+                          onChange={(id) => {
+                            handleInputChange("id_frente", id);
+                            // Limpiar selección dependiente
+                            handleInputChange("id_partida", undefined);
+                          }}
+                          onNameChange={handleFrenteNameChange}
+                        />
+                      </div>
+                    )}
+
+                    {formData.id_frente && (
+                      <div>
+                        <Label>Partida</Label>
+                        <PartidaSelect
+                          idFrente={formData.id_frente}
+                          value={formData.id_partida}
+                          onChange={(id) => handleInputChange("id_partida", id)}
+                          onNameChange={handlePartidaNameChange}
+                          onPartidaDataChange={handlePartidaDataChange}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
 
-                {formData.id_sector && (
-                  <div>
-                    <Label>Frente</Label>
-                    <FrenteSelectBySector
-                      idSector={formData.id_sector}
-                      value={formData.id_frente}
-                      onChange={(id) => {
-                        handleInputChange("id_frente", id);
-                        // Limpiar selección dependiente
-                        handleInputChange("id_partida", undefined);
-                      }}
-                      onNameChange={handleFrenteNameChange}
-                    />
-                  </div>
-                )}
+                {/* Flujo de SUBPROYECTO */}
+                {selectionType === "subproyecto" && formData.id_subproyecto && (
+                  <>
+                    <div>
+                      <Label>Sub-Etapa</Label>
+                      <SubEtapaSelect
+                        idSubproyecto={formData.id_subproyecto}
+                        value={formData.id_subetapa}
+                        onChange={(id) => {
+                          handleInputChange("id_subetapa", id);
+                          // Limpiar selecciones dependientes
+                          handleInputChange("id_subsector", undefined);
+                          handleInputChange("id_subfrente", undefined);
+                          handleInputChange("id_subpartida", undefined);
+                        }}
+                        onNameChange={handleSubEtapaNameChange}
+                      />
+                    </div>
 
-                {formData.id_frente && (
-                  <div>
-                    <Label>Partida</Label>
-                    <PartidaSelect
-                      idFrente={formData.id_frente}
-                      value={formData.id_partida}
-                      onChange={(id) => handleInputChange("id_partida", id)}
-                      onNameChange={handlePartidaNameChange}
-                      onPartidaDataChange={handlePartidaDataChange}
-                    />
-                  </div>
+                    {formData.id_subetapa && (
+                      <div>
+                        <Label>Subsector</Label>
+                        <SubsectorSelect
+                          idSubEtapa={formData.id_subetapa}
+                          value={formData.id_subsector}
+                          onChange={(id) => {
+                            handleInputChange("id_subsector", id);
+                            // Limpiar selecciones dependientes
+                            handleInputChange("id_subfrente", undefined);
+                            handleInputChange("id_subpartida", undefined);
+                          }}
+                          onNameChange={handleSubsectorNameChange}
+                        />
+                      </div>
+                    )}
+
+                    {formData.id_subsector && (
+                      <div>
+                        <Label>Subfrente</Label>
+                        <SubfrenteSelect
+                          idSubsector={formData.id_subsector}
+                          value={formData.id_subfrente}
+                          onChange={(id) => {
+                            handleInputChange("id_subfrente", id);
+                            // Limpiar selección dependiente
+                            handleInputChange("id_subpartida", undefined);
+                          }}
+                          onNameChange={handleSubfrenteNameChange}
+                        />
+                      </div>
+                    )}
+
+                    {formData.id_subfrente && (
+                      <div>
+                        <Label>Subpartida</Label>
+                        <SubpartidaSelect
+                          idSubfrente={formData.id_subfrente}
+                          value={formData.id_subpartida}
+                          onChange={(id) => handleInputChange("id_subpartida", id)}
+                          onNameChange={handleSubpartidaNameChange}
+                          onSubpartidaDataChange={handleSubpartidaDataChange}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

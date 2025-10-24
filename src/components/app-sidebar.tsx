@@ -16,6 +16,8 @@ import {
   Upload,
   ShoppingCart,
   Briefcase,
+  Package,
+  TrendingUp,
 } from "lucide-react"
 
 import {
@@ -85,6 +87,17 @@ const menuItems = [
         title: "Reportes Mensuales",
         url: "/reportes/mensuales",
         icon: BarChart3,
+      },
+    ],
+  },
+  {
+    title: "Inventario",
+    items: [
+      {
+        title: "Inventario LAR",
+        url: "/inventario-lar",
+        icon: Package,
+        isActive: false,
       },
     ],
   },

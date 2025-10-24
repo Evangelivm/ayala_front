@@ -2142,6 +2142,11 @@ export const programacionApi = {
       id_sector?: number;
       id_frente?: number;
       id_partida?: number;
+      id_subproyecto?: number;
+      id_subetapa?: number;
+      id_subsector?: number;
+      id_subfrente?: number;
+      id_subpartida?: number;
       m3?: string;
     }
   ): Promise<{ message: string }> => {
