@@ -1,3 +1,4 @@
+import React from 'react'
 import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer'
 
 // Interfaces
@@ -231,6 +232,20 @@ const styles = StyleSheet.create({
     right: 20,
     fontSize: 8,
   },
+  // Estilos de ancho para columnas Kardex LAR
+  w3: { width: '3%' },
+  w4: { width: '4%' },
+  w6: { width: '6%' },
+  w7: { width: '7%' },
+  w8: { width: '8%' },
+  w24: { width: '24%' },
+  // Estilos de ancho para Método Promedio
+  w5: { width: '5%' },
+  w20: { width: '20%' },
+  // Estilos de texto
+  textLeft: { textAlign: 'left' },
+  textRight: { textAlign: 'right' },
+  textCenter: { textAlign: 'center' },
 })
 
 interface KardexPDFProps {
@@ -238,7 +253,107 @@ interface KardexPDFProps {
   metodoPromedioLAR: MetodoPromedioData
 }
 
-export const KardexPDF = ({ kardexLAR, metodoPromedioLAR }: KardexPDFProps) => (
+// Componente memoizado para filas de Kardex LAR
+const KardexRow = React.memo(({ row }: { row: KardexRow }) => (
+  <View
+    style={[
+      styles.tableRow,
+      row.CONDICION === 'INGRESO' ? styles.ingresoRow : styles.salidaRow,
+    ]}
+  >
+    <View style={[styles.tableCell, styles.w3]}>
+      <Text>{row.ITM}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row.FECHA}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w4]}>
+      <Text>{row.SEM}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w7]}>
+      <Text>{row.CONDICION}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w8]}>
+      <Text>{row['Nª Comprobante']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row['H/KM']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w24, styles.textLeft]}>
+      <Text>{row.DETALLE}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row.TARIFA}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w8]}>
+      <Text>{row['COSTO INGRESO']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w8]}>
+      <Text>{row['COSTO SALIDA']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row.Ingreso}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row.Salida}</Text>
+    </View>
+    <View style={[styles.tableCellLast, styles.w8]}>
+      <Text>{row.SALDO}</Text>
+    </View>
+  </View>
+))
+KardexRow.displayName = 'KardexRow'
+
+// Componente memoizado para filas de Método Promedio
+const MetodoPromedioRow = React.memo(({ row }: { row: MetodoPromedioRow }) => (
+  <View style={styles.tableRow}>
+    <View style={[styles.tableCell, styles.w5]}>
+      <Text>{row.Periodo}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w7]}>
+      <Text>{row.FECHA}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w8]}>
+      <Text>{row['Nª Comprobante']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row['H/KM']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w20, styles.textLeft]}>
+      <Text>{row.DETALLE}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row['Entradas.Cant']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row['Entradas.Cu']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row['Entradas.C.Total']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row['Salidas.Cant']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row['Salidas.Cu']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row['Salidas.C.Total']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row['Saldos.Cant']}</Text>
+    </View>
+    <View style={[styles.tableCell, styles.w6]}>
+      <Text>{row['Saldos.Cu']}</Text>
+    </View>
+    <View style={[styles.tableCellLast, styles.w6]}>
+      <Text>{row['Saldos.C.Total']}</Text>
+    </View>
+  </View>
+))
+MetodoPromedioRow.displayName = 'MetodoPromedioRow'
+
+export const KardexPDF = React.memo(({ kardexLAR, metodoPromedioLAR }: KardexPDFProps) => (
   <Document>
     {/* Página 1: Kardex LAR */}
     <Page size="LEGAL" orientation="landscape" style={styles.page}>
@@ -270,96 +385,50 @@ export const KardexPDF = ({ kardexLAR, metodoPromedioLAR }: KardexPDFProps) => (
       <View style={styles.table}>
         {/* Header de la tabla */}
         <View style={[styles.tableRow, styles.tableHeader]}>
-          <View style={[styles.tableCell, { width: '3%' }]}>
+          <View style={[styles.tableCell, styles.w3]}>
             <Text>ITM</Text>
           </View>
-          <View style={[styles.tableCell, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.w6]}>
             <Text>FECHA</Text>
           </View>
-          <View style={[styles.tableCell, { width: '4%' }]}>
+          <View style={[styles.tableCell, styles.w4]}>
             <Text>SEM</Text>
           </View>
-          <View style={[styles.tableCell, { width: '7%' }]}>
+          <View style={[styles.tableCell, styles.w7]}>
             <Text>CONDICION</Text>
           </View>
-          <View style={[styles.tableCell, { width: '8%' }]}>
+          <View style={[styles.tableCell, styles.w8]}>
             <Text>Comprobante</Text>
           </View>
-          <View style={[styles.tableCell, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.w6]}>
             <Text>H/KM</Text>
           </View>
-          <View style={[styles.tableCell, { width: '24%' }]}>
+          <View style={[styles.tableCell, styles.w24]}>
             <Text>DETALLE</Text>
           </View>
-          <View style={[styles.tableCell, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.w6]}>
             <Text>TARIFA</Text>
           </View>
-          <View style={[styles.tableCell, { width: '8%' }]}>
+          <View style={[styles.tableCell, styles.w8]}>
             <Text>COSTO INGRESO</Text>
           </View>
-          <View style={[styles.tableCell, { width: '8%' }]}>
+          <View style={[styles.tableCell, styles.w8]}>
             <Text>COSTO SALIDA</Text>
           </View>
-          <View style={[styles.tableCell, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.w6]}>
             <Text>Ingreso</Text>
           </View>
-          <View style={[styles.tableCell, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.w6]}>
             <Text>Salida</Text>
           </View>
-          <View style={[styles.tableCellLast, { width: '8%' }]}>
+          <View style={[styles.tableCellLast, styles.w8]}>
             <Text>SALDO</Text>
           </View>
         </View>
 
         {/* Filas de datos */}
-        {kardexLAR.rows.map((row: KardexRow, index: number) => (
-          <View
-            key={index}
-            style={[
-              styles.tableRow,
-              row.CONDICION === 'INGRESO' ? styles.ingresoRow : styles.salidaRow,
-            ]}
-          >
-            <View style={[styles.tableCell, { width: '3%' }]}>
-              <Text>{row.ITM}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row.FECHA}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '4%' }]}>
-              <Text>{row.SEM}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '7%' }]}>
-              <Text>{row.CONDICION}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '8%' }]}>
-              <Text>{row['Nª Comprobante']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row['H/KM']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '24%', textAlign: 'left' }]}>
-              <Text>{row.DETALLE}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row.TARIFA}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '8%' }]}>
-              <Text>{row['COSTO INGRESO']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '8%' }]}>
-              <Text>{row['COSTO SALIDA']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row.Ingreso}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row.Salida}</Text>
-            </View>
-            <View style={[styles.tableCellLast, { width: '8%' }]}>
-              <Text>{row.SALDO}</Text>
-            </View>
-          </View>
+        {kardexLAR.rows.map((row, index) => (
+          <KardexRow key={index} row={row} />
         ))}
       </View>
 
@@ -396,114 +465,71 @@ export const KardexPDF = ({ kardexLAR, metodoPromedioLAR }: KardexPDFProps) => (
       <View style={styles.table}>
         {/* Headers */}
         <View style={styles.tableRowNoBorder}>
-          <View style={[styles.tableCell, styles.tableHeader, { width: '5%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.w5]}>
             <Text>Periodo</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, { width: '7%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.w7]}>
             <Text>FECHA</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, { width: '8%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.w8]}>
             <Text>Comprobante</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.w6]}>
             <Text>H/KM</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, { width: '20%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.w20]}>
             <Text>DETALLE</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, styles.entradasHeader, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.entradasHeader, styles.w6]}>
             <Text>Cant</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, styles.entradasHeader, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.entradasHeader, styles.w6]}>
             <Text>Cu</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, styles.entradasHeader, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.entradasHeader, styles.w6]}>
             <Text>C.Total</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, styles.salidasHeader, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.salidasHeader, styles.w6]}>
             <Text>Cant</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, styles.salidasHeader, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.salidasHeader, styles.w6]}>
             <Text>Cu</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, styles.salidasHeader, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.salidasHeader, styles.w6]}>
             <Text>C.Total</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, styles.saldosHeader, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.saldosHeader, styles.w6]}>
             <Text>Cant</Text>
           </View>
-          <View style={[styles.tableCell, styles.tableHeader, styles.saldosHeader, { width: '6%' }]}>
+          <View style={[styles.tableCell, styles.tableHeader, styles.saldosHeader, styles.w6]}>
             <Text>Cu</Text>
           </View>
-          <View style={[styles.tableCellLast, styles.tableHeader, styles.saldosHeader, { width: '6%' }]}>
+          <View style={[styles.tableCellLast, styles.tableHeader, styles.saldosHeader, styles.w6]}>
             <Text>C.Total</Text>
           </View>
         </View>
 
         {/* Inventario Inicial */}
         <View style={[styles.tableRow, { backgroundColor: '#fff8dc' }]}>
-          <View style={[styles.tableCell, { width: '5%' }]}><Text></Text></View>
-          <View style={[styles.tableCell, { width: '7%' }]}><Text>{metodoPromedioLAR.initialInventory.fecha}</Text></View>
-          <View style={[styles.tableCell, { width: '8%' }]}><Text></Text></View>
-          <View style={[styles.tableCell, { width: '6%' }]}><Text></Text></View>
-          <View style={[styles.tableCell, { width: '20%', textAlign: 'left' }]}><Text>Inventario Inicial {metodoPromedioLAR.initialInventory.fecha}</Text></View>
-          <View style={[styles.tableCell, { width: '6%' }]}><Text></Text></View>
-          <View style={[styles.tableCell, { width: '6%' }]}><Text></Text></View>
-          <View style={[styles.tableCell, { width: '6%' }]}><Text></Text></View>
-          <View style={[styles.tableCell, { width: '6%' }]}><Text></Text></View>
-          <View style={[styles.tableCell, { width: '6%' }]}><Text></Text></View>
-          <View style={[styles.tableCell, { width: '6%' }]}><Text></Text></View>
-          <View style={[styles.tableCell, { width: '6%' }]}><Text>{metodoPromedioLAR.initialInventory.Cant}</Text></View>
-          <View style={[styles.tableCell, { width: '6%' }]}><Text>{metodoPromedioLAR.initialInventory.Cu}</Text></View>
-          <View style={[styles.tableCellLast, { width: '6%' }]}><Text>{metodoPromedioLAR.initialInventory['C.Total']}</Text></View>
+          <View style={[styles.tableCell, styles.w5]}><Text></Text></View>
+          <View style={[styles.tableCell, styles.w7]}><Text>{metodoPromedioLAR.initialInventory.fecha}</Text></View>
+          <View style={[styles.tableCell, styles.w8]}><Text></Text></View>
+          <View style={[styles.tableCell, styles.w6]}><Text></Text></View>
+          <View style={[styles.tableCell, styles.w20, styles.textLeft]}><Text>Inventario Inicial {metodoPromedioLAR.initialInventory.fecha}</Text></View>
+          <View style={[styles.tableCell, styles.w6]}><Text></Text></View>
+          <View style={[styles.tableCell, styles.w6]}><Text></Text></View>
+          <View style={[styles.tableCell, styles.w6]}><Text></Text></View>
+          <View style={[styles.tableCell, styles.w6]}><Text></Text></View>
+          <View style={[styles.tableCell, styles.w6]}><Text></Text></View>
+          <View style={[styles.tableCell, styles.w6]}><Text></Text></View>
+          <View style={[styles.tableCell, styles.w6]}><Text>{metodoPromedioLAR.initialInventory.Cant}</Text></View>
+          <View style={[styles.tableCell, styles.w6]}><Text>{metodoPromedioLAR.initialInventory.Cu}</Text></View>
+          <View style={[styles.tableCellLast, styles.w6]}><Text>{metodoPromedioLAR.initialInventory['C.Total']}</Text></View>
         </View>
 
         {/* Filas de datos */}
-        {metodoPromedioLAR.rows.map((row: MetodoPromedioRow, index: number) => (
-          <View key={index} style={styles.tableRow}>
-            <View style={[styles.tableCell, { width: '5%' }]}>
-              <Text>{row.Periodo}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '7%' }]}>
-              <Text>{row.FECHA}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '8%' }]}>
-              <Text>{row['Nª Comprobante']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row['H/KM']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '20%', textAlign: 'left' }]}>
-              <Text>{row.DETALLE}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row['Entradas.Cant']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row['Entradas.Cu']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row['Entradas.C.Total']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row['Salidas.Cant']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row['Salidas.Cu']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row['Salidas.C.Total']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row['Saldos.Cant']}</Text>
-            </View>
-            <View style={[styles.tableCell, { width: '6%' }]}>
-              <Text>{row['Saldos.Cu']}</Text>
-            </View>
-            <View style={[styles.tableCellLast, { width: '6%' }]}>
-              <Text>{row['Saldos.C.Total']}</Text>
-            </View>
-          </View>
+        {metodoPromedioLAR.rows.map((row, index) => (
+          <MetodoPromedioRow key={index} row={row} />
         ))}
       </View>
 
@@ -542,4 +568,5 @@ export const KardexPDF = ({ kardexLAR, metodoPromedioLAR }: KardexPDFProps) => (
       )} fixed />
     </Page>
   </Document>
-)
+))
+KardexPDF.displayName = 'KardexPDF'

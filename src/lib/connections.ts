@@ -2767,5 +2767,21 @@ export const camionesApi = {
   },
 };
 
+// ============ KARDEX PDF API ============
+export const kardexPdfApi = {
+  // Generar PDF del Kardex
+  generate: async (kardexData: { kardexLAR: unknown; metodoPromedioLAR: unknown }): Promise<Blob> => {
+    try {
+      const response = await api.post("/kardex-pdf/generate", kardexData, {
+        responseType: 'blob',
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Kardex PDF API error:", error);
+      throw new Error("Error al generar el PDF del Kardex");
+    }
+  },
+};
+
 // Exportar la instancia de axios para uso directo si es necesario
 export { api };

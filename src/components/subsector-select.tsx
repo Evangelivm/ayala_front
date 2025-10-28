@@ -62,7 +62,6 @@ export function SubsectorSelect({
     } else if (!value && onNameChange) {
       onNameChange("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, subsectores]);
 
   const handleValueChange = (val: string) => {

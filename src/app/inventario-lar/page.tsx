@@ -5,15 +5,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { FileText } from "lucide-react"
-import { PDFViewer, PDFDownloadLink } from "@react-pdf/renderer"
-import { KardexPDF } from "@/components/KardexPDF"
+import { kardexPdfApi } from "@/lib/connections"
 import kardexData from "@/data/kardex.json"
 
 export default function InventarioLARPage() {
   const { kardexLAR, metodoPromedioLAR } = kardexData
-  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  const handleGeneratePDF = async () => {
+    try {
+      setIsGenerating(true)
+
+      // Llamar al backend para generar el PDF
+      const pdfBlob = await kardexPdfApi.generate({ kardexLAR, metodoPromedioLAR })
+
+      // Crear URL del blob y descargar
+      const url = window.URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `Kardex_LAR_${new Date().toISOString().split('T')[0]}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      alert('Error al generar el PDF. Por favor, intente nuevamente.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -26,42 +48,15 @@ export default function InventarioLARPage() {
             </div>
 
             {/* Botón para generar PDF */}
-            <Dialog open={pdfPreviewOpen} onOpenChange={setPdfPreviewOpen}>
-              <DialogTrigger asChild>
-                <Button variant="default" className="gap-2">
-                  <FileText className="h-4 w-4" />
-                  Generar PDF
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-7xl h-[95vh]">
-                <DialogHeader>
-                  <DialogTitle>Vista Previa del Kardex</DialogTitle>
-                  <DialogDescription>
-                    Revisa el documento antes de descargarlo
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="flex-1 overflow-hidden" style={{ height: 'calc(95vh - 180px)' }}>
-                  <PDFViewer width="100%" height="100%" className="border rounded">
-                    <KardexPDF kardexLAR={kardexLAR} metodoPromedioLAR={metodoPromedioLAR} />
-                  </PDFViewer>
-                </div>
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button variant="outline" onClick={() => setPdfPreviewOpen(false)}>
-                    Cerrar
-                  </Button>
-                  <PDFDownloadLink
-                    document={<KardexPDF kardexLAR={kardexLAR} metodoPromedioLAR={metodoPromedioLAR} />}
-                    fileName={`Kardex_LAR_${new Date().toISOString().split('T')[0]}.pdf`}
-                  >
-                    {({ loading }) => (
-                      <Button disabled={loading}>
-                        {loading ? 'Preparando...' : 'Descargar PDF'}
-                      </Button>
-                    )}
-                  </PDFDownloadLink>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button
+              variant="default"
+              className="gap-2"
+              onClick={handleGeneratePDF}
+              disabled={isGenerating}
+            >
+              <FileText className="h-4 w-4" />
+              {isGenerating ? 'Generando PDF...' : 'Generar PDF'}
+            </Button>
           </div>
         </div>
       </header>

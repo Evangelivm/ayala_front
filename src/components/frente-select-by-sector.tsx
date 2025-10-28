@@ -60,7 +60,6 @@ export function FrenteSelectBySector({
     } else if (!value && onNameChange) {
       onNameChange("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, frentes]);
 
   const handleValueChange = (val: string) => {

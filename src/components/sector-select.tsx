@@ -60,7 +60,6 @@ export function SectorSelect({
     } else if (!value && onNameChange) {
       onNameChange("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, sectores]);
 
   const handleValueChange = (val: string) => {

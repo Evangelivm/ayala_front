@@ -76,7 +76,6 @@ export function PartidaSelect({
       if (onNameChange) onNameChange("");
       if (onPartidaDataChange) onPartidaDataChange(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, partidas]);
 
   const handleValueChange = (val: string) => {

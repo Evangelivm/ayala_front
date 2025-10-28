@@ -92,7 +92,6 @@ export function ProyectoSelect({
     } else if (!value && onNameChange) {
       onNameChange("")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, proyectos, subproyectosByProyecto])
 
   const handleValueChange = (val: string) => {
