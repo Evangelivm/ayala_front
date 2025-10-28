@@ -169,8 +169,8 @@ export default function ProgramacionPage() {
       const camionSeleccionado = camiones.find(c => c.placa === value);
       if (camionSeleccionado && camionSeleccionado.nombre_chofer && camionSeleccionado.apellido_chofer) {
         const nombreCompleto = `${capitalizeText(camionSeleccionado.nombre_chofer)} ${capitalizeText(camionSeleccionado.apellido_chofer)}`;
-        setManualRows(
-          manualRows.map((row) =>
+        setManualRows((prevRows) =>
+          prevRows.map((row) =>
             row.id === id
               ? { ...row, [field]: value, apellidos_nombres: nombreCompleto }
               : row
@@ -180,8 +180,15 @@ export default function ProgramacionPage() {
       }
     }
 
-    setManualRows(
-      manualRows.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    setManualRows((prevRows) =>
+      prevRows.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  };
+
+  // Función para actualizar múltiples campos a la vez
+  const updateManualRowMultiple = (id: string, updates: Partial<ManualRow>) => {
+    setManualRows((prevRows) =>
+      prevRows.map((row) => (row.id === id ? { ...row, ...updates } : row))
     );
   };
 
@@ -816,16 +823,18 @@ export default function ProgramacionPage() {
                                   currentLlegadaUbigeo={row.punto_llegada_ubigeo}
                                   currentLlegadaDireccion={row.punto_llegada_direccion}
                                   onAccept={(partidaUbigeo, partidaDireccion, llegadaUbigeo, llegadaDireccion) => {
-                                    updateManualRow(row.id, "punto_partida_ubigeo", partidaUbigeo);
-                                    updateManualRow(row.id, "punto_partida_direccion", partidaDireccion);
-                                    updateManualRow(row.id, "punto_llegada_ubigeo", llegadaUbigeo);
-                                    updateManualRow(row.id, "punto_llegada_direccion", llegadaDireccion);
+                                    updateManualRowMultiple(row.id, {
+                                      punto_partida_ubigeo: partidaUbigeo,
+                                      punto_partida_direccion: partidaDireccion,
+                                      punto_llegada_ubigeo: llegadaUbigeo,
+                                      punto_llegada_direccion: llegadaDireccion,
+                                    });
                                   }}
                                 />
                                 {(row.punto_partida_ubigeo || row.punto_llegada_ubigeo) && (
-                                  <div className="space-y-2">
+                                  <div className="flex gap-2">
                                     {row.punto_partida_ubigeo && row.punto_partida_direccion && (
-                                      <div className="text-xs bg-blue-50 dark:bg-blue-950 p-2 rounded border border-blue-200">
+                                      <div className="text-xs bg-blue-50 dark:bg-blue-950 p-2 rounded border border-blue-200 flex-1">
                                         <p className="font-medium text-blue-900 dark:text-blue-100">
                                           📍 Partida: {ubigeosLima.find((u) => u.codigo === row.punto_partida_ubigeo)?.distrito || row.punto_partida_ubigeo}
                                         </p>
@@ -835,7 +844,7 @@ export default function ProgramacionPage() {
                                       </div>
                                     )}
                                     {row.punto_llegada_ubigeo && row.punto_llegada_direccion && (
-                                      <div className="text-xs bg-green-50 dark:bg-green-950 p-2 rounded border border-green-200">
+                                      <div className="text-xs bg-green-50 dark:bg-green-950 p-2 rounded border border-green-200 flex-1">
                                         <p className="font-medium text-green-900 dark:text-green-100">
                                           🎯 Llegada: {ubigeosLima.find((u) => u.codigo === row.punto_llegada_ubigeo)?.distrito || row.punto_llegada_ubigeo}
                                         </p>
