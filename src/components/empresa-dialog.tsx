@@ -54,9 +54,9 @@ export function EmpresaDialog({
       // Filtrar solo empresas con datos completos
       const empresasCompletas = data.filter(
         (e) =>
-          e.N__documento &&
-          e.Raz_n_social &&
-          e.Direcci_n
+          e.nro_documento &&
+          e.razon_social &&
+          e.direccion
       );
       setEmpresas(empresasCompletas);
     } catch (error) {
@@ -69,14 +69,14 @@ export function EmpresaDialog({
 
   const handleAccept = () => {
     const selectedEmpresa = empresas.find(
-      (e) => e.C_digo === selectedEmpresaCodigo
+      (e) => e.codigo === selectedEmpresaCodigo
     );
 
     if (selectedEmpresa) {
       onAccept({
-        numeroDocumento: selectedEmpresa.N__documento || "",
-        razonSocial: selectedEmpresa.Raz_n_social || "",
-        direccion: selectedEmpresa.Direcci_n || "",
+        numeroDocumento: selectedEmpresa.nro_documento || "",
+        razonSocial: selectedEmpresa.razon_social || "",
+        direccion: selectedEmpresa.direccion || "",
       });
       setOpen(false);
       setSelectedEmpresaCodigo("");
@@ -92,7 +92,7 @@ export function EmpresaDialog({
   };
 
   const selectedEmpresa = empresas.find(
-    (e) => e.C_digo === selectedEmpresaCodigo
+    (e) => e.codigo === selectedEmpresaCodigo
   );
 
   return (
@@ -130,10 +130,10 @@ export function EmpresaDialog({
               <SelectContent>
                 {empresas.map((empresa) => (
                   <SelectItem
-                    key={empresa.C_digo}
-                    value={empresa.C_digo}
+                    key={empresa.codigo}
+                    value={empresa.codigo}
                   >
-                    {`(${empresa.N__documento}) - ${empresa.Raz_n_social}`}
+                    {`(${empresa.nro_documento}) - ${empresa.razon_social}`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -151,7 +151,7 @@ export function EmpresaDialog({
                     N° Documento:
                   </span>
                   <p className="text-green-900 dark:text-green-100">
-                    {selectedEmpresa.N__documento}
+                    {selectedEmpresa.nro_documento}
                   </p>
                 </div>
                 <div>
@@ -159,7 +159,7 @@ export function EmpresaDialog({
                     Razón Social:
                   </span>
                   <p className="text-green-900 dark:text-green-100">
-                    {selectedEmpresa.Raz_n_social}
+                    {selectedEmpresa.razon_social}
                   </p>
                 </div>
                 <div className="col-span-2">
@@ -167,7 +167,7 @@ export function EmpresaDialog({
                     Dirección:
                   </span>
                   <p className="text-green-900 dark:text-green-100">
-                    {selectedEmpresa.Direcci_n}
+                    {selectedEmpresa.direccion}
                   </p>
                 </div>
               </div>

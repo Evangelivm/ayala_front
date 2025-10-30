@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { FileText, ExternalLink } from "lucide-react";
+import { FileText, ExternalLink, Folder, GitBranch } from "lucide-react";
 import {
   programacionApi,
   type ProgramacionTecnicaData,
@@ -293,7 +293,18 @@ export default function ProgTecnicaPage() {
                                 : "whitespace-nowrap"
                             }
                           >
-                            {item.proyectos || "-"}
+                            {item.proyectos ? (
+                              <div className="flex items-center gap-2">
+                                {item.tipo_proyecto === "proyecto" ? (
+                                  <Folder className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                                ) : item.tipo_proyecto === "subproyecto" ? (
+                                  <GitBranch className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                                ) : null}
+                                <span>{item.proyectos}</span>
+                              </div>
+                            ) : (
+                              "-"
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>

@@ -102,7 +102,7 @@ export default function ProgramacionPage() {
         const empresasData = await empresasApi.getAll();
         // Filtrar solo empresas con datos completos
         const empresasCompletas = empresasData.filter(
-          (e) => e.N__documento && e.Raz_n_social && e.Direcci_n
+          (e) => e.nro_documento && e.razon_social && e.direccion
         );
         setEmpresas(empresasCompletas);
       } catch (error) {
@@ -135,9 +135,10 @@ export default function ProgramacionPage() {
       id: Date.now().toString(),
       fecha: new Date().toISOString().split("T")[0],
       unidad: "",
+      unidad_id: 0,
       proveedor: "",
+      proveedor_id: "",
       apellidos_nombres: "",
-      proyectos: "",
       programacion: "",
       hora_partida: "08:00",
       estado_programacion: "",
@@ -146,6 +147,7 @@ export default function ProgramacionPage() {
       punto_partida_direccion: "",
       punto_llegada_ubigeo: "",
       punto_llegada_direccion: "",
+      peso: "",
     };
     setManualRows([...manualRows, newRow]);
   };
@@ -163,16 +165,46 @@ export default function ProgramacionPage() {
       .join(' ');
   };
 
-  const updateManualRow = (id: string, field: keyof ManualRow, value: string) => {
-    // Si el campo es 'unidad', buscar el camión y autocompletar apellidos_nombres
+  const updateManualRow = (id: string, field: keyof ManualRow, value: string | number) => {
+    // Si el campo es 'unidad', buscar el camión y autocompletar apellidos_nombres y peso
     if (field === 'unidad') {
       const camionSeleccionado = camiones.find(c => c.placa === value);
-      if (camionSeleccionado && camionSeleccionado.nombre_chofer && camionSeleccionado.apellido_chofer) {
-        const nombreCompleto = `${capitalizeText(camionSeleccionado.nombre_chofer)} ${capitalizeText(camionSeleccionado.apellido_chofer)}`;
+      if (camionSeleccionado) {
+        const nombreCompleto = (camionSeleccionado.nombre_chofer && camionSeleccionado.apellido_chofer)
+          ? `${capitalizeText(camionSeleccionado.nombre_chofer)} ${capitalizeText(camionSeleccionado.apellido_chofer)}`
+          : "";
+        const capacidadTanque = camionSeleccionado.capacidad_tanque
+          ? camionSeleccionado.capacidad_tanque.toString()
+          : "";
         setManualRows((prevRows) =>
           prevRows.map((row) =>
             row.id === id
-              ? { ...row, [field]: value, apellidos_nombres: nombreCompleto }
+              ? {
+                  ...row,
+                  unidad: value as string,
+                  unidad_id: camionSeleccionado.id_camion,
+                  apellidos_nombres: nombreCompleto,
+                  peso: capacidadTanque
+                }
+              : row
+          )
+        );
+        return;
+      }
+    }
+
+    // Si el campo es 'proveedor', buscar la empresa y guardar su código
+    if (field === 'proveedor') {
+      const empresaSeleccionada = empresas.find(e => e.razon_social === value);
+      if (empresaSeleccionada) {
+        setManualRows((prevRows) =>
+          prevRows.map((row) =>
+            row.id === id
+              ? {
+                  ...row,
+                  proveedor: value as string,
+                  proveedor_id: empresaSeleccionada.codigo
+                }
               : row
           )
         );
@@ -208,8 +240,9 @@ export default function ProgramacionPage() {
     return (
       row.fecha &&
       row.unidad &&
+      row.unidad_id > 0 &&
       row.proveedor &&
-      row.apellidos_nombres &&
+      row.proveedor_id &&
       row.programacion &&
       row.hora_partida &&
       row.estado_programacion &&
@@ -236,17 +269,20 @@ export default function ProgramacionPage() {
 
     setIsLoading(true);
     try {
-      // Convertir ManualRow a ProgramacionData
-      const dataToSend: ProgramacionData[] = manualRows.map((row) => ({
+      // Convertir ManualRow a ProgramacionData con IDs
+      const dataToSend = manualRows.map((row) => ({
         fecha: new Date(row.fecha),
-        unidad: row.unidad,
-        proveedor: row.proveedor,
-        apellidos_nombres: row.apellidos_nombres,
-        proyectos: "",
+        unidad: row.unidad_id,
+        proveedor: row.proveedor_id,
         programacion: row.programacion,
         hora_partida: `${row.hora_partida}:00`,
         estado_programacion: row.estado_programacion,
         comentarios: row.comentarios,
+        punto_partida_ubigeo: row.punto_partida_ubigeo,
+        punto_partida_direccion: row.punto_partida_direccion,
+        punto_llegada_ubigeo: row.punto_llegada_ubigeo,
+        punto_llegada_direccion: row.punto_llegada_direccion,
+        peso: row.peso,
       }));
 
       const result = await programacionApi.createBatch(dataToSend);
@@ -352,14 +388,17 @@ export default function ProgramacionPage() {
 
               return {
                 fecha: fechaProcessed,
-                unidad: String(row[1] || ""),
+                unidad: 0, // Necesita ser configurado manualmente o mapeado desde una tabla de camiones
                 proveedor: String(row[2] || ""),
-                apellidos_nombres: String(row[3] || ""),
-                proyectos: String(row[4] || ""),
                 programacion: String(row[5] || ""),
                 hora_partida: horaPartidaProcessed,
                 estado_programacion: String(row[7] || "").trim().toUpperCase(),
                 comentarios: String(row[8] || ""),
+                punto_partida_ubigeo: "",
+                punto_partida_direccion: "",
+                punto_llegada_ubigeo: "",
+                punto_llegada_direccion: "",
+                peso: "",
               };
             } catch (error) {
               console.warn(`Error procesando fila ${index + 2}:`, error);
@@ -381,14 +420,17 @@ export default function ProgramacionPage() {
 
               return {
                 fecha: row[0] ? new Date(row[0] as string | number | Date) : new Date(),
-                unidad: String(row[1] || ""),
+                unidad: 0, // Necesita ser configurado manualmente o mapeado desde una tabla de camiones
                 proveedor: String(row[2] || ""),
-                apellidos_nombres: String(row[3] || ""),
-                proyectos: String(row[4] || ""),
                 programacion: String(row[5] || ""),
                 hora_partida: horaPartidaFallback,
                 estado_programacion: String(row[7] || "").trim().toUpperCase(),
                 comentarios: String(row[8] || ""),
+                punto_partida_ubigeo: "",
+                punto_partida_direccion: "",
+                punto_llegada_ubigeo: "",
+                punto_llegada_direccion: "",
+                peso: "",
               };
             }
           });
@@ -472,7 +514,8 @@ export default function ProgramacionPage() {
 
       {/* Contenido Principal */}
       <div className="mx-auto px-4 sm:px-6 pb-8 space-y-6">
-        <Tabs defaultValue="excel" className="w-full">
+        {/* Pestaña de Excel - DESHABILITADA TEMPORALMENTE */}
+        {/* <Tabs defaultValue="excel" className="w-full">
           <div className="max-w-7xl mx-auto">
             <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="excel">Subir Excel</TabsTrigger>
@@ -480,7 +523,6 @@ export default function ProgramacionPage() {
             </TabsList>
           </div>
 
-          {/* Pestaña de Excel */}
           <TabsContent value="excel" className="space-y-6 max-w-7xl mx-auto">
         <Card>
           <CardHeader>
@@ -617,10 +659,11 @@ export default function ProgramacionPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
               </div>
             )}
-          </TabsContent>
+          </TabsContent> */}
 
           {/* Pestaña de Entrada Manual */}
-          <TabsContent value="manual" className="space-y-6">
+          {/* <TabsContent value="manual" className="space-y-6"> */}
+          <div className="space-y-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle>
@@ -742,10 +785,10 @@ export default function ProgramacionPage() {
                                 <SelectContent>
                                   {empresas.map((empresa) => (
                                     <SelectItem
-                                      key={empresa.C_digo}
-                                      value={empresa.Raz_n_social || ""}
+                                      key={empresa.codigo}
+                                      value={empresa.razon_social || ""}
                                     >
-                                      {`(${empresa.N__documento}) - ${empresa.Raz_n_social}`}
+                                      {`(${empresa.nro_documento}) - ${empresa.razon_social}`}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -811,51 +854,25 @@ export default function ProgramacionPage() {
                               </Select>
                             </TableCell>
                             <TableCell className="p-2">
-                              <div className="space-y-2">
-                                <RutaDialog
-                                  buttonText={
-                                    row.punto_partida_ubigeo && row.punto_llegada_ubigeo
-                                      ? "Editar Ruta"
-                                      : "Configurar Ruta"
-                                  }
-                                  currentPartidaUbigeo={row.punto_partida_ubigeo}
-                                  currentPartidaDireccion={row.punto_partida_direccion}
-                                  currentLlegadaUbigeo={row.punto_llegada_ubigeo}
-                                  currentLlegadaDireccion={row.punto_llegada_direccion}
-                                  onAccept={(partidaUbigeo, partidaDireccion, llegadaUbigeo, llegadaDireccion) => {
-                                    updateManualRowMultiple(row.id, {
-                                      punto_partida_ubigeo: partidaUbigeo,
-                                      punto_partida_direccion: partidaDireccion,
-                                      punto_llegada_ubigeo: llegadaUbigeo,
-                                      punto_llegada_direccion: llegadaDireccion,
-                                    });
-                                  }}
-                                />
-                                {(row.punto_partida_ubigeo || row.punto_llegada_ubigeo) && (
-                                  <div className="flex gap-2">
-                                    {row.punto_partida_ubigeo && row.punto_partida_direccion && (
-                                      <div className="text-xs bg-blue-50 dark:bg-blue-950 p-2 rounded border border-blue-200 flex-1">
-                                        <p className="font-medium text-blue-900 dark:text-blue-100">
-                                          📍 Partida: {ubigeosLima.find((u) => u.codigo === row.punto_partida_ubigeo)?.distrito || row.punto_partida_ubigeo}
-                                        </p>
-                                        <p className="text-blue-700 dark:text-blue-300 truncate">
-                                          {row.punto_partida_direccion}
-                                        </p>
-                                      </div>
-                                    )}
-                                    {row.punto_llegada_ubigeo && row.punto_llegada_direccion && (
-                                      <div className="text-xs bg-green-50 dark:bg-green-950 p-2 rounded border border-green-200 flex-1">
-                                        <p className="font-medium text-green-900 dark:text-green-100">
-                                          🎯 Llegada: {ubigeosLima.find((u) => u.codigo === row.punto_llegada_ubigeo)?.distrito || row.punto_llegada_ubigeo}
-                                        </p>
-                                        <p className="text-green-700 dark:text-green-300 truncate">
-                                          {row.punto_llegada_direccion}
-                                        </p>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
+                              <RutaDialog
+                                buttonText={
+                                  row.punto_partida_ubigeo && row.punto_llegada_ubigeo
+                                    ? "Editar Ruta"
+                                    : "Configurar Ruta"
+                                }
+                                currentPartidaUbigeo={row.punto_partida_ubigeo}
+                                currentPartidaDireccion={row.punto_partida_direccion}
+                                currentLlegadaUbigeo={row.punto_llegada_ubigeo}
+                                currentLlegadaDireccion={row.punto_llegada_direccion}
+                                onAccept={(partidaUbigeo, partidaDireccion, llegadaUbigeo, llegadaDireccion) => {
+                                  updateManualRowMultiple(row.id, {
+                                    punto_partida_ubigeo: partidaUbigeo,
+                                    punto_partida_direccion: partidaDireccion,
+                                    punto_llegada_ubigeo: llegadaUbigeo,
+                                    punto_llegada_direccion: llegadaDireccion,
+                                  });
+                                }}
+                              />
                             </TableCell>
                             <TableCell className="p-2">
                               <Input
@@ -882,8 +899,9 @@ export default function ProgramacionPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
               </div>
             )}
-          </TabsContent>
-        </Tabs>
+          {/* </TabsContent>
+        </Tabs> */}
+        </div>
       </div>
     </div>
   );

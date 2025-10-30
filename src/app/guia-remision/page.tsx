@@ -596,19 +596,26 @@ function GuiaRemisionContent() {
         // Prellenar el formulario con los datos obtenidos
         setFormData((prev) => ({
           ...prev,
-          cliente_numero_de_documento: data.guia_numero_documento || "",
-          cliente_denominacion: data.guia_destinatario_denominacion || "",
-          cliente_direccion: data.guia_destinatario_direccion || "",
+          // Destinatario: usar datos del proveedor (empresa) si están disponibles, sino usar los datos de guía
+          cliente_numero_de_documento: data.empresa_nro_documento || data.guia_numero_documento || "",
+          cliente_denominacion: data.empresa_razon_social || data.guia_destinatario_denominacion || "",
+          cliente_direccion: data.empresa_direccion || data.guia_destinatario_direccion || "",
+
           peso_bruto_total: parseFloat(data.guia_traslado_peso_bruto || "0"),
-          transportista_placa_numero: data.guia_traslado_vehiculo_placa || "",
-          conductor_documento_numero: data.guia_conductor_dni_numero || "",
-          conductor_nombre: data.guia_conductor_nombres || "",
-          conductor_apellidos: data.guia_conductor_apellidos || "",
-          conductor_numero_licencia: data.guia_conductor_num_licencia || "",
-          punto_de_partida_ubigeo: data.guia_partida_ubigeo || "",
-          punto_de_partida_direccion: data.guia_partida_direccion || "",
-          punto_de_llegada_ubigeo: data.guia_llegada_ubigeo || "",
-          punto_de_llegada_direccion: data.guia_llegada_direccion || "",
+
+          // Vehículo: usar datos de la unidad (camión) si están disponibles, sino usar los datos de guía
+          transportista_placa_numero: data.camion_placa || data.guia_traslado_vehiculo_placa || "",
+
+          // Conductor: usar datos de la unidad (camión) si están disponibles, sino usar los datos de guía
+          conductor_documento_numero: data.camion_dni || data.guia_conductor_dni_numero || "",
+          conductor_nombre: data.camion_nombre_chofer || data.guia_conductor_nombres || "",
+          conductor_apellidos: data.camion_apellido_chofer || data.guia_conductor_apellidos || "",
+          conductor_numero_licencia: data.camion_numero_licencia || data.guia_conductor_num_licencia || "",
+
+          punto_de_partida_ubigeo: data.punto_partida_ubigeo || "",
+          punto_de_partida_direccion: data.punto_partida_direccion || "",
+          punto_de_llegada_ubigeo: data.punto_llegada_ubigeo || "",
+          punto_de_llegada_direccion: data.punto_llegada_direccion || "",
           identificador_unico: data.identificador_unico || "",
         }));
 

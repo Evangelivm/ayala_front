@@ -80,6 +80,7 @@ import {
   subsectoresApi,
   subfrentesApi,
   subpartidasApi,
+  empresasApi,
 } from "@/lib/connections";
 import type {
   ProyectoData,
@@ -144,7 +145,8 @@ interface Subproyecto {
 interface Project {
   id: number;
   name: string;
-  cliente: string;
+  cliente: string; // Razón social de la empresa (para mostrar)
+  clienteCodigo: string; // FK hacia empresas_2025.codigo
   status: string;
   ubicacion: string;
   startDate: string;
@@ -819,6 +821,9 @@ export default function ProyectosDashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [empresas, setEmpresas] = useState<
+    Array<{ codigo: string; razon_social: string }>
+  >([]);
 
   // Estados para controlar modales
   const [modals, setModals] = useState({
@@ -941,7 +946,8 @@ export default function ProyectosDashboard() {
       return {
         id: proyecto.id,
         name: proyecto.nombre,
-        cliente: proyecto.cliente || "",
+        cliente: proyecto.empresas_2025?.razon_social || "",
+        clienteCodigo: proyecto.cliente || "", // FK hacia empresas_2025
         status: proyecto.activo ? "En progreso" : "Inactivo",
         ubicacion: proyecto.ubicacion || "",
         startDate: proyecto.fecha_inicio || "",
@@ -1030,10 +1036,26 @@ export default function ProyectosDashboard() {
     }
   }, [convertProyectoToProject, convertSubproyectoDataToSubproyecto]);
 
+  // Cargar empresas desde la API
+  const loadEmpresas = useCallback(async () => {
+    try {
+      const empresasData = await empresasApi.getAll();
+      const empresasFormateadas = empresasData.map((empresa) => ({
+        codigo: empresa.codigo,
+        razon_social: empresa.razon_social || empresa.codigo,
+      }));
+      setEmpresas(empresasFormateadas);
+    } catch (err) {
+      console.error("Error cargando empresas:", err);
+      setEmpresas([]);
+    }
+  }, []);
+
   // Cargar proyectos al montar el componente
   useEffect(() => {
     loadProjects();
-  }, [loadProjects]);
+    loadEmpresas();
+  }, [loadProjects, loadEmpresas]);
 
   // Funciones para obtener listas filtradas
   const getEtapasForProject = (projectId: number) => {
@@ -1704,7 +1726,7 @@ export default function ProyectosDashboard() {
         if (project) {
           projectForm.reset({
             nombre: project.name,
-            cliente: project.cliente,
+            cliente: project.clienteCodigo, // Usar el código de la empresa, no la razón social
             ubicacion: project.ubicacion,
             fecha_inicio: project.startDate,
             fecha_fin: project.endDate,
@@ -2298,9 +2320,26 @@ export default function ProyectosDashboard() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cliente</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ej: Empresa ABC S.A.C." {...field} />
-                    </FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccione una empresa" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {empresas.map((empresa) => (
+                          <SelectItem
+                            key={empresa.codigo}
+                            value={empresa.codigo}
+                          >
+                            {empresa.razon_social}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -2420,9 +2459,26 @@ export default function ProyectosDashboard() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cliente</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ej: Empresa ABC S.A.C." {...field} />
-                    </FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccione una empresa" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {empresas.map((empresa) => (
+                          <SelectItem
+                            key={empresa.codigo}
+                            value={empresa.codigo}
+                          >
+                            {empresa.razon_social}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

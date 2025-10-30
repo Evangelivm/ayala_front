@@ -54,7 +54,14 @@ export interface ProyectoData {
   id: number;
   nombre: string;
   descripcion?: string;
-  cliente?: string;
+  cliente?: string; // FK hacia empresas_2025.codigo
+  empresas_2025?: {
+    codigo: string;
+    razon_social?: string | null;
+    nro_documento?: string | null;
+    tipo?: string | null;
+    direccion?: string | null;
+  }; // Relación con empresas_2025
   ubicacion?: string;
   fecha_inicio?: string;
   fecha_fin?: string;
@@ -1991,14 +1998,17 @@ export const informeConsumoCombustibleApi = {
 // ============ PROGRAMACIÓN API ============
 export interface ProgramacionData {
   fecha: Date;
-  unidad: string;
-  proveedor: string;
-  apellidos_nombres: string;
-  proyectos: string;
+  unidad: number; // ID del camión
+  proveedor: string; // Código de empresa
   programacion: string;
   hora_partida: string;
   estado_programacion: string;
   comentarios?: string;
+  punto_partida_ubigeo: string;
+  punto_partida_direccion: string;
+  punto_llegada_ubigeo: string;
+  punto_llegada_direccion: string;
+  peso?: string; // Capacidad del tanque del camión
 }
 
 export interface ProgramacionTecnicaData {
@@ -2008,6 +2018,7 @@ export interface ProgramacionTecnicaData {
   proveedor: string | null;
   apellidos_nombres: string | null;
   proyectos: string | null;
+  tipo_proyecto: 'proyecto' | 'subproyecto' | null;
   programacion: string | null;
   hora_partida: string | null;
   estado_programacion: string | null;
@@ -2119,10 +2130,18 @@ export const programacionApi = {
     guia_conductor_nombres: string | null;
     guia_conductor_apellidos: string | null;
     guia_conductor_num_licencia: string | null;
-    guia_partida_ubigeo: string | null;
-    guia_partida_direccion: string | null;
-    guia_llegada_ubigeo: string | null;
-    guia_llegada_direccion: string | null;
+    punto_partida_ubigeo: string | null;
+    punto_partida_direccion: string | null;
+    punto_llegada_ubigeo: string | null;
+    punto_llegada_direccion: string | null;
+    camion_placa: string | null;
+    camion_dni: string | null;
+    camion_nombre_chofer: string | null;
+    camion_apellido_chofer: string | null;
+    camion_numero_licencia: string | null;
+    empresa_razon_social: string | null;
+    empresa_nro_documento: string | null;
+    empresa_direccion: string | null;
   }> => {
     try {
       const response = await api.get(`/programacion/tecnica/${id}`);
@@ -2579,11 +2598,11 @@ export const subpartidasApi = {
 
 // ============ EMPRESAS API ============
 export interface EmpresaData {
-  C_digo: string;
-  Raz_n_social?: string | null;
-  N__documento?: string | null;
-  Tipo?: string | null;
-  Direcci_n?: string | null;
+  codigo: string;
+  razon_social?: string | null;
+  nro_documento?: string | null;
+  tipo?: string | null;
+  direccion?: string | null;
 }
 
 export const empresasApi = {
@@ -2631,7 +2650,7 @@ export const empresasApi = {
 
   // Crear nueva empresa
   create: async (
-    data: Omit<EmpresaData, "C_digo">
+    data: Omit<EmpresaData, "codigo">
   ): Promise<EmpresaData> => {
     try {
       const response = await api.post("/empresas", data);
