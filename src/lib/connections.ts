@@ -2702,6 +2702,8 @@ export interface CamionData {
   nombre_chofer?: string;
   apellido_chofer?: string;
   numero_licencia?: string;
+  empresa?: string; // Código de empresa (FK a empresas_2025.codigo)
+  razon_social_empresa?: string | null; // Razón social de la empresa
 }
 
 export const camionesApi = {
@@ -2798,6 +2800,65 @@ export const kardexPdfApi = {
     } catch (error) {
       console.error("Kardex PDF API error:", error);
       throw new Error("Error al generar el PDF del Kardex");
+    }
+  },
+};
+
+// ============ PROVEEDORES API ============
+export interface ProveedorData {
+  id: number;
+  codigo: string | null;
+  razon_social: string | null;
+  nro_documento: string | null;
+  tipo: string | null;
+  direccion: string | null;
+}
+
+export const proveedoresApi = {
+  // Obtener todos los proveedores
+  getAll: async (): Promise<ProveedorData[]> => {
+    try {
+      const response = await api.get("/proveedores");
+
+      // Verificar que la respuesta sea válida
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      } else if (
+        response.data &&
+        typeof response.data === "object" &&
+        response.data.data
+      ) {
+        // Si viene envuelto en { data: [...] }
+        return Array.isArray(response.data.data) ? response.data.data : [];
+      } else {
+        console.warn("Proveedores API returned unexpected format:", response.data);
+        return [];
+      }
+    } catch (error) {
+      console.error("Proveedores API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener proveedor por ID
+  getById: async (id: number): Promise<ProveedorData | null> => {
+    try {
+      const response = await api.get(`/proveedores/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Proveedores API error:", error);
+      return null;
+    }
+  },
+
+  // Obtener proveedor por número de documento
+  getByDocumento: async (nro_documento: string): Promise<ProveedorData | null> => {
+    try {
+      const response = await api.get(`/proveedores/documento/${nro_documento}`);
+      return response.data;
+    } catch (error) {
+      console.error("Proveedores API error:", error);
+      return null;
     }
   },
 };

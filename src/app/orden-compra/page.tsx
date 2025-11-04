@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { proveedoresApi, type ProveedorData } from "@/lib/connections";
 import {
   Dialog,
   DialogContent,
@@ -45,8 +46,11 @@ export default function OrdenCompraPage() {
   const [isNuevaOrdenModalOpen, setIsNuevaOrdenModalOpen] = useState(false);
   const [isNuevoCentroCostoModalOpen, setIsNuevoCentroCostoModalOpen] = useState(false);
   const [isCentroCostoListModalOpen, setIsCentroCostoListModalOpen] = useState(false);
+  const [isProveedoresModalOpen, setIsProveedoresModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [selectedCentroCosto, setSelectedCentroCosto] = useState<string | null>(null);
+  const [selectedProveedor, setSelectedProveedor] = useState<number | null>(null);
+  const [proveedores, setProveedores] = useState<ProveedorData[]>([]);
 
   // Estado para Nueva Orden
   const [nuevaOrdenData, setNuevaOrdenData] = useState({
@@ -292,10 +296,48 @@ export default function OrdenCompraPage() {
   const handleCancelNuevoCentroCosto = () => {
     setNuevoCentroCostoData({
       codigo: "0202",
-      nombre: "CENTRIOQ CONDOMINIO ECOAMIGABLE", 
+      nombre: "CENTRIOQ CONDOMINIO ECOAMIGABLE",
       año: "2025"
     });
     setIsNuevoCentroCostoModalOpen(false);
+  };
+
+  // Función para cargar proveedores
+  const fetchProveedores = async () => {
+    try {
+      const data = await proveedoresApi.getAll();
+      setProveedores(data);
+    } catch (error) {
+      console.error("Error fetching proveedores:", error);
+      setProveedores([]);
+    }
+  };
+
+  // Handler para abrir modal de proveedores
+  const handleOpenProveedoresModal = () => {
+    setIsProveedoresModalOpen(true);
+    fetchProveedores();
+  };
+
+  // Handler para seleccionar fila de proveedor
+  const handleProveedorRowClick = (id: number) => {
+    setSelectedProveedor(id);
+  };
+
+  // Handler para confirmar selección de proveedor
+  const handleSelectProveedor = () => {
+    if (selectedProveedor) {
+      const proveedor = proveedores.find(p => p.id === selectedProveedor);
+      if (proveedor) {
+        setNuevaOrdenData((prev) => ({
+          ...prev,
+          nroCliente: proveedor.nro_documento || "",
+          razonSocial: proveedor.razon_social || "",
+        }));
+        setIsProveedoresModalOpen(false);
+        setSelectedProveedor(null);
+      }
+    }
   };
 
   const handleCentroCostoRowClick = (cecoCod: string) => {
@@ -1075,18 +1117,13 @@ export default function OrdenCompraPage() {
                         >
                           Nro cliente:
                         </Label>
-                        <Input
-                          id="nro-cliente"
-                          value={nuevaOrdenData.nroCliente}
-                          onChange={(e) =>
-                            handleNuevaOrdenInputChange(
-                              "nroCliente",
-                              e.target.value
-                            )
-                          }
-                          className="h-8 text-xs"
-                          required
-                        />
+                        <Button
+                          variant="outline"
+                          onClick={handleOpenProveedoresModal}
+                          className="w-full h-8 text-xs justify-start bg-orange-100 hover:bg-orange-200 font-normal border-gray-300"
+                        >
+                          {nuevaOrdenData.nroCliente || "Seleccionar..."}
+                        </Button>
                       </div>
                       <div className="col-span-4">
                         <Label
@@ -1098,13 +1135,8 @@ export default function OrdenCompraPage() {
                         <Input
                           id="razon-social"
                           value={nuevaOrdenData.razonSocial}
-                          onChange={(e) =>
-                            handleNuevaOrdenInputChange(
-                              "razonSocial",
-                              e.target.value
-                            )
-                          }
-                          className="h-8 text-xs"
+                          readOnly
+                          className="h-8 text-xs bg-gray-100"
                           required
                         />
                       </div>
@@ -1721,6 +1753,92 @@ export default function OrdenCompraPage() {
                       onClick={handleNuevaOrdenSave}
                     >
                       Guardar
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Modal de Selección de Proveedores */}
+              <Dialog
+                open={isProveedoresModalOpen}
+                onOpenChange={setIsProveedoresModalOpen}
+              >
+                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+                  <DialogHeader className="flex-shrink-0">
+                    <DialogTitle>Seleccionar Proveedor</DialogTitle>
+                  </DialogHeader>
+
+                  {/* Filtro - fijo en la parte superior */}
+                  <div className="flex gap-2 items-center px-4 pt-4 flex-shrink-0">
+                    <span className="text-sm font-semibold">Filtrar:</span>
+                    <Input
+                      className="max-w-xs h-8 text-sm bg-yellow-100"
+                      placeholder="Buscar por documento o razón social..."
+                    />
+                  </div>
+
+                  {/* Tabla de proveedores - con scroll */}
+                  <div className="flex-1 overflow-y-auto px-4 py-4">
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-blue-100">
+                            <TableHead className="text-xs font-bold text-center w-32">
+                              Nro Documento
+                            </TableHead>
+                            <TableHead className="text-xs font-bold">
+                              Razón Social
+                            </TableHead>
+                            <TableHead className="text-xs font-bold">
+                              Dirección
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {proveedores.map((proveedor) => (
+                            <TableRow
+                              key={proveedor.id}
+                              className={`cursor-pointer transition-colors ${
+                                selectedProveedor === proveedor.id
+                                  ? "bg-blue-200 hover:bg-blue-300"
+                                  : "hover:bg-gray-50"
+                              }`}
+                              onClick={() => handleProveedorRowClick(proveedor.id)}
+                            >
+                              <TableCell className="text-xs text-center">
+                                {proveedor.nro_documento}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {proveedor.razon_social}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {proveedor.direccion}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+
+                  {/* Botones fijos en la parte inferior */}
+                  <div className="flex gap-2 justify-start p-4 border-t bg-white flex-shrink-0">
+                    <Button
+                      className="h-8 px-4 text-xs bg-yellow-500 hover:bg-yellow-600"
+                      onClick={handleSelectProveedor}
+                      disabled={!selectedProveedor}
+                    >
+                      Seleccionar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-8 px-4 text-xs"
+                      onClick={() => {
+                        setIsProveedoresModalOpen(false);
+                        setSelectedProveedor(null);
+                      }}
+                    >
+                      Cancelar
                     </Button>
                   </div>
                 </DialogContent>

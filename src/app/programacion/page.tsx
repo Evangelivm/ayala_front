@@ -24,8 +24,16 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Upload, Trash2, Save, Plus, X, MapPin } from "lucide-react";
-import { programacionApi, type ProgramacionData, camionesApi, type CamionData, empresasApi, type EmpresaData } from "@/lib/connections";
+import {
+  programacionApi,
+  type ProgramacionData,
+  camionesApi,
+  type CamionData,
+  empresasApi,
+  type EmpresaData,
+} from "@/lib/connections";
 import { RutaDialog } from "@/components/ruta-dialog";
+import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { ubigeosLima } from "@/lib/ubigeos-lima";
 import {
   getManualRows,
@@ -38,7 +46,7 @@ import {
 } from "@/lib/indexeddb";
 
 // Opciones para los selects
-const PROGRAMACIONES = ["AFIRMADO", "ELIMINACION", "SUB BASE", "5 INTERNOS"];
+const PROGRAMACIONES = ["AFIRMADO", "ELIMINACION", "SUB BASE", "1 INTERNOS"];
 const ESTADOS = ["OK", "NO EJECUTADO"];
 
 export default function ProgramacionPage() {
@@ -60,9 +68,13 @@ export default function ProgramacionPage() {
     const loadData = async () => {
       try {
         // Intentar migrar datos de localStorage si existen
-        const migratedCount = await migrateFromLocalStorage("programacion_manual_data");
+        const migratedCount = await migrateFromLocalStorage(
+          "programacion_manual_data"
+        );
         if (migratedCount > 0) {
-          toast.info(`Se migraron ${migratedCount} registros de localStorage a IndexedDB`);
+          toast.info(
+            `Se migraron ${migratedCount} registros de localStorage a IndexedDB`
+          );
         }
 
         // Cargar datos de IndexedDB
@@ -160,42 +172,66 @@ export default function ProgramacionPage() {
   const capitalizeText = (text: string) => {
     return text
       .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
-  const updateManualRow = (id: string, field: keyof ManualRow, value: string | number) => {
+  // Función específica para manejar la selección de camión desde el diálogo
+  const handleCamionSelect = (id: string, camion: CamionData) => {
+    console.log("Camión seleccionado:", camion); // Debug log
+
+    const nombreCompleto =
+      camion.nombre_chofer && camion.apellido_chofer
+        ? `${capitalizeText(camion.nombre_chofer)} ${capitalizeText(camion.apellido_chofer)}`
+        : "";
+    const capacidadTanque = camion.capacidad_tanque
+      ? camion.capacidad_tanque.toString()
+      : "";
+
+    // Actualizar múltiples campos a la vez
+    setManualRows((prevRows) =>
+      prevRows.map((row) => {
+        if (row.id === id) {
+          const updatedRow = {
+            ...row,
+            unidad: camion.placa,
+            unidad_id: camion.id_camion,
+            apellidos_nombres: nombreCompleto,
+            peso: capacidadTanque,
+            // Autocompletar proveedor si el camión tiene empresa asignada
+            proveedor: camion.razon_social_empresa || row.proveedor,
+            proveedor_id: camion.empresa || row.proveedor_id,
+          };
+
+          console.log("Fila actualizada:", updatedRow); // Debug log
+
+          return updatedRow;
+        }
+        return row;
+      })
+    );
+  };
+
+  const updateManualRow = (
+    id: string,
+    field: keyof ManualRow,
+    value: string | number
+  ) => {
     // Si el campo es 'unidad', buscar el camión y autocompletar apellidos_nombres y peso
-    if (field === 'unidad') {
-      const camionSeleccionado = camiones.find(c => c.placa === value);
+    if (field === "unidad") {
+      const camionSeleccionado = camiones.find((c) => c.placa === value);
       if (camionSeleccionado) {
-        const nombreCompleto = (camionSeleccionado.nombre_chofer && camionSeleccionado.apellido_chofer)
-          ? `${capitalizeText(camionSeleccionado.nombre_chofer)} ${capitalizeText(camionSeleccionado.apellido_chofer)}`
-          : "";
-        const capacidadTanque = camionSeleccionado.capacidad_tanque
-          ? camionSeleccionado.capacidad_tanque.toString()
-          : "";
-        setManualRows((prevRows) =>
-          prevRows.map((row) =>
-            row.id === id
-              ? {
-                  ...row,
-                  unidad: value as string,
-                  unidad_id: camionSeleccionado.id_camion,
-                  apellidos_nombres: nombreCompleto,
-                  peso: capacidadTanque
-                }
-              : row
-          )
-        );
+        handleCamionSelect(id, camionSeleccionado);
         return;
       }
     }
 
     // Si el campo es 'proveedor', buscar la empresa y guardar su código
-    if (field === 'proveedor') {
-      const empresaSeleccionada = empresas.find(e => e.razon_social === value);
+    if (field === "proveedor") {
+      const empresaSeleccionada = empresas.find(
+        (e) => e.razon_social === value
+      );
       if (empresaSeleccionada) {
         setManualRows((prevRows) =>
           prevRows.map((row) =>
@@ -203,7 +239,7 @@ export default function ProgramacionPage() {
               ? {
                   ...row,
                   proveedor: value as string,
-                  proveedor_id: empresaSeleccionada.codigo
+                  proveedor_id: empresaSeleccionada.codigo,
                 }
               : row
           )
@@ -392,7 +428,9 @@ export default function ProgramacionPage() {
                 proveedor: String(row[2] || ""),
                 programacion: String(row[5] || ""),
                 hora_partida: horaPartidaProcessed,
-                estado_programacion: String(row[7] || "").trim().toUpperCase(),
+                estado_programacion: String(row[7] || "")
+                  .trim()
+                  .toUpperCase(),
                 comentarios: String(row[8] || ""),
                 punto_partida_ubigeo: "",
                 punto_partida_direccion: "",
@@ -419,12 +457,16 @@ export default function ProgramacionPage() {
               }
 
               return {
-                fecha: row[0] ? new Date(row[0] as string | number | Date) : new Date(),
+                fecha: row[0]
+                  ? new Date(row[0] as string | number | Date)
+                  : new Date(),
                 unidad: 0, // Necesita ser configurado manualmente o mapeado desde una tabla de camiones
                 proveedor: String(row[2] || ""),
                 programacion: String(row[5] || ""),
                 hora_partida: horaPartidaFallback,
-                estado_programacion: String(row[7] || "").trim().toUpperCase(),
+                estado_programacion: String(row[7] || "")
+                  .trim()
+                  .toUpperCase(),
                 comentarios: String(row[8] || ""),
                 punto_partida_ubigeo: "",
                 punto_partida_direccion: "",
@@ -479,7 +521,7 @@ export default function ProgramacionPage() {
       );
 
       handleDiscard();
-      
+
       toast.success("¡Información subida exitosamente!");
     } catch (error) {
       toast.error("Error al guardar los datos");
@@ -661,244 +703,270 @@ export default function ProgramacionPage() {
             )}
           </TabsContent> */}
 
-          {/* Pestaña de Entrada Manual */}
-          {/* <TabsContent value="manual" className="space-y-6"> */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle>
-                  <div className="flex flex-col gap-1">
-                    <span>Entrada Manual de Datos</span>
-                    {manualRows.length > 0 && (
-                      <span className="text-sm font-normal text-muted-foreground">
-                        {manualRows.filter(isRowComplete).length} de {manualRows.length} filas completas
-                      </span>
-                    )}
-                  </div>
-                </CardTitle>
-                <div className="flex gap-2">
-                  <Button onClick={addManualRow} disabled={isLoading}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Agregar Fila
-                  </Button>
+        {/* Pestaña de Entrada Manual */}
+        {/* <TabsContent value="manual" className="space-y-6"> */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle>
+                <div className="flex flex-col gap-1">
+                  <span>Entrada Manual de Datos</span>
                   {manualRows.length > 0 && (
-                    <>
-                      <Button
-                        variant="destructive"
-                        onClick={clearManualData}
-                        disabled={isLoading}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Limpiar Todo
-                      </Button>
-                      <Button
-                        onClick={handleSaveManualData}
-                        disabled={isLoading || !manualRows.every(isRowComplete)}
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        Guardar en BD
-                      </Button>
-                    </>
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {manualRows.filter(isRowComplete).length} de{" "}
+                      {manualRows.length} filas completas
+                    </span>
                   )}
                 </div>
-              </CardHeader>
-              <CardContent>
-                {manualRows.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <p>No hay registros. Haz clic en &quot;Agregar Fila&quot; para comenzar.</p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border">
-                    <Table className="w-full">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[50px]"></TableHead>
-                          <TableHead className="w-[180px]">Fecha</TableHead>
-                          <TableHead className="w-[140px]">Unidad</TableHead>
-                          <TableHead className="w-[280px]">Proveedor</TableHead>
-                          <TableHead className="w-[220px]">Apellidos y Nombres</TableHead>
-                          <TableHead className="w-[180px]">Programación</TableHead>
-                          <TableHead className="w-[140px]">H.P</TableHead>
-                          <TableHead className="w-[180px]">Estado</TableHead>
-                          <TableHead className="w-[240px]">Ruta (Partida - Llegada)</TableHead>
-                          <TableHead className="min-w-[300px]">Comentario</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {manualRows.map((row) => (
-                          <TableRow
-                            key={row.id}
-                            className={isRowComplete(row) ? "bg-green-200 hover:bg-green-300" : ""}
-                          >
-                            <TableCell className="p-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeManualRow(row.id)}
-                                disabled={isLoading}
-                                className="h-9 w-9 p-0"
-                              >
-                                <X className="h-4 w-4 text-red-500" />
-                              </Button>
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Input
-                                type="date"
-                                value={row.fecha}
-                                onChange={(e) =>
-                                  updateManualRow(row.id, "fecha", e.target.value)
-                                }
-                                disabled={isLoading}
-                              />
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Select
-                                value={row.unidad}
-                                onValueChange={(value) =>
-                                  updateManualRow(row.id, "unidad", value)
-                                }
-                                disabled={isLoading}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Seleccionar..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {camiones.map((camion) => (
-                                    <SelectItem key={camion.id_camion} value={camion.placa}>
-                                      {camion.placa}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Select
-                                value={row.proveedor}
-                                onValueChange={(value) =>
-                                  updateManualRow(row.id, "proveedor", value)
-                                }
-                                disabled={isLoading}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Seleccionar..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {empresas.map((empresa) => (
-                                    <SelectItem
-                                      key={empresa.codigo}
-                                      value={empresa.razon_social || ""}
-                                    >
-                                      {`(${empresa.nro_documento}) - ${empresa.razon_social}`}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Input
-                                type="text"
-                                value={row.apellidos_nombres}
-                                placeholder="Apellidos y Nombres..."
-                                readOnly
-                                className="bg-gray-50 cursor-not-allowed"
-                              />
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Select
-                                value={row.programacion}
-                                onValueChange={(value) =>
-                                  updateManualRow(row.id, "programacion", value)
-                                }
-                                disabled={isLoading}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Seleccionar..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {PROGRAMACIONES.map((prog) => (
-                                    <SelectItem key={prog} value={prog}>
-                                      {prog}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Input
-                                type="time"
-                                value={row.hora_partida}
-                                onChange={(e) =>
-                                  updateManualRow(row.id, "hora_partida", e.target.value)
-                                }
-                                disabled={isLoading}
-                              />
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Select
-                                value={row.estado_programacion}
-                                onValueChange={(value) =>
-                                  updateManualRow(row.id, "estado_programacion", value)
-                                }
-                                disabled={isLoading}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Seleccionar..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {ESTADOS.map((estado) => (
-                                    <SelectItem key={estado} value={estado}>
-                                      {estado}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <RutaDialog
-                                buttonText={
-                                  row.punto_partida_ubigeo && row.punto_llegada_ubigeo
-                                    ? "Editar Ruta"
-                                    : "Configurar Ruta"
-                                }
-                                currentPartidaUbigeo={row.punto_partida_ubigeo}
-                                currentPartidaDireccion={row.punto_partida_direccion}
-                                currentLlegadaUbigeo={row.punto_llegada_ubigeo}
-                                currentLlegadaDireccion={row.punto_llegada_direccion}
-                                onAccept={(partidaUbigeo, partidaDireccion, llegadaUbigeo, llegadaDireccion) => {
-                                  updateManualRowMultiple(row.id, {
-                                    punto_partida_ubigeo: partidaUbigeo,
-                                    punto_partida_direccion: partidaDireccion,
-                                    punto_llegada_ubigeo: llegadaUbigeo,
-                                    punto_llegada_direccion: llegadaDireccion,
-                                  });
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Input
-                                type="text"
-                                value={row.comentarios}
-                                onChange={(e) =>
-                                  updateManualRow(row.id, "comentarios", e.target.value)
-                                }
-                                placeholder="Comentarios..."
-                                disabled={isLoading}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button onClick={addManualRow} disabled={isLoading}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar Fila
+                </Button>
+                {manualRows.length > 0 && (
+                  <>
+                    <Button
+                      variant="destructive"
+                      onClick={clearManualData}
+                      disabled={isLoading}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Limpiar Todo
+                    </Button>
+                    <Button
+                      onClick={handleSaveManualData}
+                      disabled={isLoading || !manualRows.every(isRowComplete)}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Guardar en BD
+                    </Button>
+                  </>
                 )}
-              </CardContent>
-            </Card>
-
-            {isLoading && (
-              <div className="flex justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
               </div>
-            )}
+            </CardHeader>
+            <CardContent>
+              {manualRows.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <p>
+                    No hay registros. Haz clic en &quot;Agregar Fila&quot; para
+                    comenzar.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table className="w-full">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="w-[180px]">Fecha</TableHead>
+                        <TableHead className="w-[140px]">Unidad</TableHead>
+                        <TableHead className="w-[280px]">Proveedor</TableHead>
+                        <TableHead className="w-[220px]">
+                          Apellidos y Nombres
+                        </TableHead>
+                        <TableHead className="w-[180px]">
+                          Programación
+                        </TableHead>
+                        <TableHead className="w-[140px]">H.P</TableHead>
+                        <TableHead className="w-[180px]">Estado</TableHead>
+                        <TableHead className="w-[240px]">
+                          Ruta (Partida - Llegada)
+                        </TableHead>
+                        <TableHead className="min-w-[300px]">
+                          Comentario
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {manualRows.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          className={
+                            isRowComplete(row)
+                              ? "bg-green-200 hover:bg-green-300"
+                              : ""
+                          }
+                        >
+                          <TableCell className="p-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeManualRow(row.id)}
+                              disabled={isLoading}
+                              className="h-9 w-9 p-0"
+                            >
+                              <X className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Input
+                              type="date"
+                              value={row.fecha}
+                              onChange={(e) =>
+                                updateManualRow(row.id, "fecha", e.target.value)
+                              }
+                              disabled={isLoading}
+                            />
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <CamionSelectDialog
+                              camiones={camiones}
+                              onSelect={(camion) => handleCamionSelect(row.id, camion)}
+                              currentPlaca={row.unidad}
+                              buttonText="Seleccionar Unidad"
+                            />
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Select
+                              value={row.proveedor}
+                              onValueChange={(value) =>
+                                updateManualRow(row.id, "proveedor", value)
+                              }
+                              disabled={isLoading}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {empresas.map((empresa) => (
+                                  <SelectItem
+                                    key={empresa.codigo}
+                                    value={empresa.razon_social || ""}
+                                  >
+                                    {`(${empresa.nro_documento}) - ${empresa.razon_social}`}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Input
+                              type="text"
+                              value={row.apellidos_nombres}
+                              placeholder="Apellidos y Nombres..."
+                              readOnly
+                              className="bg-gray-50 cursor-not-allowed"
+                            />
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Select
+                              value={row.programacion}
+                              onValueChange={(value) =>
+                                updateManualRow(row.id, "programacion", value)
+                              }
+                              disabled={isLoading}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PROGRAMACIONES.map((prog) => (
+                                  <SelectItem key={prog} value={prog}>
+                                    {prog}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Input
+                              type="time"
+                              value={row.hora_partida}
+                              onChange={(e) =>
+                                updateManualRow(
+                                  row.id,
+                                  "hora_partida",
+                                  e.target.value
+                                )
+                              }
+                              disabled={isLoading}
+                            />
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Select
+                              value={row.estado_programacion}
+                              onValueChange={(value) =>
+                                updateManualRow(
+                                  row.id,
+                                  "estado_programacion",
+                                  value
+                                )
+                              }
+                              disabled={isLoading}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ESTADOS.map((estado) => (
+                                  <SelectItem key={estado} value={estado}>
+                                    {estado}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <RutaDialog
+                              buttonText={
+                                row.punto_partida_ubigeo &&
+                                row.punto_llegada_ubigeo
+                                  ? "Editar Ruta"
+                                  : "Configurar Ruta"
+                              }
+                              currentPartidaUbigeo={row.punto_partida_ubigeo}
+                              currentPartidaDireccion={
+                                row.punto_partida_direccion
+                              }
+                              currentLlegadaUbigeo={row.punto_llegada_ubigeo}
+                              currentLlegadaDireccion={
+                                row.punto_llegada_direccion
+                              }
+                              onAccept={(
+                                partidaUbigeo,
+                                partidaDireccion,
+                                llegadaUbigeo,
+                                llegadaDireccion
+                              ) => {
+                                updateManualRowMultiple(row.id, {
+                                  punto_partida_ubigeo: partidaUbigeo,
+                                  punto_partida_direccion: partidaDireccion,
+                                  punto_llegada_ubigeo: llegadaUbigeo,
+                                  punto_llegada_direccion: llegadaDireccion,
+                                });
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Input
+                              type="text"
+                              value={row.comentarios}
+                              onChange={(e) =>
+                                updateManualRow(
+                                  row.id,
+                                  "comentarios",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Comentarios..."
+                              disabled={isLoading}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {isLoading && (
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            </div>
+          )}
           {/* </TabsContent>
         </Tabs> */}
         </div>
