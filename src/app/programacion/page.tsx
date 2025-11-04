@@ -161,7 +161,7 @@ export default function ProgramacionPage() {
       punto_llegada_direccion: "",
       peso: "",
     };
-    setManualRows([...manualRows, newRow]);
+    setManualRows([newRow, ...manualRows]);
   };
 
   const removeManualRow = (id: string) => {
