@@ -1,10 +1,7 @@
 import type React from "react";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Maquinarias Ayala - Sistema de Reportes",
@@ -19,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={`${inter.className}`}>
+      <body>
         <main>{children}</main>
         <Toaster position="top-right" richColors />
       </body>
