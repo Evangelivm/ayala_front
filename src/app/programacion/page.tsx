@@ -23,17 +23,21 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Upload, Trash2, Save, Plus, X, MapPin } from "lucide-react";
+import { Upload, Trash2, Save, Plus, X, MapPin, Folder, GitBranch, FileText } from "lucide-react";
 import {
   programacionApi,
   type ProgramacionData,
+  type ProgramacionTecnicaData,
   camionesApi,
   type CamionData,
   empresasApi,
   type EmpresaData,
+  proyectosApi,
+  type ProyectoData,
 } from "@/lib/connections";
 import { RutaDialog } from "@/components/ruta-dialog";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
+import { ProyectoSelect } from "@/components/proyecto-select";
 import { ubigeosLima } from "@/lib/ubigeos-lima";
 import {
   getManualRows,
@@ -47,7 +51,7 @@ import {
 
 // Opciones para los selects
 const PROGRAMACIONES = ["AFIRMADO", "ELIMINACION", "SUB BASE", "1 INTERNOS"];
-const ESTADOS = ["OK", "NO EJECUTADO"];
+const ESTADOS = ["OK", "EN PROCESO", "NO EJECUTADO"];
 
 export default function ProgramacionPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -62,6 +66,14 @@ export default function ProgramacionPage() {
 
   // Estado para empresas (proveedores)
   const [empresas, setEmpresas] = useState<EmpresaData[]>([]);
+
+  // Estado para proyectos
+  const [proyectos, setProyectos] = useState<ProyectoData[]>([]);
+
+  // Estados para la pestaña de Registros
+  const [dataTecnica, setDataTecnica] = useState<ProgramacionTecnicaData[]>([]);
+  const [isLoadingTecnica, setIsLoadingTecnica] = useState(false);
+  const [identificadoresConGuia, setIdentificadoresConGuia] = useState<string[]>([]);
 
   // Cargar datos de IndexedDB al montar el componente
   useEffect(() => {
@@ -126,6 +138,80 @@ export default function ProgramacionPage() {
     loadEmpresas();
   }, []);
 
+  // Cargar proyectos al montar el componente
+  useEffect(() => {
+    const loadProyectos = async () => {
+      try {
+        const proyectosData = await proyectosApi.getAll();
+        setProyectos(proyectosData);
+      } catch (error) {
+        console.error("Error al cargar proyectos:", error);
+        toast.error("Error al cargar la lista de proyectos");
+      }
+    };
+
+    loadProyectos();
+  }, []);
+
+  // Cargar datos técnicos y configurar polling para la pestaña de Registros
+  useEffect(() => {
+    // Cargar datos inicialmente
+    fetchDataTecnica();
+
+    // Polling ligero: consultar cada 10 segundos si hay registros recién completados
+    const interval = setInterval(async () => {
+      try {
+        // Consultar datos completos de registros completados en los últimos 15 segundos
+        const registrosRecientes = await programacionApi.getRecienCompletados(15);
+
+        if (registrosRecientes.length > 0) {
+          // Actualizar solo los registros que cambiaron en lugar de recargar toda la tabla
+          setDataTecnica((prevData) => {
+            // Crear un mapa con los IDs de los registros recientes para búsqueda rápida
+            const registrosMap = new Map(
+              registrosRecientes.map((reg) => [reg.id, reg])
+            );
+
+            // Actualizar los registros existentes o agregarlos si son nuevos
+            const dataActualizada = prevData.map((item) => {
+              const registroActualizado = registrosMap.get(item.id);
+              if (registroActualizado) {
+                // Eliminar del mapa para saber cuáles son nuevos después
+                registrosMap.delete(item.id);
+                return registroActualizado;
+              }
+              return item;
+            });
+
+            // Agregar registros nuevos que no existían en la tabla
+            const registrosNuevos = Array.from(registrosMap.values());
+
+            return [...registrosNuevos, ...dataActualizada];
+          });
+
+          // Actualizar también la lista de identificadores con guía
+          const nuevosIdentificadores = registrosRecientes
+            .map((reg) => reg.identificador_unico)
+            .filter((id): id is string => id !== null);
+
+          setIdentificadoresConGuia((prev) => {
+            const set = new Set([...prev, ...nuevosIdentificadores]);
+            return Array.from(set);
+          });
+
+          toast.success(
+            `${registrosRecientes.length} guía${registrosRecientes.length > 1 ? 's' : ''} procesada${registrosRecientes.length > 1 ? 's' : ''}`
+          );
+        }
+      } catch (error) {
+        // Silenciar errores de polling para no molestar al usuario
+        console.error("Error en polling:", error);
+      }
+    }, 10000); // Cada 10 segundos
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Guardar en IndexedDB cada vez que cambien las filas manuales
   useEffect(() => {
     const saveData = async () => {
@@ -160,6 +246,9 @@ export default function ProgramacionPage() {
       punto_llegada_ubigeo: "",
       punto_llegada_direccion: "",
       peso: "",
+      proyecto: "",
+      proyecto_id: 0,
+      subproyecto_id: 0,
     };
     setManualRows([newRow, ...manualRows]);
   };
@@ -183,7 +272,9 @@ export default function ProgramacionPage() {
 
     const nombreCompleto =
       camion.nombre_chofer && camion.apellido_chofer
-        ? `${capitalizeText(camion.nombre_chofer)} ${capitalizeText(camion.apellido_chofer)}`
+        ? `${capitalizeText(camion.nombre_chofer)} ${capitalizeText(
+            camion.apellido_chofer
+          )}`
         : "";
     const capacidadTanque = camion.capacidad_tanque
       ? camion.capacidad_tanque.toString()
@@ -260,6 +351,37 @@ export default function ProgramacionPage() {
     );
   };
 
+  // Función para manejar cambio de proyecto/subproyecto
+  const handleProyectoChange = (
+    rowId: string,
+    id: number | undefined,
+    type: "proyecto" | "subproyecto",
+    nombre: string
+  ) => {
+    setManualRows((prevRows) =>
+      prevRows.map((row) => {
+        if (row.id === rowId) {
+          if (type === "proyecto") {
+            return {
+              ...row,
+              proyecto: nombre,
+              proyecto_id: id || 0,
+              subproyecto_id: 0, // Limpiar subproyecto
+            };
+          } else {
+            return {
+              ...row,
+              proyecto: nombre,
+              proyecto_id: 0, // Limpiar proyecto
+              subproyecto_id: id || 0,
+            };
+          }
+        }
+        return row;
+      })
+    );
+  };
+
   const clearManualData = async () => {
     try {
       await clearManualRowsDB();
@@ -273,7 +395,7 @@ export default function ProgramacionPage() {
 
   // Función para verificar si una fila está completa
   const isRowComplete = (row: ManualRow) => {
-    return (
+    const basicFieldsComplete =
       row.fecha &&
       row.unidad &&
       row.unidad_id > 0 &&
@@ -285,8 +407,12 @@ export default function ProgramacionPage() {
       row.punto_partida_ubigeo &&
       row.punto_partida_direccion &&
       row.punto_llegada_ubigeo &&
-      row.punto_llegada_direccion
-    );
+      row.punto_llegada_direccion;
+
+    // Debe tener proyecto O subproyecto (al menos uno)
+    const hasProyecto = row.proyecto && (row.proyecto_id > 0 || row.subproyecto_id > 0);
+
+    return basicFieldsComplete && hasProyecto;
   };
 
   const handleSaveManualData = async () => {
@@ -319,6 +445,8 @@ export default function ProgramacionPage() {
         punto_llegada_ubigeo: row.punto_llegada_ubigeo,
         punto_llegada_direccion: row.punto_llegada_direccion,
         peso: row.peso,
+        id_proyecto: row.proyecto_id > 0 ? row.proyecto_id : undefined,
+        id_subproyecto: row.subproyecto_id > 0 ? row.subproyecto_id : undefined,
       }));
 
       const result = await programacionApi.createBatch(dataToSend);
@@ -531,6 +659,89 @@ export default function ProgramacionPage() {
     }
   };
 
+  // Funciones para la pestaña de Registros
+  const fetchDataTecnica = async () => {
+    setIsLoadingTecnica(true);
+    try {
+      const [tecnicaData, idsConGuia] = await Promise.all([
+        programacionApi.getAllTecnica(),
+        programacionApi.getIdentificadoresConGuia(),
+      ]);
+      setDataTecnica(tecnicaData);
+      setIdentificadoresConGuia(idsConGuia);
+    } catch (error) {
+      toast.error("Error al cargar los datos técnicos");
+      console.error("Error fetching data:", error);
+    } finally {
+      setIsLoadingTecnica(false);
+    }
+  };
+
+  // Función para verificar si tiene los archivos generados
+  const hasArchivosGenerados = (item: ProgramacionTecnicaData): boolean => {
+    return !!(
+      item.enlace_del_pdf &&
+      item.enlace_del_xml &&
+      item.enlace_del_cdr
+    );
+  };
+
+  // Función para verificar si tiene guía generada (en proceso)
+  const hasGuiaEnProceso = (item: ProgramacionTecnicaData): boolean => {
+    return !!(
+      item.identificador_unico &&
+      identificadoresConGuia.includes(item.identificador_unico)
+    );
+  };
+
+  // Función para formatear fecha sin problemas de timezone
+  const formatearFecha = (fecha: string | null): string => {
+    if (!fecha) return "-";
+
+    try {
+      // Extraer año, mes, día del string sin usar Date()
+      // Esto evita conversiones de timezone
+      const fechaStr = fecha.split("T")[0]; // "2025-01-18"
+      const [year, month, day] = fechaStr.split("-");
+
+      // Crear fecha en timezone local
+      const fechaLocal = new Date(
+        parseInt(year),
+        parseInt(month) - 1, // Los meses en JS van de 0-11
+        parseInt(day)
+      );
+
+      return fechaLocal.toLocaleDateString("es-ES");
+    } catch (error) {
+      return fecha;
+    }
+  };
+
+  // Función para formatear hora a HH:MM
+  const formatearHora = (horaCompleta: string | null): string => {
+    if (!horaCompleta) return "-";
+
+    try {
+      // Si viene como ISO date (1970-01-01T08:00), extraer solo la hora
+      if (horaCompleta.includes("T")) {
+        const horaParte = horaCompleta.split("T")[1];
+        const partes = horaParte.split(":");
+        if (partes.length >= 2) {
+          return `${partes[0]}:${partes[1]}`;
+        }
+      }
+
+      // Si viene como "HH:MM:SS", extraer solo HH:MM
+      const partes = horaCompleta.split(":");
+      if (partes.length >= 2) {
+        return `${partes[0]}:${partes[1]}`;
+      }
+      return horaCompleta;
+    } catch (error) {
+      return horaCompleta;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
@@ -556,156 +767,16 @@ export default function ProgramacionPage() {
 
       {/* Contenido Principal */}
       <div className="mx-auto px-4 sm:px-6 pb-8 space-y-6">
-        {/* Pestaña de Excel - DESHABILITADA TEMPORALMENTE */}
-        {/* <Tabs defaultValue="excel" className="w-full">
+        <Tabs defaultValue="manual" className="w-full">
           <div className="max-w-7xl mx-auto">
             <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="excel">Subir Excel</TabsTrigger>
               <TabsTrigger value="manual">Entrada Manual</TabsTrigger>
+              <TabsTrigger value="registros">Registros</TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="excel" className="space-y-6 max-w-7xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-6 w-6" />
-              Subir Archivo de Programación
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="excel-file">Archivo Excel</Label>
-              <Input
-                id="excel-file"
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileChange}
-                disabled={isLoading}
-              />
-            </div>
-            {file && (
-              <p className="text-sm text-muted-foreground">
-                Archivo seleccionado: {file.name}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {data.length > 0 && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle>
-                Vista Previa - {data.length} registros procesados
-              </CardTitle>
-              <div className="flex gap-2">
-                <Button
-                  variant="destructive"
-                  onClick={handleDiscard}
-                  disabled={isLoading}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Descartar
-                </Button>
-                <Button onClick={handleSave} disabled={isLoading}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Guardar en BD
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border overflow-x-auto">
-                <Table className="min-w-fit">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Unidad</TableHead>
-                      <TableHead>Proveedor</TableHead>
-                      <TableHead>Apellidos y Nombres</TableHead>
-                      <TableHead>Programación</TableHead>
-                      <TableHead>H.P</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Comentario</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          {item.fecha.toLocaleDateString("es-ES")}
-                        </TableCell>
-                        <TableCell className="min-w-24">
-                          <div className={item.unidad.length > 30 ? "whitespace-normal break-words" : "whitespace-nowrap"}>
-                            {item.unidad}
-                          </div>
-                        </TableCell>
-                        <TableCell className="min-w-32">
-                          <div className={item.proveedor.length > 30 ? "whitespace-normal break-words" : "whitespace-nowrap"}>
-                            {item.proveedor}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className={item.apellidos_nombres.length > 30 ? "whitespace-normal break-words" : "whitespace-nowrap"}>
-                            {item.apellidos_nombres}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={
-                              item.programacion === "AFIRMADO"
-                                ? "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm"
-                                : item.programacion === "ELIMINACION"
-                                ? "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm"
-                                : "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-slate-50 text-slate-700 border border-slate-200 shadow-sm"
-                            }
-                          >
-                            {item.programacion
-                              .toLowerCase()
-                              .replace(/\b\w/g, (l) => l.toUpperCase())}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-mono text-sm font-medium text-blue-700">
-                            {item.hora_partida}
-                          </span>
-                        </TableCell>
-                        <TableCell className="min-w-32">
-                          <span
-                            className={
-                              item.estado_programacion === "OK"
-                                ? "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm whitespace-nowrap"
-                                : item.estado_programacion === "NO EJECUTADO"
-                                ? "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm whitespace-nowrap"
-                                : "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-slate-50 text-slate-700 border border-slate-200 shadow-sm whitespace-nowrap"
-                            }
-                          >
-                            {item.estado_programacion
-                              .toLowerCase()
-                              .replace(/\b\w/g, (l) => l.toUpperCase())}
-                          </span>
-                        </TableCell>
-                        <TableCell className="max-w-sm whitespace-normal break-words py-4">
-                          <div className="py-1">{item.comentarios}</div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-            {isLoading && (
-              <div className="flex justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-              </div>
-            )}
-          </TabsContent> */}
-
-        {/* Pestaña de Entrada Manual */}
-        {/* <TabsContent value="manual" className="space-y-6"> */}
-        <div className="space-y-6">
+          {/* Pestaña de Entrada Manual */}
+        <TabsContent value="manual" className="space-y-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>
@@ -765,6 +836,7 @@ export default function ProgramacionPage() {
                         <TableHead className="w-[220px]">
                           Apellidos y Nombres
                         </TableHead>
+                        <TableHead className="w-[200px]">Proyecto</TableHead>
                         <TableHead className="w-[180px]">
                           Programación
                         </TableHead>
@@ -812,7 +884,9 @@ export default function ProgramacionPage() {
                           <TableCell className="p-2">
                             <CamionSelectDialog
                               camiones={camiones}
-                              onSelect={(camion) => handleCamionSelect(row.id, camion)}
+                              onSelect={(camion) =>
+                                handleCamionSelect(row.id, camion)
+                              }
                               currentPlaca={row.unidad}
                               buttonText="Seleccionar Unidad"
                             />
@@ -847,6 +921,29 @@ export default function ProgramacionPage() {
                               placeholder="Apellidos y Nombres..."
                               readOnly
                               className="bg-gray-50 cursor-not-allowed"
+                            />
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <ProyectoSelect
+                              value={
+                                row.proyecto_id > 0
+                                  ? `p-${row.proyecto_id}`
+                                  : row.subproyecto_id > 0
+                                  ? `s-${row.subproyecto_id}`
+                                  : undefined
+                              }
+                              onChange={(id, type) => {
+                                handleProyectoChange(row.id, id, type, "");
+                              }}
+                              onNameChange={(nombre) => {
+                                // Actualizar solo el nombre del proyecto/subproyecto
+                                setManualRows((prevRows) =>
+                                  prevRows.map((r) =>
+                                    r.id === row.id ? { ...r, proyecto: nombre } : r
+                                  )
+                                );
+                              }}
+                              placeholder="Seleccionar..."
                             />
                           </TableCell>
                           <TableCell className="p-2">
@@ -967,9 +1064,180 @@ export default function ProgramacionPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
             </div>
           )}
-          {/* </TabsContent>
-        </Tabs> */}
-        </div>
+        </TabsContent>
+
+        {/* Pestaña de Registros */}
+        <TabsContent value="registros" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {dataTecnica.length > 0
+                  ? `${dataTecnica.length} registros encontrados`
+                  : "Registros de Programación"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingTecnica ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                </div>
+              ) : dataTecnica.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No hay registros disponibles
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[60px]">ID</TableHead>
+                        <TableHead className="w-[100px]">Fecha</TableHead>
+                        <TableHead className="min-w-[120px]">Unidad</TableHead>
+                        <TableHead className="min-w-[150px]">Proveedor</TableHead>
+                        <TableHead className="min-w-[180px]">
+                          Apellidos y Nombres
+                        </TableHead>
+                        <TableHead className="min-w-[150px]">Proyectos</TableHead>
+                        <TableHead className="w-[120px]">Programación</TableHead>
+                        <TableHead className="w-[80px]">H.P</TableHead>
+                        <TableHead className="w-[120px]">Estado</TableHead>
+                        <TableHead className="w-[80px]">M3</TableHead>
+                        <TableHead className="w-[100px]">Cant. Viaje</TableHead>
+                        <TableHead className="w-[100px] text-center">
+                          Archivo
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dataTecnica.map((item) => (
+                        <TableRow
+                          key={item.id}
+                          className={
+                            hasArchivosGenerados(item)
+                              ? "bg-green-100 hover:bg-green-200 border-l-4 border-green-500"
+                              : hasGuiaEnProceso(item)
+                              ? "bg-cyan-100 hover:bg-cyan-200 border-l-4 border-cyan-500"
+                              : ""
+                          }
+                        >
+                          <TableCell className="font-medium">{item.id}</TableCell>
+                          <TableCell>
+                            {formatearFecha(item.fecha)}
+                          </TableCell>
+                          <TableCell className="min-w-24">
+                            <div
+                              className={
+                                (item.unidad?.length || 0) > 30
+                                  ? "whitespace-normal break-words"
+                                  : "whitespace-nowrap"
+                              }
+                            >
+                              {item.unidad || "-"}
+                            </div>
+                          </TableCell>
+                          <TableCell className="min-w-32">
+                            <div
+                              className={
+                                (item.proveedor?.length || 0) > 30
+                                  ? "whitespace-normal break-words"
+                                  : "whitespace-nowrap"
+                              }
+                            >
+                              {item.proveedor || "-"}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div
+                              className={
+                                (item.apellidos_nombres?.length || 0) > 30
+                                  ? "whitespace-normal break-words"
+                                  : "whitespace-nowrap"
+                              }
+                            >
+                              {item.apellidos_nombres || "-"}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div
+                              className={
+                                (item.proyectos?.length || 0) > 30
+                                  ? "whitespace-normal break-words"
+                                  : "whitespace-nowrap"
+                              }
+                            >
+                              {item.proyectos ? (
+                                <div className="flex items-center gap-2">
+                                  {item.tipo_proyecto === "proyecto" ? (
+                                    <Folder className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                                  ) : item.tipo_proyecto === "subproyecto" ? (
+                                    <GitBranch className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                                  ) : null}
+                                  <span>{item.proyectos}</span>
+                                </div>
+                              ) : (
+                                "-"
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={
+                                item.programacion === "AFIRMADO"
+                                  ? "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm"
+                                  : item.programacion === "ELIMINACION"
+                                  ? "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm"
+                                  : "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-slate-50 text-slate-700 border border-slate-200 shadow-sm"
+                              }
+                            >
+                              {item.programacion || "-"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-mono text-sm font-medium text-blue-700">
+                              {formatearHora(item.hora_partida)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="min-w-32">
+                            <span
+                              className={
+                                item.estado_programacion === "OK"
+                                  ? "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm whitespace-nowrap"
+                                  : item.estado_programacion === "NO EJECUTADO"
+                                  ? "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm whitespace-nowrap"
+                                  : "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-slate-50 text-slate-700 border border-slate-200 shadow-sm whitespace-nowrap"
+                              }
+                            >
+                              {item.estado_programacion || "-"}
+                            </span>
+                          </TableCell>
+                          <TableCell>{item.m3 || "-"}</TableCell>
+                          <TableCell>{item.cantidad_viaje || "-"}</TableCell>
+                          <TableCell className="text-center">
+                            {item.enlace_del_pdf ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  window.open(item.enlace_del_pdf!, "_blank")
+                                }
+                                className="bg-red-50 hover:bg-red-100 text-red-700 border-red-300 px-2 py-1 h-7 text-xs"
+                              >
+                                PDF
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

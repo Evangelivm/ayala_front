@@ -617,7 +617,18 @@ function GuiaRemisionContent() {
           punto_de_llegada_ubigeo: data.punto_llegada_ubigeo || "",
           punto_de_llegada_direccion: data.punto_llegada_direccion || "",
           identificador_unico: data.identificador_unico || "",
+
+          // Preseleccionar proyecto o subproyecto si están disponibles
+          id_proyecto: data.id_proyecto && data.id_proyecto > 0 ? data.id_proyecto : undefined,
+          id_subproyecto: data.id_subproyecto && data.id_subproyecto > 0 ? data.id_subproyecto : undefined,
         }));
+
+        // Establecer el tipo de selección basado en los datos cargados
+        if (data.id_proyecto && data.id_proyecto > 0) {
+          setSelectionType("proyecto");
+        } else if (data.id_subproyecto && data.id_subproyecto > 0) {
+          setSelectionType("subproyecto");
+        }
 
         toast.success("Datos cargados desde programación técnica");
       } catch (error) {

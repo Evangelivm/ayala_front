@@ -1,7 +1,7 @@
 // Helper para manejar IndexedDB para almacenamiento de datos de programación manual
 
 const DB_NAME = "ProgramacionDB";
-const DB_VERSION = 4; // Incrementado para incluir campo peso
+const DB_VERSION = 6; // Incrementado para incluir campo id_subproyecto
 const STORE_NAME = "manualRows";
 
 // Interfaz para las filas de entrada manual
@@ -22,6 +22,9 @@ export interface ManualRow {
   punto_llegada_ubigeo: string;
   punto_llegada_direccion: string;
   peso: string; // Capacidad del tanque del camión
+  proyecto: string; // Nombre del proyecto o subproyecto (para visualización)
+  proyecto_id: number; // ID del proyecto (para enviar al backend)
+  subproyecto_id: number; // ID del subproyecto (para enviar al backend)
 }
 
 // Abrir o crear la base de datos

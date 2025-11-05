@@ -2009,6 +2009,8 @@ export interface ProgramacionData {
   punto_llegada_ubigeo: string;
   punto_llegada_direccion: string;
   peso?: string; // Capacidad del tanque del camión
+  id_proyecto?: number; // ID del proyecto (solo se guarda en programacion_tecnica)
+  id_subproyecto?: number; // ID del subproyecto (solo se guarda en programacion_tecnica)
 }
 
 export interface ProgramacionTecnicaData {
@@ -2142,6 +2144,8 @@ export const programacionApi = {
     empresa_razon_social: string | null;
     empresa_nro_documento: string | null;
     empresa_direccion: string | null;
+    id_proyecto: number | null;
+    id_subproyecto: number | null;
   }> => {
     try {
       const response = await api.get(`/programacion/tecnica/${id}`);
