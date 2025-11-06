@@ -60,10 +60,10 @@ export function AddCamionDialog({
       // Solo letras, espacios, tildes, guiones y apóstrofes en nombres
       value = value.replace(/[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ\s'-]/g, "");
     } else if (field === "placa") {
-      // Formato XXX-XXX para placa, convertir a mayúsculas
+      // Formato flexible para placa/serie, convertir a mayúsculas
       value = value.toUpperCase().replace(/[^A-Z0-9-]/g, "");
-      // Limitar a 7 caracteres (incluyendo el guion)
-      if (value.length > 7) value = value.slice(0, 7);
+      // Limitar a 10 caracteres para permitir formatos variables
+      if (value.length > 10) value = value.slice(0, 10);
     }
 
     setFormData((prev) => ({
@@ -87,16 +87,16 @@ export function AddCamionDialog({
   };
 
   const validateForm = () => {
-    // Validar placa
+    // Validar placa/serie
     if (!formData.placa.trim()) {
-      toast.error("La placa es obligatoria");
+      toast.error("La placa/serie es obligatoria");
       return false;
     }
 
-    // Validar formato de placa XXX-XXX
-    const placaRegex = /^[A-Z0-9]{3}-[A-Z0-9]{3}$/;
+    // Validar formato flexible de placa/serie (debe contener al menos un guion y caracteres alfanuméricos)
+    const placaRegex = /^[A-Z0-9]+-[A-Z0-9]+$/;
     if (!placaRegex.test(formData.placa)) {
-      toast.error("La placa debe tener el formato XXX-XXX (ej: ABC-123)");
+      toast.error("La placa/serie debe tener formato válido con guion (ej: ABC-123, AB-1234, etc.)");
       return false;
     }
 
@@ -119,8 +119,9 @@ export function AddCamionDialog({
     }
 
     // Validar DNI
+    const rolLabel = formData.tipo === "MAQUINARIA" ? "operador" : "chofer";
     if (!formData.dni.trim()) {
-      toast.error("El DNI del chofer es obligatorio");
+      toast.error(`El DNI del ${rolLabel} es obligatorio`);
       return false;
     }
 
@@ -129,15 +130,15 @@ export function AddCamionDialog({
       return false;
     }
 
-    // Validar nombres del chofer
+    // Validar nombres
     if (!formData.nombre_chofer.trim()) {
-      toast.error("Los nombres del chofer son obligatorios");
+      toast.error(`Los nombres del ${rolLabel} son obligatorios`);
       return false;
     }
 
-    // Validar apellidos del chofer
+    // Validar apellidos
     if (!formData.apellido_chofer.trim()) {
-      toast.error("Los apellidos del chofer son obligatorios");
+      toast.error(`Los apellidos del ${rolLabel} son obligatorios`);
       return false;
     }
 
@@ -160,6 +161,9 @@ export function AddCamionDialog({
   const normalizeSpaces = (text: string): string => {
     return text.trim().replace(/\s+/g, ' ');
   };
+
+  // Determinar el rol según el tipo seleccionado
+  const rolLabel = formData.tipo === "MAQUINARIA" ? "Operador" : "Chofer";
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
@@ -229,13 +233,35 @@ export function AddCamionDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          {/* Fila 1: Placa y Marca */}
+          {/* Fila 1: Tipo */}
+          <div className="space-y-2">
+            <Label htmlFor="tipo">
+              Tipo <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={formData.tipo}
+              onValueChange={(value: "CAMION" | "MAQUINARIA") =>
+                handleInputChange("tipo", value)
+              }
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar tipo..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CAMION">CAMIÓN</SelectItem>
+                <SelectItem value="MAQUINARIA">MAQUINARIA</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Fila 2: Placa/Serie y Marca */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="placa">
-                Placa <span className="text-red-500">*</span>
+                Placa/Serie <span className="text-red-500">*</span>
                 <span className="text-xs text-muted-foreground ml-2">
-                  (Formato: XXX-XXX)
+                  (Ej: AB-123, ABC-1234)
                 </span>
               </Label>
               <Input
@@ -244,7 +270,7 @@ export function AddCamionDialog({
                 onChange={(e) => handleInputChange("placa", e.target.value)}
                 placeholder="Ej: ABC-123"
                 disabled={isLoading}
-                maxLength={7}
+                maxLength={10}
               />
             </div>
             <div className="space-y-2">
@@ -299,7 +325,7 @@ export function AddCamionDialog({
           {/* Fila 3: DNI */}
           <div className="space-y-2">
             <Label htmlFor="dni">
-              DNI del Chofer <span className="text-red-500">*</span>
+              DNI del {rolLabel} <span className="text-red-500">*</span>
               <span className="text-xs text-muted-foreground ml-2">
                 (8 dígitos - Licencia se generará como Q + DNI)
               </span>
@@ -325,7 +351,7 @@ export function AddCamionDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="nombre_chofer">
-                Nombres del Chofer <span className="text-red-500">*</span>
+                Nombres del {rolLabel} <span className="text-red-500">*</span>
                 <span className="text-xs text-muted-foreground ml-2">
                   (Solo texto)
                 </span>
@@ -343,7 +369,7 @@ export function AddCamionDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="apellido_chofer">
-                Apellidos del Chofer <span className="text-red-500">*</span>
+                Apellidos del {rolLabel} <span className="text-red-500">*</span>
                 <span className="text-xs text-muted-foreground ml-2">
                   (Solo texto)
                 </span>
@@ -380,28 +406,6 @@ export function AddCamionDialog({
                     {`(${empresa.nro_documento}) - ${empresa.razon_social}`}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Fila 6: Tipo */}
-          <div className="space-y-2">
-            <Label htmlFor="tipo">
-              Tipo <span className="text-red-500">*</span>
-            </Label>
-            <Select
-              value={formData.tipo}
-              onValueChange={(value: "CAMION" | "MAQUINARIA") =>
-                handleInputChange("tipo", value)
-              }
-              disabled={isLoading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar tipo..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="CAMION">CAMIÓN</SelectItem>
-                <SelectItem value="MAQUINARIA">MAQUINARIA</SelectItem>
               </SelectContent>
             </Select>
           </div>
