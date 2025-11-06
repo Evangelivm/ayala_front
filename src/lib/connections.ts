@@ -2218,6 +2218,86 @@ export const programacionApi = {
   },
 };
 
+// ============ ACARREO INTERFACES ============
+export interface AcarreoData {
+  fecha: Date;
+  unidad: number; // ID del camión
+  proveedor: string; // Código de empresa
+  programacion: string;
+  hora_partida: string;
+  estado_programacion: string;
+  comentarios?: string;
+  punto_partida_ubigeo: string;
+  punto_partida_direccion: string;
+  punto_llegada_ubigeo: string;
+  punto_llegada_direccion: string;
+  peso?: string; // Capacidad del tanque del camión
+  id_proyecto?: number; // ID del proyecto
+  id_subproyecto?: number; // ID del subproyecto
+}
+
+export interface AcarreoResponse {
+  successCount: number;
+  failedCount: number;
+  processingTime: number;
+}
+
+// ============ ACARREO API ============
+export const acarreoApi = {
+  // Crear múltiples registros de acarreo
+  createBatch: async (data: AcarreoData[]): Promise<AcarreoResponse> => {
+    try {
+      const response = await api.post("/acarreo", { data });
+      return response.data;
+    } catch (error) {
+      console.error("Acarreo API error:", error);
+
+      // Extraer mensaje de error del servidor si está disponible
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          throw new Error(axiosError.response.data.message);
+        }
+      }
+
+      throw new Error("Error al guardar los registros de acarreo");
+    }
+  },
+
+  // Obtener todos los registros de acarreo
+  getAll: async (): Promise<AcarreoData[]> => {
+    try {
+      const response = await api.get("/acarreo");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Acarreo API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener registro por ID
+  getById: async (id: number): Promise<AcarreoData> => {
+    try {
+      const response = await api.get(`/acarreo/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Acarreo API error:", error);
+      throw new Error("Registro de acarreo no encontrado");
+    }
+  },
+
+  // Eliminar registro
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/acarreo/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Acarreo API error:", error);
+      throw new Error("Error al eliminar el registro");
+    }
+  },
+};
+
 // ============ SUBPROYECTOS INTERFACES ============
 export interface SubproyectoData {
   id_subproyecto?: number;
@@ -2708,6 +2788,7 @@ export interface CamionData {
   numero_licencia?: string;
   empresa?: string; // Código de empresa (FK a empresas_2025.codigo)
   razon_social_empresa?: string | null; // Razón social de la empresa
+  tipo?: 'CAMION' | 'MAQUINARIA'; // Tipo de vehículo
 }
 
 export const camionesApi = {

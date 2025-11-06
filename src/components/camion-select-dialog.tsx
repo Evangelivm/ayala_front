@@ -27,6 +27,9 @@ interface CamionSelectDialogProps {
   onSelect: (camion: CamionData) => void;
   buttonText?: string;
   currentPlaca?: string;
+  dialogTitle?: string;
+  dialogDescription?: string;
+  emptyMessage?: string;
 }
 
 export function CamionSelectDialog({
@@ -34,9 +37,13 @@ export function CamionSelectDialog({
   onSelect,
   buttonText = "Seleccionar Unidad",
   currentPlaca = "",
+  dialogTitle = "Seleccionar Unidad (Camión)",
+  dialogDescription = "Selecciona un camión de la lista. Puedes buscar por placa, DNI, nombre del chofer o proveedor.",
+  emptyMessage = "camiones",
 }: CamionSelectDialogProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [tipoFiltro, setTipoFiltro] = useState<'TODOS' | 'CAMION' | 'MAQUINARIA'>('TODOS');
 
   // Función helper para capitalizar texto
   const capitalizeText = (text: string) => {
@@ -48,19 +55,25 @@ export function CamionSelectDialog({
       .join(" ");
   };
 
-  // Filtrar camiones según el término de búsqueda
+  // Filtrar camiones según el término de búsqueda y tipo
   const filteredCamiones = camiones.filter((camion) => {
     const searchLower = searchTerm.toLowerCase();
     const nombreCompleto = camion.nombre_chofer && camion.apellido_chofer
       ? `${camion.nombre_chofer} ${camion.apellido_chofer}`.toLowerCase()
       : "";
 
-    return (
+    // Filtro de búsqueda
+    const matchesSearch = (
       camion.placa.toLowerCase().includes(searchLower) ||
       camion.dni?.toLowerCase().includes(searchLower) ||
       nombreCompleto.includes(searchLower) ||
       camion.razon_social_empresa?.toLowerCase().includes(searchLower)
     );
+
+    // Filtro de tipo
+    const matchesTipo = tipoFiltro === 'TODOS' || camion.tipo === tipoFiltro;
+
+    return matchesSearch && matchesTipo;
   });
 
   const handleSelectCamion = (camion: CamionData) => {
@@ -90,10 +103,10 @@ export function CamionSelectDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5" />
-            Seleccionar Unidad (Camión)
+            {dialogTitle}
           </DialogTitle>
           <DialogDescription>
-            Selecciona un camión de la lista. Puedes buscar por placa, DNI, nombre del chofer o proveedor.
+            {dialogDescription}
           </DialogDescription>
         </DialogHeader>
 
@@ -109,12 +122,41 @@ export function CamionSelectDialog({
           />
         </div>
 
+        {/* Filtro por tipo */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700">Filtrar por tipo:</span>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={tipoFiltro === 'TODOS' ? 'default' : 'outline'}
+              onClick={() => setTipoFiltro('TODOS')}
+            >
+              Todos
+            </Button>
+            <Button
+              size="sm"
+              variant={tipoFiltro === 'CAMION' ? 'default' : 'outline'}
+              onClick={() => setTipoFiltro('CAMION')}
+            >
+              Camiones
+            </Button>
+            <Button
+              size="sm"
+              variant={tipoFiltro === 'MAQUINARIA' ? 'default' : 'outline'}
+              onClick={() => setTipoFiltro('MAQUINARIA')}
+            >
+              Maquinarias
+            </Button>
+          </div>
+        </div>
+
         {/* Tabla de camiones */}
         <div className="flex-1 overflow-auto border rounded-md">
           <Table>
             <TableHeader className="sticky top-0 bg-white z-10">
               <TableRow>
                 <TableHead className="w-[120px]">Placa</TableHead>
+                <TableHead className="w-[120px]">Tipo</TableHead>
                 <TableHead className="w-[140px]">Capacidad (m³)</TableHead>
                 <TableHead className="w-[120px]">DNI</TableHead>
                 <TableHead className="w-[240px]">Chofer</TableHead>
@@ -125,10 +167,10 @@ export function CamionSelectDialog({
             <TableBody>
               {filteredCamiones.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    {searchTerm
-                      ? "No se encontraron camiones con ese criterio de búsqueda"
-                      : "No hay camiones disponibles"}
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    {searchTerm || tipoFiltro !== 'TODOS'
+                      ? `No se encontraron ${emptyMessage} con ese criterio de búsqueda`
+                      : `No hay ${emptyMessage} disponibles`}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -146,6 +188,19 @@ export function CamionSelectDialog({
                     >
                       <TableCell className="font-mono font-semibold">
                         {camion.placa}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={
+                            camion.tipo === 'CAMION'
+                              ? "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800"
+                              : camion.tipo === 'MAQUINARIA'
+                              ? "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800"
+                              : "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800"
+                          }
+                        >
+                          {camion.tipo || "N/A"}
+                        </span>
                       </TableCell>
                       <TableCell>
                         {camion.capacidad_tanque
@@ -184,7 +239,7 @@ export function CamionSelectDialog({
 
         {/* Footer con información */}
         <div className="text-sm text-muted-foreground">
-          Mostrando {filteredCamiones.length} de {camiones.length} camiones
+          Mostrando {filteredCamiones.length} de {camiones.length} {emptyMessage}
         </div>
       </DialogContent>
     </Dialog>
