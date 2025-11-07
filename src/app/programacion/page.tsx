@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Upload, Trash2, Save, Plus, X, MapPin, Folder, GitBranch, FileText } from "lucide-react";
+import { Upload, Trash2, Save, Plus, X, MapPin, Folder, GitBranch, FileText, Download, CheckSquare } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   programacionApi,
   type ProgramacionData,
@@ -75,6 +76,10 @@ export default function ProgramacionPage() {
   const [dataTecnica, setDataTecnica] = useState<ProgramacionTecnicaData[]>([]);
   const [isLoadingTecnica, setIsLoadingTecnica] = useState(false);
   const [identificadoresConGuia, setIdentificadoresConGuia] = useState<string[]>([]);
+
+  // Estados para selección de PDFs
+  const [selectedPdfs, setSelectedPdfs] = useState<Set<number>>(new Set());
+  const [isCombiningPdfs, setIsCombiningPdfs] = useState(false);
 
   // Cargar datos de IndexedDB al montar el componente
   useEffect(() => {
@@ -744,6 +749,83 @@ export default function ProgramacionPage() {
     }
   };
 
+  // Funciones para manejo de selección de PDFs
+  const handleSelectPdf = (id: number, hasEnlace: boolean) => {
+    if (!hasEnlace) return;
+
+    setSelectedPdfs((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllPdfs = () => {
+    const registrosConPdf = dataTecnica.filter((item) => item.enlace_del_pdf);
+
+    if (selectedPdfs.size === registrosConPdf.length) {
+      // Deseleccionar todos
+      setSelectedPdfs(new Set());
+    } else {
+      // Seleccionar todos los que tienen PDF
+      setSelectedPdfs(new Set(registrosConPdf.map((item) => item.id)));
+    }
+  };
+
+  // Función para combinar PDFs
+  const handleCombinePdfs = async () => {
+    if (selectedPdfs.size === 0) {
+      toast.error("No hay PDFs seleccionados");
+      return;
+    }
+
+    setIsCombiningPdfs(true);
+    try {
+      // Filtrar registros seleccionados y ordenarlos
+      const registrosSeleccionados = dataTecnica
+        .filter((item) => selectedPdfs.has(item.id) && item.enlace_del_pdf)
+        .sort((a, b) => a.id - b.id);
+
+      if (registrosSeleccionados.length === 0) {
+        toast.error("No hay PDFs válidos para combinar");
+        return;
+      }
+
+      toast.info(`Procesando ${registrosSeleccionados.length} PDFs...`);
+
+      // Extraer las URLs de los PDFs seleccionados
+      const urls = registrosSeleccionados.map((registro) => registro.enlace_del_pdf!);
+
+      // Llamar al backend para combinar los PDFs
+      const blob = await programacionApi.combinarPdfs(urls);
+
+      // Descargar el PDF combinado
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `programacion_combinado_${new Date().toISOString().split("T")[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`${registrosSeleccionados.length} PDFs combinados exitosamente`);
+
+      // Limpiar selección
+      setSelectedPdfs(new Set());
+
+    } catch (error) {
+      console.error("Error al combinar PDFs:", error);
+      toast.error("Error al combinar los PDFs");
+    } finally {
+      setIsCombiningPdfs(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
@@ -1076,12 +1158,22 @@ export default function ProgramacionPage() {
         {/* Pestaña de Registros */}
         <TabsContent value="registros" className="space-y-6">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>
                 {dataTecnica.length > 0
                   ? `${dataTecnica.length} registros encontrados`
                   : "Registros de Programación"}
               </CardTitle>
+              {selectedPdfs.size > 0 && (
+                <Button
+                  onClick={handleCombinePdfs}
+                  disabled={isCombiningPdfs}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Combinar {selectedPdfs.size} PDF{selectedPdfs.size > 1 ? 's' : ''}
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {isLoadingTecnica ? (
@@ -1097,6 +1189,16 @@ export default function ProgramacionPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-[50px]">
+                          <Checkbox
+                            checked={
+                              dataTecnica.filter((item) => item.enlace_del_pdf).length > 0 &&
+                              selectedPdfs.size === dataTecnica.filter((item) => item.enlace_del_pdf).length
+                            }
+                            onCheckedChange={handleSelectAllPdfs}
+                            disabled={dataTecnica.filter((item) => item.enlace_del_pdf).length === 0}
+                          />
+                        </TableHead>
                         <TableHead className="w-[60px]">ID</TableHead>
                         <TableHead className="w-[100px]">Fecha</TableHead>
                         <TableHead className="min-w-[120px]">Unidad</TableHead>
@@ -1127,6 +1229,15 @@ export default function ProgramacionPage() {
                               : ""
                           }
                         >
+                          <TableCell>
+                            <div className={!item.enlace_del_pdf ? "opacity-30 cursor-not-allowed" : ""}>
+                              <Checkbox
+                                checked={selectedPdfs.has(item.id)}
+                                onCheckedChange={() => handleSelectPdf(item.id, !!item.enlace_del_pdf)}
+                                disabled={!item.enlace_del_pdf}
+                              />
+                            </div>
+                          </TableCell>
                           <TableCell className="font-medium">{item.id}</TableCell>
                           <TableCell>
                             {formatearFecha(item.fecha)}

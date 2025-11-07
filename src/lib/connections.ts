@@ -2216,6 +2216,23 @@ export const programacionApi = {
       return [];
     }
   },
+
+  // Combinar múltiples PDFs en uno solo
+  combinarPdfs: async (urls: string[]): Promise<Blob> => {
+    try {
+      const response = await api.post(
+        "/programacion/combinar-pdfs",
+        { urls },
+        {
+          responseType: "blob", // Importante para recibir el PDF como blob
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Combinar PDFs API error:", error);
+      throw new Error("Error al combinar los PDFs");
+    }
+  },
 };
 
 // ============ ACARREO INTERFACES ============
