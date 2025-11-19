@@ -94,7 +94,7 @@ export default function OrdenCompraPage() {
     serie: "0001",
     nroDoc: "",
     fechaEmision: new Date(),
-    moneda: "Soles",
+    moneda: "SOLES",
     fechaServicio: new Date(),
     estado: "PENDIENTE",
     centroCostoNivel1Codigo: "", // Código de centroproyecto
@@ -103,6 +103,7 @@ export default function OrdenCompraPage() {
     unidad: "", // Placa del camión
     unidad_id: 0, // ID del camión
     igvPorcentaje: 18,
+    aplicarRetencion: false, // Si/No para aplicar retención
     retencion: {
       porcentaje: 3,
       monto: 0,
@@ -510,7 +511,10 @@ export default function OrdenCompraPage() {
           nroCliente: proveedor.ruc || "",
           razonSocial: proveedor.nombre_proveedor || "",
           retencionProveedor: proveedor.retencion || "",
+          aplicarRetencion: proveedor.retencion === "Si",
         }));
+        // Recalcular totales si cambia la retención
+        setTimeout(() => calcularTotales(nuevaOrdenData.items), 0);
         setIsProveedoresModalOpen(false);
         setSelectedProveedor(null);
       }
@@ -550,7 +554,7 @@ export default function OrdenCompraPage() {
   // Funciones para Nueva Orden
   const handleNuevaOrdenInputChange = (
     field: string,
-    value: string | Date | number | { porcentaje: number; monto: number }
+    value: string | Date | number | boolean | { porcentaje: number; monto: number }
   ) => {
     setNuevaOrdenData((prev) => ({ ...prev, [field]: value }));
   };
@@ -627,7 +631,9 @@ export default function OrdenCompraPage() {
     const subtotalCalculado = items.reduce((acc, item) => acc + (item.subtotal || 0), 0);
     const igvCalculado = subtotalCalculado * (nuevaOrdenData.igvPorcentaje / 100);
     const totalCalculado = subtotalCalculado + igvCalculado;
-    const retencionMonto = totalCalculado * (nuevaOrdenData.retencion.porcentaje / 100);
+    const retencionMonto = nuevaOrdenData.aplicarRetencion
+      ? totalCalculado * (nuevaOrdenData.retencion.porcentaje / 100)
+      : 0;
     const netoAPagarCalculado = totalCalculado - retencionMonto;
 
     setNuevaOrdenData((prev) => ({
@@ -684,6 +690,7 @@ export default function OrdenCompraPage() {
         centro_costo_nivel2: nuevaOrdenData.centroCostoNivel2Codigo,
         centro_costo_nivel3: nuevaOrdenData.centroCostoNivel3Codigo,
         unidad_id: nuevaOrdenData.unidad_id,
+        retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
         items: itemsParaBackend,
         subtotal: nuevaOrdenData.subtotal,
         igv: nuevaOrdenData.igv,
@@ -734,7 +741,7 @@ export default function OrdenCompraPage() {
       serie: "0001",
       nroDoc: "",
       fechaEmision: new Date(),
-      moneda: "Soles",
+      moneda: "SOLES",
       fechaServicio: new Date(),
       estado: "PENDIENTE",
       centroCostoNivel1Codigo: "",
@@ -743,6 +750,7 @@ export default function OrdenCompraPage() {
       unidad: "",
       unidad_id: 0,
       igvPorcentaje: 18,
+      aplicarRetencion: false,
       retencion: {
         porcentaje: 3,
         monto: 0,
@@ -1419,12 +1427,22 @@ export default function OrdenCompraPage() {
                         >
                           Retención:
                         </Label>
-                        <Input
-                          id="retencion"
-                          value={nuevaOrdenData.retencionProveedor}
-                          readOnly
-                          className="h-8 text-xs bg-gray-100"
-                        />
+                        <Select
+                          value={nuevaOrdenData.aplicarRetencion ? "SI" : "NO"}
+                          onValueChange={(value) => {
+                            handleNuevaOrdenInputChange("aplicarRetencion", value === "SI");
+                            // Recalcular totales cuando cambia la retención
+                            setTimeout(() => calcularTotales(nuevaOrdenData.items), 0);
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="NO">NO</SelectItem>
+                            <SelectItem value="SI">SÍ</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="col-span-2">
                         <Label
@@ -1482,8 +1500,8 @@ export default function OrdenCompraPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Soles">Soles</SelectItem>
-                            <SelectItem value="Dolares">Dólares</SelectItem>
+                            <SelectItem value="SOLES">SOLES</SelectItem>
+                            <SelectItem value="DOLARES">DÓLARES</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1569,12 +1587,14 @@ export default function OrdenCompraPage() {
                         >
                           Unidad:
                         </Label>
-                        <CamionSelectDialog
-                          camiones={camiones}
-                          onSelect={handleCamionSelect}
-                          currentPlaca={nuevaOrdenData.unidad}
-                          buttonText="Seleccionar Unidad"
-                        />
+                        <div className="scale-90 origin-left">
+                          <CamionSelectDialog
+                            camiones={camiones}
+                            onSelect={handleCamionSelect}
+                            currentPlaca={nuevaOrdenData.unidad}
+                            buttonText="Seleccionar"
+                          />
+                        </div>
                       </div>
 
                       {/* Segunda fila */}
@@ -1974,34 +1994,36 @@ export default function OrdenCompraPage() {
                             </span>
                           </div>
 
-                          {/* Retención */}
-                          <div className="flex justify-between items-center text-sm border-t pt-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold">Retención:</span>
-                              <Select
-                                value={nuevaOrdenData.retencion.porcentaje.toString()}
-                                onValueChange={(value) => {
-                                  handleNuevaOrdenInputChange("retencion", {
-                                    ...nuevaOrdenData.retencion,
-                                    porcentaje: parseInt(value),
-                                  });
-                                  calcularTotales(nuevaOrdenData.items);
-                                }}
-                              >
-                                <SelectTrigger className="h-7 w-20 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="0">0%</SelectItem>
-                                  <SelectItem value="3">3%</SelectItem>
-                                  <SelectItem value="8">8%</SelectItem>
-                                </SelectContent>
-                              </Select>
+                          {/* Retención - Solo se muestra si está activada */}
+                          {nuevaOrdenData.aplicarRetencion && (
+                            <div className="flex justify-between items-center text-sm border-t pt-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold">Retención:</span>
+                                <Select
+                                  value={nuevaOrdenData.retencion.porcentaje.toString()}
+                                  onValueChange={(value) => {
+                                    handleNuevaOrdenInputChange("retencion", {
+                                      ...nuevaOrdenData.retencion,
+                                      porcentaje: parseInt(value),
+                                    });
+                                    calcularTotales(nuevaOrdenData.items);
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 w-20 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="0">0%</SelectItem>
+                                    <SelectItem value="3">3%</SelectItem>
+                                    <SelectItem value="8">8%</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <span className="font-mono text-red-600">
+                                -{nuevaOrdenData.retencion.monto.toFixed(2)}
+                              </span>
                             </div>
-                            <span className="font-mono text-red-600">
-                              -{nuevaOrdenData.retencion.monto.toFixed(2)}
-                            </span>
-                          </div>
+                          )}
 
                           {/* Neto a Pagar */}
                           <div className="flex justify-between text-base font-bold border-t-2 pt-3 bg-blue-100 -mx-4 px-4 py-3 rounded-b-lg">
@@ -2240,7 +2262,19 @@ export default function OrdenCompraPage() {
                             <TableHead className="text-xs font-bold text-center w-32">
                               Fecha Orden
                             </TableHead>
-                            <TableHead className="text-xs font-bold text-right w-32">
+                            <TableHead className="text-xs font-bold text-center w-32">
+                              Fecha Registro
+                            </TableHead>
+                            <TableHead className="text-xs font-bold text-center w-24">
+                              Moneda
+                            </TableHead>
+                            <TableHead className="text-xs font-bold text-right w-28">
+                              Subtotal
+                            </TableHead>
+                            <TableHead className="text-xs font-bold text-right w-28">
+                              IGV
+                            </TableHead>
+                            <TableHead className="text-xs font-bold text-right w-28">
                               Total
                             </TableHead>
                             <TableHead className="text-xs font-bold text-center w-40">
@@ -2249,13 +2283,16 @@ export default function OrdenCompraPage() {
                             <TableHead className="text-xs font-bold text-center w-32">
                               Estado Firma
                             </TableHead>
+                            <TableHead className="text-xs font-bold min-w-[200px]">
+                              Observaciones
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {ordenesCompra.length === 0 ? (
                             <TableRow>
                               <TableCell
-                                colSpan={5}
+                                colSpan={10}
                                 className="text-center py-8 text-gray-400"
                               >
                                 <div className="flex flex-col items-center gap-2">
@@ -2280,7 +2317,21 @@ export default function OrdenCompraPage() {
                                     locale: es,
                                   })}
                                 </TableCell>
+                                <TableCell className="text-xs text-center">
+                                  {format(new Date(orden.fecha_registro), "dd/MM/yyyy", {
+                                    locale: es,
+                                  })}
+                                </TableCell>
+                                <TableCell className="text-xs text-center font-semibold">
+                                  {orden.moneda}
+                                </TableCell>
                                 <TableCell className="text-xs text-right font-mono">
+                                  {Number(orden.subtotal).toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-xs text-right font-mono">
+                                  {Number(orden.igv).toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-xs text-right font-mono font-bold">
                                   {Number(orden.total).toFixed(2)}
                                 </TableCell>
                                 <TableCell className="text-xs text-center">
@@ -2314,6 +2365,13 @@ export default function OrdenCompraPage() {
                                   >
                                     {orden.estado_firma || "PENDIENTE"}
                                   </span>
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  {orden.observaciones ? (
+                                    <span className="line-clamp-2">{orden.observaciones}</span>
+                                  ) : (
+                                    <span className="text-gray-400 italic">Sin observaciones</span>
+                                  )}
                                 </TableCell>
                               </TableRow>
                             ))
