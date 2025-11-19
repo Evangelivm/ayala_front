@@ -1,11 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { proveedoresApi, type ProveedorData } from "@/lib/connections";
+import { toast } from "sonner";
+import {
+  proveedoresApi,
+  type ProveedorData,
+  itemsApi,
+  type ItemData,
+  centrosCostoApi,
+  type CentroCostoData,
+  centroProyectoApi,
+  type CentroProyectoData,
+  faseControlApi,
+  type FaseControlData,
+  rubroApi,
+  type RubroData,
+  camionesApi,
+  type CamionData,
+  ordenesCompraApi,
+  type OrdenCompraData,
+} from "@/lib/connections";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -22,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ClipboardList, Plus, Trash2 } from "lucide-react";
+import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -47,49 +67,58 @@ export default function OrdenCompraPage() {
   const [isNuevoCentroCostoModalOpen, setIsNuevoCentroCostoModalOpen] = useState(false);
   const [isCentroCostoListModalOpen, setIsCentroCostoListModalOpen] = useState(false);
   const [isProveedoresModalOpen, setIsProveedoresModalOpen] = useState(false);
+  const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [selectedCentroCosto, setSelectedCentroCosto] = useState<string | null>(null);
   const [selectedProveedor, setSelectedProveedor] = useState<number | null>(null);
+  const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [proveedores, setProveedores] = useState<ProveedorData[]>([]);
+  const [items, setItems] = useState<ItemData[]>([]);
+  const [itemSearchQuery, setItemSearchQuery] = useState("");
+  const [centrosCosto, setCentrosCosto] = useState<CentroCostoData[]>([]);
+  const [centrosProyecto, setCentrosProyecto] = useState<CentroProyectoData[]>([]);
+  const [fases, setFases] = useState<FaseControlData[]>([]);
+  const [rubros, setRubros] = useState<RubroData[]>([]);
+  const [camiones, setCamiones] = useState<CamionData[]>([]);
+  const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
 
   // Estado para Nueva Orden
   const [nuevaOrdenData, setNuevaOrdenData] = useState({
+    // Campos para el backend
+    id_proveedor: 0,
+    // Campos visuales
     nroCliente: "",
     razonSocial: "",
+    retencionProveedor: "",
     tipoDoc: "Orden de compra",
     serie: "0001",
     nroDoc: "",
     fechaEmision: new Date(),
     moneda: "Soles",
     fechaServicio: new Date(),
-    estado: "Abierto",
+    estado: "PENDIENTE",
+    centroCostoNivel1Codigo: "", // Código de centroproyecto
+    centroCostoNivel2Codigo: "", // Código de fasecontrol
+    centroCostoNivel3Codigo: "", // Código de rubro
+    unidad: "", // Placa del camión
+    unidad_id: 0, // ID del camión
     igvPorcentaje: 18,
     retencion: {
       porcentaje: 3,
       monto: 0,
     },
-    items: [
-      {
-        id: 1,
-        nombre: "",
-        glosa: "",
-        ot: "",
-        cantidad: 0,
-        unidadMed: "UNIDAD",
-        precioUni: 0,
-        valorUni: 0,
-        subtotal: 0,
-        alma: "",
-        tIgv: "",
-        almacen: "",
-      },
-    ],
-    afecto: 0,
-    inafecto: 0,
-    exonerado: 0,
-    gratuito: 0,
+    items: [] as Array<{
+      codigo_item: string;
+      descripcion_item: string;
+      cantidad_solicitada: number;
+      unidadMed: string;
+      precio_unitario: number;
+      subtotal: number;
+    }>,
+    subtotal: 0,
     igv: 0,
-    totalPagar: 0,
+    total: 0,
+    netoAPagar: 0,
     observacion: "",
   });
 
@@ -118,7 +147,34 @@ export default function OrdenCompraPage() {
     margenFact: ".00",
   });
 
-  const centrosCosto = [
+  // Cargar camiones y órdenes de compra al montar el componente
+  useEffect(() => {
+    loadCamiones();
+    loadOrdenesCompra();
+  }, []);
+
+  // Cargar el siguiente número de orden cuando se abre el modal
+  useEffect(() => {
+    if (isNuevaOrdenModalOpen) {
+      cargarSiguienteNumeroOrden();
+    }
+  }, [isNuevaOrdenModalOpen]);
+
+  const cargarSiguienteNumeroOrden = async () => {
+    try {
+      const { serie, nroDoc } = await ordenesCompraApi.getSiguienteNumero();
+      setNuevaOrdenData((prev) => ({
+        ...prev,
+        serie,
+        nroDoc,
+      }));
+    } catch (error) {
+      console.error("Error cargando siguiente número de orden:", error);
+      toast.error("Error al cargar el número de orden");
+    }
+  };
+
+  const centrosCostoMock = [
     { codigo: "0801", nombre: "NUEVA INDEPENDENCIA -MOVIMIENTO DE TIERRAS" },
     { codigo: "0802", nombre: "PROYECTO ALTO LIMA - ESTRUCTURAS" },
     { codigo: "0803", nombre: "VILLA EL SALVADOR - ACABADOS" },
@@ -313,6 +369,125 @@ export default function OrdenCompraPage() {
     }
   };
 
+  // Función para cargar items
+  const fetchItems = async () => {
+    try {
+      const data = await itemsApi.getAll();
+      setItems(data);
+    } catch (error) {
+      console.error("Error fetching items:", error);
+      setItems([]);
+    }
+  };
+
+  // Función para buscar items
+  const searchItems = async (query: string) => {
+    setItemSearchQuery(query);
+    if (query.trim() === "") {
+      fetchItems();
+      return;
+    }
+    try {
+      const data = await itemsApi.search(query);
+      setItems(data);
+    } catch (error) {
+      console.error("Error searching items:", error);
+      setItems([]);
+    }
+  };
+
+  // Funciones para cargar datos de Centro de Costos
+  const loadCentrosProyecto = async () => {
+    try {
+      const data = await centroProyectoApi.getAll();
+      setCentrosProyecto(data);
+    } catch (error) {
+      console.error("Error loading centros proyecto:", error);
+      setCentrosProyecto([]);
+    }
+  };
+
+  const loadFases = async () => {
+    try {
+      const data = await faseControlApi.getAll();
+      setFases(data);
+    } catch (error) {
+      console.error("Error loading fases:", error);
+      setFases([]);
+    }
+  };
+
+  const loadRubros = async () => {
+    try {
+      const data = await rubroApi.getAll();
+      setRubros(data);
+    } catch (error) {
+      console.error("Error loading rubros:", error);
+      setRubros([]);
+    }
+  };
+
+  const loadCamiones = async () => {
+    try {
+      const data = await camionesApi.getAll();
+      setCamiones(data);
+    } catch (error) {
+      console.error("Error loading camiones:", error);
+      setCamiones([]);
+    }
+  };
+
+  const loadOrdenesCompra = async () => {
+    try {
+      const data = await ordenesCompraApi.getAll();
+      setOrdenesCompra(data);
+    } catch (error) {
+      console.error("Error loading ordenes compra:", error);
+      setOrdenesCompra([]);
+    }
+  };
+
+  // Funciones para centros de costo - Selects independientes (deprecado, se usará las nuevas)
+  const loadCentrosCosto = async () => {
+    try {
+      const data = await centrosCostoApi.getAll();
+      setCentrosCosto(data);
+    } catch (error) {
+      console.error("Error loading centros costo:", error);
+      setCentrosCosto([]);
+    }
+  };
+
+  const handleCentroCostoNivel1Change = (codigo: string) => {
+    setNuevaOrdenData((prev) => ({
+      ...prev,
+      centroCostoNivel1Codigo: codigo,
+    }));
+  };
+
+  const handleCentroCostoNivel2Change = (codigo: string) => {
+    setNuevaOrdenData((prev) => ({
+      ...prev,
+      centroCostoNivel2Codigo: codigo,
+    }));
+  };
+
+  const handleCentroCostoNivel3Change = (codigo: string) => {
+    setNuevaOrdenData((prev) => ({
+      ...prev,
+      centroCostoNivel3Codigo: codigo,
+    }));
+  };
+
+  // Handler para seleccionar camión
+  const handleCamionSelect = (camion: CamionData) => {
+    setNuevaOrdenData((prev) => ({
+      ...prev,
+      unidad: camion.placa,
+      unidad_id: camion.id_camion,
+    }));
+  };
+
   // Handler para abrir modal de proveedores
   const handleOpenProveedoresModal = () => {
     setIsProveedoresModalOpen(true);
@@ -327,12 +502,14 @@ export default function OrdenCompraPage() {
   // Handler para confirmar selección de proveedor
   const handleSelectProveedor = () => {
     if (selectedProveedor) {
-      const proveedor = proveedores.find(p => p.id === selectedProveedor);
+      const proveedor = proveedores.find(p => p.id_proveedor === selectedProveedor);
       if (proveedor) {
         setNuevaOrdenData((prev) => ({
           ...prev,
-          nroCliente: proveedor.nro_documento || "",
-          razonSocial: proveedor.razon_social || "",
+          id_proveedor: proveedor.id_proveedor,
+          nroCliente: proveedor.ruc || "",
+          razonSocial: proveedor.nombre_proveedor || "",
+          retencionProveedor: proveedor.retencion || "",
         }));
         setIsProveedoresModalOpen(false);
         setSelectedProveedor(null);
@@ -387,109 +564,201 @@ export default function OrdenCompraPage() {
     updatedItems[index] = { ...updatedItems[index], [field]: value };
 
     // Calcular subtotal automáticamente
-    if (field === "cantidad" || field === "precioUni") {
+    if (field === "cantidad_solicitada" || field === "precio_unitario") {
       const cantidad = Number(
-        field === "cantidad" ? value : updatedItems[index].cantidad
+        field === "cantidad_solicitada" ? value : updatedItems[index].cantidad_solicitada
       );
       const precio = Number(
-        field === "precioUni" ? value : updatedItems[index].precioUni
+        field === "precio_unitario" ? value : updatedItems[index].precio_unitario
       );
       updatedItems[index].subtotal = cantidad * precio;
-      updatedItems[index].valorUni = cantidad * precio;
     }
 
     setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
     calcularTotales(updatedItems);
   };
 
-  const addItem = () => {
-    const newItem = {
-      id: nuevaOrdenData.items.length + 1,
-      nombre: "",
-      glosa: "",
-      ot: "",
-      cantidad: 0,
-      unidadMed: "UNIDAD",
-      precioUni: 0,
-      valorUni: 0,
-      subtotal: 0,
-      alma: "",
-      tIgv: "",
-      almacen: "",
-    };
-    setNuevaOrdenData((prev) => ({ ...prev, items: [...prev.items, newItem] }));
+  // Handler para abrir modal de items
+  const handleOpenItemsModal = () => {
+    setIsItemsModalOpen(true);
+    fetchItems();
   };
 
-  const removeItem = (index: number) => {
-    if (nuevaOrdenData.items.length > 1) {
-      const updatedItems = nuevaOrdenData.items.filter((_, i) => i !== index);
-      setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
-      calcularTotales(updatedItems);
+  // Handler para seleccionar fila de item
+  const handleItemRowClick = (codigo: string) => {
+    setSelectedItem(codigo);
+  };
+
+  // Handler para confirmar selección de item
+  const handleSelectItem = () => {
+    if (selectedItem) {
+      const item = items.find((i) => i.codigo === selectedItem);
+      if (item) {
+        const newItem = {
+          codigo_item: item.codigo,
+          descripcion_item: item.descripcion,
+          cantidad_solicitada: 1,
+          unidadMed: item.u_m || "UNIDAD",
+          precio_unitario: Number(item.precio_unitario) || 0,
+          subtotal: Number(item.precio_unitario) || 0,
+        };
+        setNuevaOrdenData((prev) => ({
+          ...prev,
+          items: [...prev.items, newItem],
+        }));
+        calcularTotales([...nuevaOrdenData.items, newItem]);
+        setIsItemsModalOpen(false);
+        setSelectedItem(null);
+      }
     }
   };
 
+  const addItem = () => {
+    handleOpenItemsModal();
+  };
+
+  const removeItem = (index: number) => {
+    const updatedItems = nuevaOrdenData.items.filter((_, i) => i !== index);
+    setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
+    calcularTotales(updatedItems);
+  };
+
   const calcularTotales = (items: Array<{ subtotal: number }>) => {
-    const subtotal = items.reduce((acc, item) => acc + (item.subtotal || 0), 0);
-    const igv = subtotal * (nuevaOrdenData.igvPorcentaje / 100);
-    const retencionMonto =
-      subtotal * (nuevaOrdenData.retencion.porcentaje / 100);
-    const total = subtotal + igv;
+    const subtotalCalculado = items.reduce((acc, item) => acc + (item.subtotal || 0), 0);
+    const igvCalculado = subtotalCalculado * (nuevaOrdenData.igvPorcentaje / 100);
+    const totalCalculado = subtotalCalculado + igvCalculado;
+    const retencionMonto = totalCalculado * (nuevaOrdenData.retencion.porcentaje / 100);
+    const netoAPagarCalculado = totalCalculado - retencionMonto;
 
     setNuevaOrdenData((prev) => ({
       ...prev,
-      afecto: subtotal,
-      igv: igv,
+      subtotal: subtotalCalculado,
+      igv: igvCalculado,
+      total: totalCalculado,
       retencion: {
         ...prev.retencion,
         monto: retencionMonto,
       },
-      totalPagar: total,
+      netoAPagar: netoAPagarCalculado,
     }));
   };
 
-  const handleNuevaOrdenSave = () => {
-    console.log("Nueva orden data:", nuevaOrdenData);
-    setIsNuevaOrdenModalOpen(false);
+  const handleNuevaOrdenSave = async () => {
+    try {
+      // Validaciones básicas
+      if (!nuevaOrdenData.id_proveedor) {
+        toast.error("Debe seleccionar un proveedor");
+        return;
+      }
+
+      if (!nuevaOrdenData.serie || !nuevaOrdenData.nroDoc) {
+        toast.error("Debe ingresar la serie y número de documento");
+        return;
+      }
+
+      if (nuevaOrdenData.items.length === 0) {
+        toast.error("Debe agregar al menos un item a la orden");
+        return;
+      }
+
+      // Preparar datos para enviar al backend
+      const numero_orden = `${nuevaOrdenData.serie}-${nuevaOrdenData.nroDoc}`;
+
+      // Transformar items al formato del backend
+      const itemsParaBackend = nuevaOrdenData.items.map((item) => ({
+        codigo_item: item.codigo_item,
+        descripcion_item: item.descripcion_item,
+        cantidad_solicitada: item.cantidad_solicitada,
+        precio_unitario: item.precio_unitario,
+        subtotal: item.subtotal,
+      }));
+
+      const ordenParaEnviar = {
+        id_proveedor: nuevaOrdenData.id_proveedor,
+        numero_orden: numero_orden,
+        fecha_orden: nuevaOrdenData.fechaEmision.toISOString(),
+        moneda: nuevaOrdenData.moneda,
+        fecha_registro: nuevaOrdenData.fechaServicio.toISOString(),
+        estado: nuevaOrdenData.estado,
+        centro_costo_nivel1: nuevaOrdenData.centroCostoNivel1Codigo,
+        centro_costo_nivel2: nuevaOrdenData.centroCostoNivel2Codigo,
+        centro_costo_nivel3: nuevaOrdenData.centroCostoNivel3Codigo,
+        unidad_id: nuevaOrdenData.unidad_id,
+        items: itemsParaBackend,
+        subtotal: nuevaOrdenData.subtotal,
+        igv: nuevaOrdenData.igv,
+        total: nuevaOrdenData.total,
+        observaciones: nuevaOrdenData.observacion,
+      };
+
+      console.log("Datos para enviar al backend:", ordenParaEnviar);
+
+      // Mostrar toast de carga
+      toast.loading("Creando orden de compra...");
+
+      // Enviar al backend usando la API configurada
+      const result = await ordenesCompraApi.create(ordenParaEnviar);
+
+      // Cerrar el toast de carga
+      toast.dismiss();
+
+      console.log("Respuesta del servidor:", result);
+
+      // Mostrar toast de éxito
+      toast.success("Orden de compra creada exitosamente", {
+        description: `Número de orden: ${numero_orden}`,
+      });
+
+      // Recargar la lista de órdenes de compra
+      loadOrdenesCompra();
+
+      // Cerrar el modal y limpiar el formulario
+      setIsNuevaOrdenModalOpen(false);
+      handleNuevaOrdenCancel();
+    } catch (error) {
+      console.error("Error al guardar orden de compra:", error);
+      toast.dismiss();
+      toast.error("Error al crear la orden de compra", {
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
   };
 
   const handleNuevaOrdenCancel = () => {
     setNuevaOrdenData({
+      id_proveedor: 0,
       nroCliente: "",
       razonSocial: "",
+      retencionProveedor: "",
       tipoDoc: "Orden de compra",
       serie: "0001",
       nroDoc: "",
       fechaEmision: new Date(),
       moneda: "Soles",
       fechaServicio: new Date(),
-      estado: "Abierto",
+      estado: "PENDIENTE",
+      centroCostoNivel1Codigo: "",
+      centroCostoNivel2Codigo: "",
+      centroCostoNivel3Codigo: "",
+      unidad: "",
+      unidad_id: 0,
       igvPorcentaje: 18,
       retencion: {
         porcentaje: 3,
         monto: 0,
       },
-      items: [
-        {
-          id: 1,
-          nombre: "",
-          glosa: "",
-          ot: "",
-          cantidad: 0,
-          unidadMed: "UNIDAD",
-          precioUni: 0,
-          valorUni: 0,
-          subtotal: 0,
-          alma: "",
-          tIgv: "",
-          almacen: "",
-        },
-      ],
-      afecto: 0,
-      inafecto: 0,
-      exonerado: 0,
-      gratuito: 0,
+      items: [] as Array<{
+        codigo_item: string;
+        descripcion_item: string;
+        cantidad_solicitada: number;
+        unidadMed: string;
+        precio_unitario: number;
+        subtotal: number;
+      }>,
+      subtotal: 0,
       igv: 0,
-      totalPagar: 0,
+      total: 0,
+      netoAPagar: 0,
       observacion: "",
     });
     setIsNuevaOrdenModalOpen(false);
@@ -530,7 +799,7 @@ export default function OrdenCompraPage() {
                   <DialogTrigger asChild>
                     <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
                       <Plus className="h-4 w-4" />
-                      Nueva orden
+                      Nueva orden de compra
                     </Button>
                   </DialogTrigger>
                 </Dialog>
@@ -1104,6 +1373,9 @@ export default function OrdenCompraPage() {
                 <DialogContent className="max-w-[95vw] max-h-[90vh] w-full overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Nueva Orden de Compra</DialogTitle>
+                    <DialogDescription>
+                      Complete los datos para crear una nueva orden de compra
+                    </DialogDescription>
                   </DialogHeader>
 
                   <div className="p-4 space-y-4 text-sm">
@@ -1138,6 +1410,20 @@ export default function OrdenCompraPage() {
                           readOnly
                           className="h-8 text-xs bg-gray-100"
                           required
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Label
+                          htmlFor="retencion"
+                          className="text-xs font-semibold"
+                        >
+                          Retención:
+                        </Label>
+                        <Input
+                          id="retencion"
+                          value={nuevaOrdenData.retencionProveedor}
+                          readOnly
+                          className="h-8 text-xs bg-gray-100"
                         />
                       </div>
                       <div className="col-span-2">
@@ -1275,6 +1561,22 @@ export default function OrdenCompraPage() {
                         </Popover>
                       </div>
 
+                      {/* Campo de Unidad */}
+                      <div className="col-span-2">
+                        <Label
+                          htmlFor="unidad"
+                          className="text-xs font-semibold"
+                        >
+                          Unidad:
+                        </Label>
+                        <CamionSelectDialog
+                          camiones={camiones}
+                          onSelect={handleCamionSelect}
+                          currentPlaca={nuevaOrdenData.unidad}
+                          buttonText="Seleccionar Unidad"
+                        />
+                      </div>
+
                       {/* Segunda fila */}
                       <div className="col-span-2">
                         <Label
@@ -1357,9 +1659,114 @@ export default function OrdenCompraPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Abierto">Abierto</SelectItem>
-                            <SelectItem value="Cerrado">Cerrado</SelectItem>
-                            <SelectItem value="Pendiente">Pendiente</SelectItem>
+                            <SelectItem value="PENDIENTE">PENDIENTE</SelectItem>
+                            <SelectItem value="APROBADA">APROBADA</SelectItem>
+                            <SelectItem value="PARCIALMENTE_RECEPCIONADA">PARCIALMENTE RECEPCIONADA</SelectItem>
+                            <SelectItem value="COMPLETADA">COMPLETADA</SelectItem>
+                            <SelectItem value="CANCELADA">CANCELADA</SelectItem>
+                            <SelectItem value="FIRMADA">FIRMADA</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Centro de Costos - 3 Niveles */}
+                    <div className="grid grid-cols-12 gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="col-span-12">
+                        <h3 className="text-sm font-bold text-blue-800 mb-2">
+                          Centro de Costos
+                        </h3>
+                      </div>
+                      <div className="col-span-4">
+                        <Label
+                          htmlFor="centro-costo-nivel1"
+                          className="text-xs font-semibold"
+                        >
+                          Nivel 1 (Proyecto):
+                        </Label>
+                        <Select
+                          value={nuevaOrdenData.centroCostoNivel1Codigo}
+                          onValueChange={handleCentroCostoNivel1Change}
+                          onOpenChange={(open) => {
+                            if (open && centrosProyecto.length === 0) {
+                              loadCentrosProyecto();
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Seleccionar proyecto..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {centrosProyecto.map((centro) => (
+                              <SelectItem
+                                key={centro.id}
+                                value={centro.codigo}
+                              >
+                                {centro.proyecto}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-4">
+                        <Label
+                          htmlFor="centro-costo-nivel2"
+                          className="text-xs font-semibold"
+                        >
+                          Nivel 2 (Fase):
+                        </Label>
+                        <Select
+                          value={nuevaOrdenData.centroCostoNivel2Codigo}
+                          onValueChange={handleCentroCostoNivel2Change}
+                          onOpenChange={(open) => {
+                            if (open && fases.length === 0) {
+                              loadFases();
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Seleccionar fase..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {fases.map((fase) => (
+                              <SelectItem
+                                key={fase.id}
+                                value={fase.codigo || ""}
+                              >
+                                {fase.descripcion}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-4">
+                        <Label
+                          htmlFor="centro-costo-nivel3"
+                          className="text-xs font-semibold"
+                        >
+                          Nivel 3 (Rubro):
+                        </Label>
+                        <Select
+                          value={nuevaOrdenData.centroCostoNivel3Codigo}
+                          onValueChange={handleCentroCostoNivel3Change}
+                          onOpenChange={(open) => {
+                            if (open && rubros.length === 0) {
+                              loadRubros();
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Seleccionar rubro..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {rubros.map((rubro) => (
+                              <SelectItem
+                                key={rubro.id}
+                                value={rubro.codigo}
+                              >
+                                {rubro.descripcion}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -1386,38 +1793,23 @@ export default function OrdenCompraPage() {
                               <TableHead className="w-12 text-xs font-bold text-center">
                                 Ítem
                               </TableHead>
-                              <TableHead className="min-w-[200px] text-xs font-bold">
+                              <TableHead className="w-32 text-xs font-bold text-center">
+                                Código
+                              </TableHead>
+                              <TableHead className="min-w-[300px] text-xs font-bold">
                                 Nombre
                               </TableHead>
-                              <TableHead className="min-w-[150px] text-xs font-bold">
-                                Glosa
-                              </TableHead>
-                              <TableHead className="w-20 text-xs font-bold">
-                                OT
-                              </TableHead>
-                              <TableHead className="w-16 text-xs font-bold text-center">
-                                Cant
+                              <TableHead className="w-24 text-xs font-bold text-center">
+                                U.M.
                               </TableHead>
                               <TableHead className="w-24 text-xs font-bold text-center">
-                                Unid. Med.
+                                Cantidad
                               </TableHead>
-                              <TableHead className="w-24 text-xs font-bold text-right">
-                                Precio uni
+                              <TableHead className="w-32 text-xs font-bold text-right">
+                                Valor Unitario
                               </TableHead>
-                              <TableHead className="w-24 text-xs font-bold text-right">
-                                Valor uni
-                              </TableHead>
-                              <TableHead className="w-24 text-xs font-bold text-right">
+                              <TableHead className="w-32 text-xs font-bold text-right">
                                 Subtotal
-                              </TableHead>
-                              <TableHead className="w-16 text-xs font-bold">
-                                Alma
-                              </TableHead>
-                              <TableHead className="w-16 text-xs font-bold">
-                                T/Igv
-                              </TableHead>
-                              <TableHead className="w-20 text-xs font-bold">
-                                Almacén
                               </TableHead>
                               <TableHead className="w-12"></TableHead>
                             </TableRow>
@@ -1425,160 +1817,51 @@ export default function OrdenCompraPage() {
                           <TableBody>
                             {nuevaOrdenData.items.map((item, index) => (
                               <TableRow
-                                key={item.id}
+                                key={index}
                                 className="hover:bg-gray-50"
                               >
                                 <TableCell className="text-center text-xs font-semibold">
                                   {index + 1}
                                 </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={item.nombre}
-                                    onChange={(e) =>
-                                      handleItemChange(
-                                        index,
-                                        "nombre",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="h-7 text-xs border-0 bg-transparent p-1"
-                                    placeholder="Nombre del producto/servicio"
-                                    required
-                                  />
+                                <TableCell className="text-xs text-center bg-gray-50 p-2 font-mono">
+                                  {item.codigo_item || (
+                                    <span className="text-gray-400 italic">
+                                      -
+                                    </span>
+                                  )}
                                 </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={item.glosa}
-                                    onChange={(e) =>
-                                      handleItemChange(
-                                        index,
-                                        "glosa",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="h-7 text-xs border-0 bg-transparent p-1"
-                                    placeholder="Descripción"
-                                  />
+                                <TableCell className="text-xs bg-gray-50 p-2">
+                                  {item.descripcion_item || (
+                                    <span className="text-gray-400 italic">
+                                      Sin seleccionar
+                                    </span>
+                                  )}
                                 </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={item.ot}
-                                    onChange={(e) =>
-                                      handleItemChange(
-                                        index,
-                                        "ot",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="h-7 text-xs border-0 bg-transparent p-1"
-                                  />
+                                <TableCell className="text-xs text-center bg-gray-50 p-2">
+                                  {item.unidadMed}
                                 </TableCell>
                                 <TableCell>
                                   <Input
                                     type="number"
-                                    value={item.cantidad}
+                                    value={item.cantidad_solicitada}
                                     onChange={(e) =>
                                       handleItemChange(
                                         index,
-                                        "cantidad",
+                                        "cantidad_solicitada",
                                         parseFloat(e.target.value) || 0
                                       )
                                     }
-                                    className="h-7 text-xs border-0 bg-transparent p-1 text-center"
+                                    className="h-8 text-xs border border-gray-300 p-2 text-center rounded"
                                     min="0"
                                     step="0.01"
                                     required
                                   />
                                 </TableCell>
-                                <TableCell>
-                                  <Select
-                                    value={item.unidadMed}
-                                    onValueChange={(value) =>
-                                      handleItemChange(
-                                        index,
-                                        "unidadMed",
-                                        value
-                                      )
-                                    }
-                                  >
-                                    <SelectTrigger className="h-7 text-xs border-0 bg-transparent">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="UNIDAD">
-                                        UNIDAD
-                                      </SelectItem>
-                                      <SelectItem value="KG">KG</SelectItem>
-                                      <SelectItem value="M">M</SelectItem>
-                                      <SelectItem value="M2">M²</SelectItem>
-                                      <SelectItem value="M3">M³</SelectItem>
-                                      <SelectItem value="SERVICIO">
-                                        SERVICIO
-                                      </SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                <TableCell className="text-right text-xs bg-gray-50 p-2 font-mono">
+                                  {item.precio_unitario.toFixed(2)}
                                 </TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="number"
-                                    value={item.precioUni}
-                                    onChange={(e) =>
-                                      handleItemChange(
-                                        index,
-                                        "precioUni",
-                                        parseFloat(e.target.value) || 0
-                                      )
-                                    }
-                                    className="h-7 text-xs border-0 bg-transparent p-1 text-right"
-                                    min="0"
-                                    step="0.01"
-                                    required
-                                  />
-                                </TableCell>
-                                <TableCell className="text-right text-xs">
-                                  {item.valorUni.toFixed(2)}
-                                </TableCell>
-                                <TableCell className="text-right text-xs font-semibold">
+                                <TableCell className="text-right text-xs font-semibold bg-yellow-50 p-2 font-mono">
                                   {item.subtotal.toFixed(2)}
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={item.alma}
-                                    onChange={(e) =>
-                                      handleItemChange(
-                                        index,
-                                        "alma",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="h-7 text-xs border-0 bg-transparent p-1"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={item.tIgv}
-                                    onChange={(e) =>
-                                      handleItemChange(
-                                        index,
-                                        "tIgv",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="h-7 text-xs border-0 bg-transparent p-1"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={item.almacen}
-                                    onChange={(e) =>
-                                      handleItemChange(
-                                        index,
-                                        "almacen",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="h-7 text-xs border-0 bg-transparent p-1"
-                                  />
                                 </TableCell>
                                 <TableCell>
                                   <Button
@@ -1586,13 +1869,30 @@ export default function OrdenCompraPage() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                                    disabled={nuevaOrdenData.items.length <= 1}
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </TableCell>
                               </TableRow>
                             ))}
+                            {nuevaOrdenData.items.length === 0 && (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={8}
+                                  className="text-center py-8 text-gray-400"
+                                >
+                                  <div className="flex flex-col items-center gap-2">
+                                    <ClipboardList className="h-8 w-8 opacity-50" />
+                                    <p className="text-sm">
+                                      No hay items agregados
+                                    </p>
+                                    <p className="text-xs">
+                                      Haz clic en &quot;Agregar ítem&quot; para comenzar
+                                    </p>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
                           </TableBody>
                         </Table>
                       </div>
@@ -1601,137 +1901,113 @@ export default function OrdenCompraPage() {
                     {/* Sección de Totales */}
                     <div className="grid grid-cols-12 gap-4">
                       <div className="col-span-8">
-                        <div className="space-y-2">
-                          <div>
-                            <Label
-                              htmlFor="observacion-nueva"
-                              className="text-xs font-semibold"
-                            >
-                              Observación:
-                            </Label>
-                            <Textarea
-                              id="observacion-nueva"
-                              value={nuevaOrdenData.observacion}
-                              onChange={(e) =>
-                                handleNuevaOrdenInputChange(
-                                  "observacion",
-                                  e.target.value
-                                )
-                              }
-                              className="min-h-[60px] resize-none text-xs"
-                              placeholder="Observaciones adicionales..."
-                            />
-                          </div>
-
-                          {/* Sección de Retención */}
-                          <div className="mt-4 p-3 border border-gray-300 rounded-lg bg-gray-50">
-                            <h4 className="text-sm font-semibold mb-2">
-                              Retención
-                            </h4>
-                            <div className="flex items-center gap-4">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs">Retención</span>
-                                <Select
-                                  value={nuevaOrdenData.retencion.porcentaje.toString()}
-                                  onValueChange={(value) => {
-                                    handleNuevaOrdenInputChange("retencion", {
-                                      ...nuevaOrdenData.retencion,
-                                      porcentaje: parseInt(value),
-                                    });
-                                    calcularTotales(nuevaOrdenData.items);
-                                  }}
-                                >
-                                  <SelectTrigger className="h-7 text-xs w-16">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="0">0%</SelectItem>
-                                    <SelectItem value="3">3%</SelectItem>
-                                    <SelectItem value="8">8%</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  value={nuevaOrdenData.retencion.monto.toFixed(
-                                    2
-                                  )}
-                                  readOnly
-                                  className="h-7 text-xs w-24 bg-gray-100"
-                                />
-                                <input type="checkbox" className="w-4 h-4" />
-                              </div>
-                            </div>
-                          </div>
+                        <div>
+                          <Label
+                            htmlFor="observacion-nueva"
+                            className="text-xs font-semibold"
+                          >
+                            Observación:
+                          </Label>
+                          <Textarea
+                            id="observacion-nueva"
+                            value={nuevaOrdenData.observacion}
+                            onChange={(e) =>
+                              handleNuevaOrdenInputChange(
+                                "observacion",
+                                e.target.value
+                              )
+                            }
+                            className="min-h-[180px] resize-none text-xs mt-1"
+                            placeholder="Observaciones adicionales..."
+                          />
                         </div>
                       </div>
 
                       <div className="col-span-4">
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 space-y-2">
-                          <div className="mb-3">
-                            <Label
-                              htmlFor="igv-porcentaje"
-                              className="text-xs font-semibold"
-                            >
-                              IGV:
-                            </Label>
-                            <Select
-                              value={nuevaOrdenData.igvPorcentaje.toString()}
-                              onValueChange={(value) => {
-                                handleNuevaOrdenInputChange(
-                                  "igvPorcentaje",
-                                  parseInt(value)
-                                );
-                                calcularTotales(nuevaOrdenData.items);
-                              }}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="18">18%</SelectItem>
-                                <SelectItem value="10">10%</SelectItem>
-                                <SelectItem value="0">0%</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="font-semibold">Afecto:</span>
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
+                          <h3 className="text-sm font-bold text-gray-700 mb-3">
+                            Resumen de Totales
+                          </h3>
+
+                          {/* Subtotal */}
+                          <div className="flex justify-between text-sm">
+                            <span className="font-semibold">Subtotal:</span>
                             <span className="font-mono">
-                              {nuevaOrdenData.afecto.toFixed(2)}
+                              {nuevaOrdenData.subtotal.toFixed(2)}
                             </span>
                           </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="font-semibold">Inafecto:</span>
-                            <span className="font-mono">
-                              {nuevaOrdenData.inafecto.toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="font-semibold">Exonerado:</span>
-                            <span className="font-mono">
-                              {nuevaOrdenData.exonerado.toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="font-semibold">Gratuito:</span>
-                            <span className="font-mono">
-                              {nuevaOrdenData.gratuito.toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-xs border-t pt-2">
-                            <span className="font-semibold">
-                              Igv ({nuevaOrdenData.igvPorcentaje}%):
-                            </span>
+
+                          {/* IGV */}
+                          <div className="flex justify-between items-center text-sm border-t pt-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">IGV:</span>
+                              <Select
+                                value={nuevaOrdenData.igvPorcentaje.toString()}
+                                onValueChange={(value) => {
+                                  handleNuevaOrdenInputChange(
+                                    "igvPorcentaje",
+                                    parseInt(value)
+                                  );
+                                  calcularTotales(nuevaOrdenData.items);
+                                }}
+                              >
+                                <SelectTrigger className="h-7 w-20 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="18">18%</SelectItem>
+                                  <SelectItem value="10">10%</SelectItem>
+                                  <SelectItem value="0">0%</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                             <span className="font-mono">
                               {nuevaOrdenData.igv.toFixed(2)}
                             </span>
                           </div>
-                          <div className="flex justify-between text-sm font-bold border-t pt-2 bg-blue-100 -mx-3 px-3 py-2 rounded-b-lg">
-                            <span>Total a pagar:</span>
+
+                          {/* Total */}
+                          <div className="flex justify-between text-sm font-bold border-t pt-2">
+                            <span>Total:</span>
                             <span className="font-mono">
-                              {nuevaOrdenData.totalPagar.toFixed(2)}
+                              {nuevaOrdenData.total.toFixed(2)}
+                            </span>
+                          </div>
+
+                          {/* Retención */}
+                          <div className="flex justify-between items-center text-sm border-t pt-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">Retención:</span>
+                              <Select
+                                value={nuevaOrdenData.retencion.porcentaje.toString()}
+                                onValueChange={(value) => {
+                                  handleNuevaOrdenInputChange("retencion", {
+                                    ...nuevaOrdenData.retencion,
+                                    porcentaje: parseInt(value),
+                                  });
+                                  calcularTotales(nuevaOrdenData.items);
+                                }}
+                              >
+                                <SelectTrigger className="h-7 w-20 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="0">0%</SelectItem>
+                                  <SelectItem value="3">3%</SelectItem>
+                                  <SelectItem value="8">8%</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <span className="font-mono text-red-600">
+                              -{nuevaOrdenData.retencion.monto.toFixed(2)}
+                            </span>
+                          </div>
+
+                          {/* Neto a Pagar */}
+                          <div className="flex justify-between text-base font-bold border-t-2 pt-3 bg-blue-100 -mx-4 px-4 py-3 rounded-b-lg">
+                            <span>Neto a Pagar:</span>
+                            <span className="font-mono text-blue-700">
+                              {nuevaOrdenData.netoAPagar.toFixed(2)}
                             </span>
                           </div>
                         </div>
@@ -1766,6 +2042,9 @@ export default function OrdenCompraPage() {
                 <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
                   <DialogHeader className="flex-shrink-0">
                     <DialogTitle>Seleccionar Proveedor</DialogTitle>
+                    <DialogDescription>
+                      Seleccione un proveedor de la lista
+                    </DialogDescription>
                   </DialogHeader>
 
                   {/* Filtro - fijo en la parte superior */}
@@ -1797,19 +2076,19 @@ export default function OrdenCompraPage() {
                         <TableBody>
                           {proveedores.map((proveedor) => (
                             <TableRow
-                              key={proveedor.id}
+                              key={proveedor.id_proveedor}
                               className={`cursor-pointer transition-colors ${
-                                selectedProveedor === proveedor.id
+                                selectedProveedor === proveedor.id_proveedor
                                   ? "bg-blue-200 hover:bg-blue-300"
                                   : "hover:bg-gray-50"
                               }`}
-                              onClick={() => handleProveedorRowClick(proveedor.id)}
+                              onClick={() => handleProveedorRowClick(proveedor.id_proveedor)}
                             >
                               <TableCell className="text-xs text-center">
-                                {proveedor.nro_documento}
+                                {proveedor.ruc}
                               </TableCell>
                               <TableCell className="text-xs">
-                                {proveedor.razon_social}
+                                {proveedor.nombre_proveedor}
                               </TableCell>
                               <TableCell className="text-xs">
                                 {proveedor.direccion}
@@ -1843,6 +2122,208 @@ export default function OrdenCompraPage() {
                   </div>
                 </DialogContent>
               </Dialog>
+
+              {/* Modal de Selección de Items */}
+              <Dialog
+                open={isItemsModalOpen}
+                onOpenChange={setIsItemsModalOpen}
+              >
+                <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+                  <DialogHeader className="flex-shrink-0">
+                    <DialogTitle>Seleccionar Item</DialogTitle>
+                    <DialogDescription>
+                      Busque y seleccione un item para agregar a la orden
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  {/* Filtro - fijo en la parte superior */}
+                  <div className="flex gap-2 items-center px-4 pt-4 flex-shrink-0">
+                    <span className="text-sm font-semibold">Buscar:</span>
+                    <Input
+                      className="max-w-md h-8 text-sm bg-yellow-100"
+                      placeholder="Buscar por código o descripción..."
+                      value={itemSearchQuery}
+                      onChange={(e) => searchItems(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Tabla de items - con scroll */}
+                  <div className="flex-1 overflow-y-auto px-4 py-4">
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-blue-100">
+                            <TableHead className="text-xs font-bold text-center w-32">
+                              Código
+                            </TableHead>
+                            <TableHead className="text-xs font-bold min-w-[300px]">
+                              Descripción
+                            </TableHead>
+                            <TableHead className="text-xs font-bold text-center w-24">
+                              U.M.
+                            </TableHead>
+                            <TableHead className="text-xs font-bold text-right w-32">
+                              Precio Unitario
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {items.map((item) => (
+                            <TableRow
+                              key={item.codigo}
+                              className={`cursor-pointer transition-colors ${
+                                selectedItem === item.codigo
+                                  ? "bg-blue-200 hover:bg-blue-300"
+                                  : "hover:bg-gray-50"
+                              }`}
+                              onClick={() => handleItemRowClick(item.codigo)}
+                            >
+                              <TableCell className="text-xs text-center">
+                                {item.codigo}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {item.descripcion}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {item.u_m}
+                              </TableCell>
+                              <TableCell className="text-xs text-right">
+                                {item.precio_unitario
+                                  ? Number(item.precio_unitario).toFixed(2)
+                                  : "0.00"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+
+                  {/* Botones fijos en la parte inferior */}
+                  <div className="flex gap-2 justify-start p-4 border-t bg-white flex-shrink-0">
+                    <Button
+                      className="h-8 px-4 text-xs bg-yellow-500 hover:bg-yellow-600"
+                      onClick={handleSelectItem}
+                      disabled={!selectedItem}
+                    >
+                      Seleccionar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-8 px-4 text-xs"
+                      onClick={() => {
+                        setIsItemsModalOpen(false);
+                        setSelectedItem(null);
+                        setItemSearchQuery("");
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Grid de Órdenes de Compra */}
+              <div className="mt-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Órdenes de Compra Registradas</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="border rounded-lg overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-blue-100">
+                            <TableHead className="text-xs font-bold text-center w-32">
+                              Número Orden
+                            </TableHead>
+                            <TableHead className="text-xs font-bold text-center w-32">
+                              Fecha Orden
+                            </TableHead>
+                            <TableHead className="text-xs font-bold text-right w-32">
+                              Total
+                            </TableHead>
+                            <TableHead className="text-xs font-bold text-center w-40">
+                              Estado
+                            </TableHead>
+                            <TableHead className="text-xs font-bold text-center w-32">
+                              Estado Firma
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ordenesCompra.length === 0 ? (
+                            <TableRow>
+                              <TableCell
+                                colSpan={5}
+                                className="text-center py-8 text-gray-400"
+                              >
+                                <div className="flex flex-col items-center gap-2">
+                                  <ClipboardList className="h-8 w-8 opacity-50" />
+                                  <p className="text-sm">
+                                    No hay órdenes de compra registradas
+                                  </p>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            ordenesCompra.map((orden) => (
+                              <TableRow
+                                key={orden.id_orden_compra}
+                                className="hover:bg-gray-50"
+                              >
+                                <TableCell className="text-xs text-center font-mono">
+                                  {orden.numero_orden}
+                                </TableCell>
+                                <TableCell className="text-xs text-center">
+                                  {format(new Date(orden.fecha_orden), "dd/MM/yyyy", {
+                                    locale: es,
+                                  })}
+                                </TableCell>
+                                <TableCell className="text-xs text-right font-mono">
+                                  {Number(orden.total).toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-xs text-center">
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.estado === "PENDIENTE"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : orden.estado === "APROBADA"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : orden.estado === "PARCIALMENTE_RECEPCIONADA"
+                                        ? "bg-orange-100 text-orange-800"
+                                        : orden.estado === "COMPLETADA"
+                                        ? "bg-green-100 text-green-800"
+                                        : orden.estado === "CANCELADA"
+                                        ? "bg-red-100 text-red-800"
+                                        : orden.estado === "FIRMADA"
+                                        ? "bg-purple-100 text-purple-800"
+                                        : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.estado}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-xs text-center">
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.estado_firma === "FIRMADA"
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.estado_firma || "PENDIENTE"}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </CardContent>
           </Card>
         </div>

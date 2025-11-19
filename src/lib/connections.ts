@@ -2908,12 +2908,18 @@ export const kardexPdfApi = {
 
 // ============ PROVEEDORES API ============
 export interface ProveedorData {
-  id: number;
-  codigo: string | null;
-  razon_social: string | null;
-  nro_documento: string | null;
-  tipo: string | null;
+  id_proveedor: number;
+  codigo_proveedor: string;
+  nombre_proveedor: string;
+  contacto: string | null;
+  telefono: string | null;
+  email: string | null;
   direccion: string | null;
+  ruc: string | null;
+  retencion: "Si" | "No" | null;
+  activo: boolean | null;
+  fecha_registro: Date | null;
+  fecha_actualizacion: Date | null;
 }
 
 export const proveedoresApi = {
@@ -2961,6 +2967,270 @@ export const proveedoresApi = {
     } catch (error) {
       console.error("Proveedores API error:", error);
       return null;
+    }
+  },
+};
+
+// ============ ITEMS API ============
+export interface ItemData {
+  codigo: string;
+  descripcion: string;
+  precio_unitario: number | null;
+  u_m: string | null;
+  stock_minimo: number | null;
+  stock_maximo: number | null;
+  marca: string | null;
+  modelo: string | null;
+}
+
+export const itemsApi = {
+  // Obtener todos los items
+  getAll: async (): Promise<ItemData[]> => {
+    try {
+      const response = await api.get("/items");
+
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      } else if (
+        response.data &&
+        typeof response.data === "object" &&
+        response.data.data
+      ) {
+        return Array.isArray(response.data.data) ? response.data.data : [];
+      } else {
+        console.warn("Items API returned unexpected format:", response.data);
+        return [];
+      }
+    } catch (error) {
+      console.error("Items API error:", error);
+      return [];
+    }
+  },
+
+  // Buscar items
+  search: async (query: string): Promise<ItemData[]> => {
+    try {
+      const response = await api.get(`/items?search=${encodeURIComponent(query)}`);
+
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      } else if (
+        response.data &&
+        typeof response.data === "object" &&
+        response.data.data
+      ) {
+        return Array.isArray(response.data.data) ? response.data.data : [];
+      } else {
+        console.warn("Items API returned unexpected format:", response.data);
+        return [];
+      }
+    } catch (error) {
+      console.error("Items API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener item por código
+  getByCodigo: async (codigo: string): Promise<ItemData | null> => {
+    try {
+      const response = await api.get(`/items/${codigo}`);
+      return response.data;
+    } catch (error) {
+      console.error("Items API error:", error);
+      return null;
+    }
+  },
+};
+
+// ============ CENTROS DE COSTO API ============
+export interface CentroCostoData {
+  id: number;
+  CecoCodi: string;
+  Centro_de_costo: string | null;
+}
+
+export const centrosCostoApi = {
+  // Obtener centros de costo nivel 1
+  getNivel1: async (): Promise<CentroCostoData[]> => {
+    try {
+      const response = await api.get("/centros-costo/nivel1");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Centros Costo API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener centros de costo nivel 2 por código padre
+  getNivel2: async (codigoPadre: string): Promise<CentroCostoData[]> => {
+    try {
+      const response = await api.get(`/centros-costo/nivel2/${codigoPadre}`);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Centros Costo API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener centros de costo nivel 3 por código padre
+  getNivel3: async (codigoPadre: string): Promise<CentroCostoData[]> => {
+    try {
+      const response = await api.get(`/centros-costo/nivel3/${codigoPadre}`);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Centros Costo API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener todos los centros de costo
+  getAll: async (): Promise<CentroCostoData[]> => {
+    try {
+      const response = await api.get("/centros-costo/all");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Centros Costo API error:", error);
+      return [];
+    }
+  },
+
+  // Buscar por código
+  findByCodigo: async (codigo: string): Promise<CentroCostoData | null> => {
+    try {
+      const response = await api.get(`/centros-costo/${codigo}`);
+      return response.data;
+    } catch (error) {
+      console.error("Centros Costo API error:", error);
+      return null;
+    }
+  },
+};
+
+// Tipos para Centro de Costos - Nueva Orden de Compra
+export interface CentroProyectoData {
+  id: number;
+  codigo: string;
+  proyecto: string;
+}
+
+export interface FaseControlData {
+  id: number;
+  codigo: string | null;
+  descripcion: string | null;
+}
+
+export interface RubroData {
+  id: number;
+  codigo: string;
+  descripcion: string;
+}
+
+// API para Centro Proyecto
+export const centroProyectoApi = {
+  getAll: async (): Promise<CentroProyectoData[]> => {
+    try {
+      const response = await api.get("/centroproyecto");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Centro Proyecto API error:", error);
+      return [];
+    }
+  },
+};
+
+// API para Fase Control
+export const faseControlApi = {
+  getAll: async (): Promise<FaseControlData[]> => {
+    try {
+      const response = await api.get("/fasecontrol");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Fase Control API error:", error);
+      return [];
+    }
+  },
+};
+
+// API para Rubro
+export const rubroApi = {
+  getAll: async (): Promise<RubroData[]> => {
+    try {
+      const response = await api.get("/rubro");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Rubro API error:", error);
+      return [];
+    }
+  },
+};
+
+// ============ ORDENES COMPRA API ============
+export interface OrdenCompraData {
+  id_orden_compra?: number; // Primary key returned from backend
+  id_proveedor: number;
+  numero_orden: string;
+  fecha_orden: string;
+  moneda: string;
+  fecha_registro: string;
+  estado: string;
+  estado_firma?: string; // Estado de firma
+  centro_costo_nivel1?: string;
+  centro_costo_nivel2?: string;
+  centro_costo_nivel3?: string;
+  unidad_id?: number;
+  items: Array<{
+    codigo_item: string;
+    descripcion_item: string;
+    cantidad_solicitada: number;
+    precio_unitario: number;
+    subtotal: number;
+  }>;
+  subtotal: number;
+  igv: number;
+  total: number;
+  observaciones?: string;
+}
+
+export const ordenesCompraApi = {
+  // Obtener todas las órdenes de compra
+  getAll: async (): Promise<OrdenCompraData[]> => {
+    try {
+      const response = await api.get("/ordenes-compra");
+      return response.data;
+    } catch (error) {
+      console.error("Ordenes Compra API error:", error);
+      throw error;
+    }
+  },
+
+  // Obtener el siguiente número de orden
+  getSiguienteNumero: async (): Promise<{
+    serie: string;
+    nroDoc: string;
+    numero_orden_completo: string;
+  }> => {
+    try {
+      const response = await api.get("/ordenes-compra/siguiente-numero");
+      return response.data;
+    } catch (error) {
+      console.error("Ordenes Compra API error:", error);
+      // Retornar valores por defecto en caso de error
+      return {
+        serie: "0001",
+        nroDoc: "000001",
+        numero_orden_completo: "0001-000001",
+      };
+    }
+  },
+
+  // Crear orden de compra
+  create: async (ordenData: OrdenCompraData): Promise<OrdenCompraData> => {
+    try {
+      const response = await api.post("/ordenes-compra", ordenData);
+      return response.data;
+    } catch (error) {
+      console.error("Ordenes Compra API error:", error);
+      throw error;
     }
   },
 };
