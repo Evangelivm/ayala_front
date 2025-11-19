@@ -685,7 +685,7 @@ export default function OrdenCompraPage() {
         fecha_orden: nuevaOrdenData.fechaEmision.toISOString(),
         moneda: nuevaOrdenData.moneda,
         fecha_registro: nuevaOrdenData.fechaServicio.toISOString(),
-        estado: nuevaOrdenData.estado,
+        estado: "PENDIENTE",
         centro_costo_nivel1: nuevaOrdenData.centroCostoNivel1Codigo,
         centro_costo_nivel2: nuevaOrdenData.centroCostoNivel2Codigo,
         centro_costo_nivel3: nuevaOrdenData.centroCostoNivel3Codigo,
@@ -1430,9 +1430,36 @@ export default function OrdenCompraPage() {
                         <Select
                           value={nuevaOrdenData.aplicarRetencion ? "SI" : "NO"}
                           onValueChange={(value) => {
-                            handleNuevaOrdenInputChange("aplicarRetencion", value === "SI");
-                            // Recalcular totales cuando cambia la retención
-                            setTimeout(() => calcularTotales(nuevaOrdenData.items), 0);
+                            const aplicar = value === "SI";
+                            setNuevaOrdenData((prev) => {
+                              const newData = {
+                                ...prev,
+                                aplicarRetencion: aplicar,
+                                retencion: aplicar
+                                  ? { porcentaje: 3, monto: 0 }
+                                  : prev.retencion,
+                              };
+                              // Recalcular totales con los nuevos datos
+                              const subtotalCalculado = newData.items.reduce((acc, item) => acc + (item.subtotal || 0), 0);
+                              const igvCalculado = subtotalCalculado * (newData.igvPorcentaje / 100);
+                              const totalCalculado = subtotalCalculado + igvCalculado;
+                              const retencionMonto = newData.aplicarRetencion
+                                ? totalCalculado * (newData.retencion.porcentaje / 100)
+                                : 0;
+                              const netoAPagarCalculado = totalCalculado - retencionMonto;
+
+                              return {
+                                ...newData,
+                                subtotal: subtotalCalculado,
+                                igv: igvCalculado,
+                                total: totalCalculado,
+                                retencion: {
+                                  ...newData.retencion,
+                                  monto: retencionMonto,
+                                },
+                                netoAPagar: netoAPagarCalculado,
+                              };
+                            });
                           }}
                         >
                           <SelectTrigger className="h-8 text-xs">
@@ -1510,7 +1537,7 @@ export default function OrdenCompraPage() {
                           htmlFor="fecha-servicio"
                           className="text-xs font-semibold"
                         >
-                          F. servicio:
+                          Fecha Compra:
                         </Label>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -1669,24 +1696,12 @@ export default function OrdenCompraPage() {
                         >
                           Estado:
                         </Label>
-                        <Select
-                          value={nuevaOrdenData.estado}
-                          onValueChange={(value) =>
-                            handleNuevaOrdenInputChange("estado", value)
-                          }
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="PENDIENTE">PENDIENTE</SelectItem>
-                            <SelectItem value="APROBADA">APROBADA</SelectItem>
-                            <SelectItem value="PARCIALMENTE_RECEPCIONADA">PARCIALMENTE RECEPCIONADA</SelectItem>
-                            <SelectItem value="COMPLETADA">COMPLETADA</SelectItem>
-                            <SelectItem value="CANCELADA">CANCELADA</SelectItem>
-                            <SelectItem value="FIRMADA">FIRMADA</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Input
+                          id="estado"
+                          value="PENDIENTE"
+                          readOnly
+                          className="h-8 text-xs bg-gray-100"
+                        />
                       </div>
                     </div>
 
