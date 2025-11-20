@@ -3177,7 +3177,7 @@ export interface OrdenCompraData {
   centro_costo_nivel1?: string;
   centro_costo_nivel2?: string;
   centro_costo_nivel3?: string;
-  unidad_id?: number;
+  unidad_id?: number | null;
   tiene_anticipo?: string | number;
   procede_pago?: string | number;
   auto_administrador?: number;
@@ -3238,6 +3238,26 @@ export const ordenesCompraApi = {
       throw error;
     }
   },
+
+  // Obtener tipo de cambio de SUNAT
+  getTipoCambio: async (): Promise<{
+    success: boolean;
+    tipo_cambio: number;
+    fecha: string;
+  }> => {
+    try {
+      const response = await api.get("/ordenes-compra/tipo-cambio");
+      return response.data;
+    } catch (error) {
+      console.error("Error obteniendo tipo de cambio:", error);
+      // Retornar valor por defecto en caso de error
+      return {
+        success: false,
+        tipo_cambio: 0,
+        fecha: new Date().toISOString().split("T")[0],
+      };
+    }
+  },
 };
 
 // ============ ORDENES SERVICIO API ============
@@ -3253,7 +3273,7 @@ export interface OrdenServicioData {
   centro_costo_nivel1?: string;
   centro_costo_nivel2?: string;
   centro_costo_nivel3?: string;
-  unidad_id?: number;
+  unidad_id?: number | null;
   retencion?: string;
   tiene_anticipo?: string | number;
   procede_pago?: string | number;
@@ -3313,6 +3333,26 @@ export const ordenesServicioApi = {
     } catch (error) {
       console.error("Ordenes Servicio API error:", error);
       throw error;
+    }
+  },
+
+  // Obtener tipo de cambio de SUNAT
+  getTipoCambio: async (): Promise<{
+    success: boolean;
+    tipo_cambio: number;
+    fecha: string;
+  }> => {
+    try {
+      const response = await api.get("/ordenes-servicio/tipo-cambio");
+      return response.data;
+    } catch (error) {
+      console.error("Error obteniendo tipo de cambio:", error);
+      // Retornar valor por defecto en caso de error
+      return {
+        success: false,
+        tipo_cambio: 0,
+        fecha: new Date().toISOString().split("T")[0],
+      };
     }
   },
 };

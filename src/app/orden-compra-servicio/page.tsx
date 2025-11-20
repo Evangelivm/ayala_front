@@ -42,7 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Trash2 } from "lucide-react";
+import { ClipboardList, Plus, Trash2, FileText } from "lucide-react";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -64,6 +64,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function OrdenCompraPage() {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCentroCostoModalOpen, setIsCentroCostoModalOpen] = useState(false);
   const [isNuevaOrdenModalOpen, setIsNuevaOrdenModalOpen] = useState(false);
@@ -95,11 +96,12 @@ export default function OrdenCompraPage() {
     nroCliente: "",
     razonSocial: "",
     retencionProveedor: "",
-    tipoDoc: "Orden de compra",
+    almacenCentral: false, // Checkbox Almacén Central
     serie: "0001",
     nroDoc: "",
     fechaEmision: new Date(),
     moneda: "SOLES",
+    tipoCambio: 0, // Tipo de cambio de SUNAT
     fechaServicio: new Date(),
     estado: "PENDIENTE",
     centroCostoNivel1Codigo: "", // Código de centroproyecto
@@ -568,12 +570,35 @@ export default function OrdenCompraPage() {
     }
   };
 
+  // Función para obtener el tipo de cambio de SUNAT
+  const obtenerTipoCambio = async () => {
+    try {
+      const api = tipoOrden === "compra" ? ordenesCompraApi : ordenesServicioApi;
+      const response = await api.getTipoCambio();
+      if (response.success && response.tipo_cambio > 0) {
+        setNuevaOrdenData((prev) => ({
+          ...prev,
+          tipoCambio: response.tipo_cambio,
+        }));
+        toast.success(`Tipo de cambio actualizado: S/. ${response.tipo_cambio.toFixed(3)}`);
+      }
+    } catch (error) {
+      console.error("Error obteniendo tipo de cambio:", error);
+      toast.error("No se pudo obtener el tipo de cambio de SUNAT");
+    }
+  };
+
   // Funciones para Nueva Orden
   const handleNuevaOrdenInputChange = (
     field: string,
     value: string | Date | number | boolean | { porcentaje: number; monto: number }
   ) => {
     setNuevaOrdenData((prev) => ({ ...prev, [field]: value }));
+
+    // Si cambia a moneda DOLARES, obtener el tipo de cambio automáticamente
+    if (field === "moneda" && value === "DOLARES") {
+      obtenerTipoCambio();
+    }
   };
 
   const handleItemChange = (
@@ -706,8 +731,9 @@ export default function OrdenCompraPage() {
         centro_costo_nivel1: nuevaOrdenData.centroCostoNivel1Codigo,
         centro_costo_nivel2: nuevaOrdenData.centroCostoNivel2Codigo,
         centro_costo_nivel3: nuevaOrdenData.centroCostoNivel3Codigo,
-        unidad_id: nuevaOrdenData.unidad_id,
+        unidad_id: nuevaOrdenData.unidad_id || null,
         retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
+        almacen_central: nuevaOrdenData.almacenCentral ? "SI" : "NO",
         items: itemsParaBackend,
         subtotal: nuevaOrdenData.subtotal,
         igv: nuevaOrdenData.igv,
@@ -759,11 +785,12 @@ export default function OrdenCompraPage() {
       nroCliente: "",
       razonSocial: "",
       retencionProveedor: "",
-      tipoDoc: "Orden de compra",
+      almacenCentral: false,
       serie: "0001",
       nroDoc: "",
       fechaEmision: new Date(),
       moneda: "SOLES",
+      tipoCambio: 0,
       fechaServicio: new Date(),
       estado: "PENDIENTE",
       centroCostoNivel1Codigo: "",
@@ -906,13 +933,16 @@ export default function OrdenCompraPage() {
                           <TableHead className="text-xs font-bold">
                             Observaciones
                           </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            PDF
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {ordenesCompra.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={15}
+                              colSpan={16}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -1008,6 +1038,17 @@ export default function OrdenCompraPage() {
                                   <span className="text-gray-400 italic">Sin observaciones</span>
                                 )}
                               </TableCell>
+                              <TableCell className="text-xs text-center">
+                                <a
+                                  href={`${API_URL}/ordenes-compra/pdf/${orden.id_orden_compra}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                                  title="Ver PDF"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </a>
+                              </TableCell>
                             </TableRow>
                           ))
                         )}
@@ -1073,13 +1114,16 @@ export default function OrdenCompraPage() {
                           <TableHead className="text-xs font-bold">
                             Observaciones
                           </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            PDF
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {ordenesServicio.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={15}
+                              colSpan={16}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -1174,6 +1218,17 @@ export default function OrdenCompraPage() {
                                 ) : (
                                   <span className="text-gray-400 italic">Sin observaciones</span>
                                 )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                <a
+                                  href={`${API_URL}/ordenes-servicio/pdf/${orden.id_orden_servicio}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                                  title="Ver PDF"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </a>
                               </TableCell>
                             </TableRow>
                           ))
@@ -1826,7 +1881,7 @@ export default function OrdenCompraPage() {
                             });
                           }}
                         >
-                          <SelectTrigger className="h-8 text-xs">
+                          <SelectTrigger className={`h-8 text-xs ${nuevaOrdenData.total > 700 && !nuevaOrdenData.aplicarRetencion ? 'border-red-500 border-2' : ''}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1834,6 +1889,11 @@ export default function OrdenCompraPage() {
                             <SelectItem value="SI">SÍ</SelectItem>
                           </SelectContent>
                         </Select>
+                        {nuevaOrdenData.total > 700 && !nuevaOrdenData.aplicarRetencion && (
+                          <div className="mt-1 text-xs text-red-700 bg-red-50 px-2 py-1 rounded border border-red-300 animate-pulse">
+                            ⚠️ Verifique si es agente de retención
+                          </div>
+                        )}
                       </div>
                       <div className="col-span-2">
                         <Label
@@ -1895,6 +1955,11 @@ export default function OrdenCompraPage() {
                             <SelectItem value="DOLARES">DÓLARES</SelectItem>
                           </SelectContent>
                         </Select>
+                        {nuevaOrdenData.moneda === "DOLARES" && nuevaOrdenData.tipoCambio > 0 && (
+                          <div className="mt-1 text-xs text-gray-600 bg-yellow-50 px-2 py-1 rounded border border-yellow-200">
+                            T/C: S/. {nuevaOrdenData.tipoCambio.toFixed(3)}
+                          </div>
+                        )}
                       </div>
                       <div className="col-span-2">
                         <Label
@@ -1990,30 +2055,29 @@ export default function OrdenCompraPage() {
 
                       {/* Segunda fila */}
                       <div className="col-span-2">
-                        <Label
-                          htmlFor="tipo-doc"
-                          className="text-xs font-semibold"
-                        >
-                          Tipo doc.
+                        <Label className="text-xs font-semibold mb-2 block">
+                          Opciones
                         </Label>
-                        <Select
-                          value={nuevaOrdenData.tipoDoc}
-                          onValueChange={(value) =>
-                            handleNuevaOrdenInputChange("tipoDoc", value)
-                          }
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Orden de compra">
-                              Orden de compra
-                            </SelectItem>
-                            <SelectItem value="Orden de trabajo">
-                              Orden de trabajo
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center space-x-2 h-8">
+                          <input
+                            type="checkbox"
+                            id="almacen-central"
+                            checked={nuevaOrdenData.almacenCentral}
+                            onChange={(e) =>
+                              handleNuevaOrdenInputChange(
+                                "almacenCentral",
+                                e.target.checked
+                              )
+                            }
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label
+                            htmlFor="almacen-central"
+                            className="text-xs font-medium text-gray-700 cursor-pointer"
+                          >
+                            Almacén Central
+                          </label>
+                        </div>
                       </div>
                       <div className="col-span-2">
                         <Label
@@ -2256,8 +2320,22 @@ export default function OrdenCompraPage() {
                                     required
                                   />
                                 </TableCell>
-                                <TableCell className="text-right text-xs bg-gray-50 p-2 font-mono">
-                                  {item.precio_unitario.toFixed(2)}
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    value={item.precio_unitario}
+                                    onChange={(e) =>
+                                      handleItemChange(
+                                        index,
+                                        "precio_unitario",
+                                        parseFloat(e.target.value) || 0
+                                      )
+                                    }
+                                    className="h-8 text-xs border border-gray-300 p-2 text-right rounded font-mono"
+                                    min="0"
+                                    step="0.01"
+                                    required
+                                  />
                                 </TableCell>
                                 <TableCell className="text-right text-xs font-semibold bg-yellow-50 p-2 font-mono">
                                   {item.subtotal.toFixed(2)}
@@ -2366,12 +2444,19 @@ export default function OrdenCompraPage() {
                           </div>
 
                           {/* Total */}
-                          <div className="flex justify-between text-sm font-bold border-t pt-2">
+                          <div className={`flex justify-between text-sm font-bold border-t pt-2 ${nuevaOrdenData.total > 700 && !nuevaOrdenData.aplicarRetencion ? 'bg-red-50 border-red-300 -mx-4 px-4 py-2 rounded' : ''}`}>
                             <span>Total:</span>
                             <span className="font-mono">
                               {nuevaOrdenData.total.toFixed(2)}
                             </span>
                           </div>
+
+                          {/* Alerta de retención */}
+                          {nuevaOrdenData.total > 700 && !nuevaOrdenData.aplicarRetencion && (
+                            <div className="text-xs text-red-700 bg-red-100 px-3 py-2 rounded border border-red-400 animate-pulse font-semibold text-center">
+                              ⚠️ Verifique si es agente de retención
+                            </div>
+                          )}
 
                           {/* Retención - Solo se muestra si está activada */}
                           {nuevaOrdenData.aplicarRetencion && (
