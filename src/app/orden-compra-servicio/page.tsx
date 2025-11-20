@@ -20,6 +20,8 @@ import {
   type CamionData,
   ordenesCompraApi,
   type OrdenCompraData,
+  ordenesServicioApi,
+  type OrdenServicioData,
 } from "@/lib/connections";
 import {
   Dialog,
@@ -59,11 +61,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function OrdenCompraPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCentroCostoModalOpen, setIsCentroCostoModalOpen] = useState(false);
   const [isNuevaOrdenModalOpen, setIsNuevaOrdenModalOpen] = useState(false);
+  const [tipoOrden, setTipoOrden] = useState<"compra" | "servicio">("compra"); // Controla qué tipo de orden se está creando
   const [isNuevoCentroCostoModalOpen, setIsNuevoCentroCostoModalOpen] = useState(false);
   const [isCentroCostoListModalOpen, setIsCentroCostoListModalOpen] = useState(false);
   const [isProveedoresModalOpen, setIsProveedoresModalOpen] = useState(false);
@@ -81,6 +85,7 @@ export default function OrdenCompraPage() {
   const [rubros, setRubros] = useState<RubroData[]>([]);
   const [camiones, setCamiones] = useState<CamionData[]>([]);
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
+  const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
 
   // Estado para Nueva Orden
   const [nuevaOrdenData, setNuevaOrdenData] = useState({
@@ -148,10 +153,11 @@ export default function OrdenCompraPage() {
     margenFact: ".00",
   });
 
-  // Cargar camiones y órdenes de compra al montar el componente
+  // Cargar camiones y órdenes al montar el componente
   useEffect(() => {
     loadCamiones();
     loadOrdenesCompra();
+    loadOrdenesServicio();
   }, []);
 
   // Cargar el siguiente número de orden cuando se abre el modal
@@ -163,7 +169,8 @@ export default function OrdenCompraPage() {
 
   const cargarSiguienteNumeroOrden = async () => {
     try {
-      const { serie, nroDoc } = await ordenesCompraApi.getSiguienteNumero();
+      const api = tipoOrden === "compra" ? ordenesCompraApi : ordenesServicioApi;
+      const { serie, nroDoc } = await api.getSiguienteNumero();
       setNuevaOrdenData((prev) => ({
         ...prev,
         serie,
@@ -448,6 +455,16 @@ export default function OrdenCompraPage() {
     }
   };
 
+  const loadOrdenesServicio = async () => {
+    try {
+      const data = await ordenesServicioApi.getAll();
+      setOrdenesServicio(data);
+    } catch (error) {
+      console.error("Error loading ordenes servicio:", error);
+      setOrdenesServicio([]);
+    }
+  };
+
   // Funciones para centros de costo - Selects independientes (deprecado, se usará las nuevas)
   const loadCentrosCosto = async () => {
     try {
@@ -700,11 +717,15 @@ export default function OrdenCompraPage() {
 
       console.log("Datos para enviar al backend:", ordenParaEnviar);
 
+      // Seleccionar la API correcta según el tipo de orden
+      const api = tipoOrden === "compra" ? ordenesCompraApi : ordenesServicioApi;
+      const tipoTexto = tipoOrden === "compra" ? "compra" : "servicio";
+
       // Mostrar toast de carga
-      toast.loading("Creando orden de compra...");
+      toast.loading(`Creando orden de ${tipoTexto}...`);
 
       // Enviar al backend usando la API configurada
-      const result = await ordenesCompraApi.create(ordenParaEnviar);
+      const result = await api.create(ordenParaEnviar);
 
       // Cerrar el toast de carga
       toast.dismiss();
@@ -712,20 +733,21 @@ export default function OrdenCompraPage() {
       console.log("Respuesta del servidor:", result);
 
       // Mostrar toast de éxito
-      toast.success("Orden de compra creada exitosamente", {
+      toast.success(`Orden de ${tipoTexto} creada exitosamente`, {
         description: `Número de orden: ${numero_orden}`,
       });
 
-      // Recargar la lista de órdenes de compra
+      // Recargar la lista de órdenes
       loadOrdenesCompra();
+      loadOrdenesServicio();
 
       // Cerrar el modal y limpiar el formulario
       setIsNuevaOrdenModalOpen(false);
       handleNuevaOrdenCancel();
     } catch (error) {
-      console.error("Error al guardar orden de compra:", error);
+      console.error(`Error al guardar orden de ${tipoOrden === "compra" ? "compra" : "servicio"}:`, error);
       toast.dismiss();
-      toast.error("Error al crear la orden de compra", {
+      toast.error(`Error al crear la orden de ${tipoOrden === "compra" ? "compra" : "servicio"}`, {
         description: error instanceof Error ? error.message : "Error desconocido",
       });
     }
@@ -775,57 +797,397 @@ export default function OrdenCompraPage() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min p-6">
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto w-full">
           <div className="mb-6">
             <h1 className="text-3xl font-bold tracking-tight">
-              Orden de Compra
+              Orden de Compra y Servicio
             </h1>
             <p className="text-muted-foreground">
-              Gestión de órdenes de compra y trabajo
+              Gestión de órdenes de compra y servicio
             </p>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Gestión de Órdenes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-4">
-                <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="flex items-center gap-2">
-                      <ClipboardList className="h-4 w-4" />
-                      Ordenes de trabajo
-                    </Button>
-                  </DialogTrigger>
-                </Dialog>
+          {/* Botones de acción */}
+          <div className="flex gap-4 mb-6">
+            <Button
+              className="flex items-center gap-2"
+              onClick={() => {
+                setTipoOrden("servicio");
+                setIsNuevaOrdenModalOpen(true);
+              }}
+            >
+              <ClipboardList className="h-4 w-4" />
+              Nueva orden de servicio
+            </Button>
 
-                <Dialog
-                  open={isNuevaOrdenModalOpen}
-                  onOpenChange={setIsNuevaOrdenModalOpen}
-                >
-                  <DialogTrigger asChild>
-                    <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
-                      <Plus className="h-4 w-4" />
-                      Nueva orden de compra
-                    </Button>
-                  </DialogTrigger>
-                </Dialog>
+            <Button
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+              onClick={() => {
+                setTipoOrden("compra");
+                setIsNuevaOrdenModalOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Nueva orden de compra
+            </Button>
 
-                <Dialog
-                  open={isNuevoCentroCostoModalOpen}
-                  onOpenChange={setIsNuevoCentroCostoModalOpen}
-                >
-                  <DialogTrigger asChild>
-                    <Button className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
-                      <Plus className="h-4 w-4" />
-                      Centro de costo
-                    </Button>
-                  </DialogTrigger>
-                </Dialog>
-              </div>
+            <Dialog
+              open={isNuevoCentroCostoModalOpen}
+              onOpenChange={setIsNuevoCentroCostoModalOpen}
+            >
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
+                  <Plus className="h-4 w-4" />
+                  Centro de costo
+                </Button>
+              </DialogTrigger>
+            </Dialog>
+          </div>
 
-              <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          {/* Tabs para Órdenes de Compra y Servicio */}
+          <Tabs defaultValue="compra" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="compra">Órdenes de Compra</TabsTrigger>
+              <TabsTrigger value="servicio">Órdenes de Servicio</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="compra" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Órdenes de Compra Registradas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-blue-100">
+                          <TableHead className="text-xs font-bold text-center">
+                            Número Orden
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Fecha Orden
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Fecha Registro
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Moneda
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            Subtotal
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            IGV
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            Total
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Estado
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Estado Firma
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Tiene Anticipo
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Procede Pago
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Auto Admin.
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Auto Contab.
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Has Anticipo
+                          </TableHead>
+                          <TableHead className="text-xs font-bold">
+                            Observaciones
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ordenesCompra.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={15}
+                              className="text-center py-8 text-gray-400"
+                            >
+                              <div className="flex flex-col items-center gap-2">
+                                <ClipboardList className="h-8 w-8 opacity-50" />
+                                <p className="text-sm">
+                                  No hay órdenes de compra registradas
+                                </p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          ordenesCompra.map((orden) => (
+                            <TableRow
+                              key={orden.id_orden_compra}
+                              className="hover:bg-gray-50"
+                            >
+                              <TableCell className="text-xs text-center font-mono">
+                                {orden.numero_orden}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {format(new Date(orden.fecha_orden), "dd/MM/yyyy", {
+                                  locale: es,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {format(new Date(orden.fecha_registro), "dd/MM/yyyy", {
+                                  locale: es,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-xs text-center font-semibold">
+                                {orden.moneda}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">
+                                {orden.subtotal}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">
+                                {orden.igv}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-bold font-mono">
+                                {orden.total}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                    orden.estado === "PENDIENTE"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : orden.estado === "APROBADA"
+                                        ? "bg-green-100 text-green-800"
+                                        : orden.estado === "COMPLETADA"
+                                          ? "bg-blue-100 text-blue-800"
+                                          : "bg-gray-100 text-gray-800"
+                                  }`}
+                                >
+                                  {orden.estado}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.estado_firma ? (
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.estado_firma === "PENDIENTE"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : orden.estado_firma === "FIRMADA"
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.estado_firma}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 italic">Sin estado</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.tiene_anticipo || "-"}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.procede_pago || "-"}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.auto_administrador === 1 ? "Procede" : orden.auto_administrador === 0 ? "No procede" : "-"}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.auto_contabilidad === 1 ? "Procede" : orden.auto_contabilidad === 0 ? "No procede" : "-"}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.has_anticipo === 1 ? "Procede" : orden.has_anticipo === 0 ? "No procede" : "-"}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {orden.observaciones ? (
+                                  orden.observaciones
+                                ) : (
+                                  <span className="text-gray-400 italic">Sin observaciones</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="servicio" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Órdenes de Servicio Registradas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-green-100">
+                          <TableHead className="text-xs font-bold text-center">
+                            Número Orden
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Fecha Orden
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Fecha Registro
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Moneda
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            Subtotal
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            IGV
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            Total
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Estado
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Estado Firma
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Tiene Anticipo
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Procede Pago
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Auto Admin.
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Auto Contab.
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Has Anticipo
+                          </TableHead>
+                          <TableHead className="text-xs font-bold">
+                            Observaciones
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ordenesServicio.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={15}
+                              className="text-center py-8 text-gray-400"
+                            >
+                              <div className="flex flex-col items-center gap-2">
+                                <ClipboardList className="h-8 w-8 opacity-50" />
+                                <p className="text-sm">
+                                  No hay órdenes de servicio registradas
+                                </p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          ordenesServicio.map((orden) => (
+                            <TableRow
+                              key={orden.id_orden_servicio}
+                              className="hover:bg-gray-50"
+                            >
+                              <TableCell className="text-xs text-center font-mono">
+                                {orden.numero_orden}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {format(new Date(orden.fecha_orden), "dd/MM/yyyy", {
+                                  locale: es,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {format(new Date(orden.fecha_registro), "dd/MM/yyyy", {
+                                  locale: es,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-xs text-center font-semibold">
+                                {orden.moneda}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">
+                                {orden.subtotal}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">
+                                {orden.igv}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-bold font-mono">
+                                {orden.total}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                    orden.estado === "PENDIENTE"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : orden.estado === "APROBADA"
+                                        ? "bg-green-100 text-green-800"
+                                        : orden.estado === "COMPLETADA"
+                                          ? "bg-blue-100 text-blue-800"
+                                          : "bg-gray-100 text-gray-800"
+                                  }`}
+                                >
+                                  {orden.estado}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.estado_firma ? (
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.estado_firma === "PENDIENTE"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : orden.estado_firma === "FIRMADA"
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.estado_firma}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 italic">Sin estado</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.tiene_anticipo || "-"}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.procede_pago || "-"}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.auto_administrador === 1 ? "Procede" : orden.auto_administrador === 0 ? "No procede" : "-"}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.auto_contabilidad === 1 ? "Procede" : orden.auto_contabilidad === 0 ? "No procede" : "-"}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.has_anticipo === 1 ? "Procede" : orden.has_anticipo === 0 ? "No procede" : "-"}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {orden.observaciones ? (
+                                  orden.observaciones
+                                ) : (
+                                  <span className="text-gray-400 italic">Sin observaciones</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          {/* Modales */}
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="max-w-[95vw] max-h-[90vh] w-full overflow-hidden">
                   <DialogHeader>
                     <DialogTitle>Nueva Orden de Trabajo</DialogTitle>
@@ -1380,9 +1742,11 @@ export default function OrdenCompraPage() {
               >
                 <DialogContent className="max-w-[95vw] max-h-[90vh] w-full overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Nueva Orden de Compra</DialogTitle>
+                    <DialogTitle>
+                      {tipoOrden === "compra" ? "Nueva Orden de Compra" : "Nueva Orden de Servicio"}
+                    </DialogTitle>
                     <DialogDescription>
-                      Complete los datos para crear una nueva orden de compra
+                      Complete los datos para crear una nueva orden de {tipoOrden === "compra" ? "compra" : "servicio"}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -2259,146 +2623,6 @@ export default function OrdenCompraPage() {
                   </div>
                 </DialogContent>
               </Dialog>
-
-              {/* Grid de Órdenes de Compra */}
-              <div className="mt-8">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Órdenes de Compra Registradas</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="border rounded-lg overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-blue-100">
-                            <TableHead className="text-xs font-bold text-center w-32">
-                              Número Orden
-                            </TableHead>
-                            <TableHead className="text-xs font-bold text-center w-32">
-                              Fecha Orden
-                            </TableHead>
-                            <TableHead className="text-xs font-bold text-center w-32">
-                              Fecha Registro
-                            </TableHead>
-                            <TableHead className="text-xs font-bold text-center w-24">
-                              Moneda
-                            </TableHead>
-                            <TableHead className="text-xs font-bold text-right w-28">
-                              Subtotal
-                            </TableHead>
-                            <TableHead className="text-xs font-bold text-right w-28">
-                              IGV
-                            </TableHead>
-                            <TableHead className="text-xs font-bold text-right w-28">
-                              Total
-                            </TableHead>
-                            <TableHead className="text-xs font-bold text-center w-40">
-                              Estado
-                            </TableHead>
-                            <TableHead className="text-xs font-bold text-center w-32">
-                              Estado Firma
-                            </TableHead>
-                            <TableHead className="text-xs font-bold min-w-[200px]">
-                              Observaciones
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {ordenesCompra.length === 0 ? (
-                            <TableRow>
-                              <TableCell
-                                colSpan={10}
-                                className="text-center py-8 text-gray-400"
-                              >
-                                <div className="flex flex-col items-center gap-2">
-                                  <ClipboardList className="h-8 w-8 opacity-50" />
-                                  <p className="text-sm">
-                                    No hay órdenes de compra registradas
-                                  </p>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            ordenesCompra.map((orden) => (
-                              <TableRow
-                                key={orden.id_orden_compra}
-                                className="hover:bg-gray-50"
-                              >
-                                <TableCell className="text-xs text-center font-mono">
-                                  {orden.numero_orden}
-                                </TableCell>
-                                <TableCell className="text-xs text-center">
-                                  {format(new Date(orden.fecha_orden), "dd/MM/yyyy", {
-                                    locale: es,
-                                  })}
-                                </TableCell>
-                                <TableCell className="text-xs text-center">
-                                  {format(new Date(orden.fecha_registro), "dd/MM/yyyy", {
-                                    locale: es,
-                                  })}
-                                </TableCell>
-                                <TableCell className="text-xs text-center font-semibold">
-                                  {orden.moneda}
-                                </TableCell>
-                                <TableCell className="text-xs text-right font-mono">
-                                  {Number(orden.subtotal).toFixed(2)}
-                                </TableCell>
-                                <TableCell className="text-xs text-right font-mono">
-                                  {Number(orden.igv).toFixed(2)}
-                                </TableCell>
-                                <TableCell className="text-xs text-right font-mono font-bold">
-                                  {Number(orden.total).toFixed(2)}
-                                </TableCell>
-                                <TableCell className="text-xs text-center">
-                                  <span
-                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                      orden.estado === "PENDIENTE"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : orden.estado === "APROBADA"
-                                        ? "bg-blue-100 text-blue-800"
-                                        : orden.estado === "PARCIALMENTE_RECEPCIONADA"
-                                        ? "bg-orange-100 text-orange-800"
-                                        : orden.estado === "COMPLETADA"
-                                        ? "bg-green-100 text-green-800"
-                                        : orden.estado === "CANCELADA"
-                                        ? "bg-red-100 text-red-800"
-                                        : orden.estado === "FIRMADA"
-                                        ? "bg-purple-100 text-purple-800"
-                                        : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {orden.estado}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-xs text-center">
-                                  <span
-                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                      orden.estado_firma === "FIRMADA"
-                                        ? "bg-green-100 text-green-800"
-                                        : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {orden.estado_firma || "PENDIENTE"}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-xs">
-                                  {orden.observaciones ? (
-                                    <span className="line-clamp-2">{orden.observaciones}</span>
-                                  ) : (
-                                    <span className="text-gray-400 italic">Sin observaciones</span>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

@@ -3178,6 +3178,11 @@ export interface OrdenCompraData {
   centro_costo_nivel2?: string;
   centro_costo_nivel3?: string;
   unidad_id?: number;
+  tiene_anticipo?: string | number;
+  procede_pago?: string | number;
+  auto_administrador?: number;
+  auto_contabilidad?: number;
+  has_anticipo?: number;
   items: Array<{
     codigo_item: string;
     descripcion_item: string;
@@ -3230,6 +3235,83 @@ export const ordenesCompraApi = {
       return response.data;
     } catch (error) {
       console.error("Ordenes Compra API error:", error);
+      throw error;
+    }
+  },
+};
+
+// ============ ORDENES SERVICIO API ============
+export interface OrdenServicioData {
+  id_orden_servicio?: number; // Primary key returned from backend
+  id_proveedor: number;
+  numero_orden: string;
+  fecha_orden: string;
+  moneda: string;
+  fecha_registro: string;
+  estado: string;
+  estado_firma?: string; // Estado de firma
+  centro_costo_nivel1?: string;
+  centro_costo_nivel2?: string;
+  centro_costo_nivel3?: string;
+  unidad_id?: number;
+  retencion?: string;
+  tiene_anticipo?: string | number;
+  procede_pago?: string | number;
+  auto_administrador?: number;
+  auto_contabilidad?: number;
+  has_anticipo?: number;
+  items: Array<{
+    codigo_item: string;
+    descripcion_item: string;
+    cantidad_solicitada: number;
+    precio_unitario: number;
+    subtotal: number;
+  }>;
+  subtotal: number;
+  igv: number;
+  total: number;
+  observaciones?: string;
+}
+
+export const ordenesServicioApi = {
+  // Obtener todas las órdenes de servicio
+  getAll: async (): Promise<OrdenServicioData[]> => {
+    try {
+      const response = await api.get("/ordenes-servicio");
+      return response.data;
+    } catch (error) {
+      console.error("Ordenes Servicio API error:", error);
+      throw error;
+    }
+  },
+
+  // Obtener el siguiente número de orden
+  getSiguienteNumero: async (): Promise<{
+    serie: string;
+    nroDoc: string;
+    numero_orden_completo: string;
+  }> => {
+    try {
+      const response = await api.get("/ordenes-servicio/siguiente-numero");
+      return response.data;
+    } catch (error) {
+      console.error("Ordenes Servicio API error:", error);
+      // Retornar valores por defecto en caso de error
+      return {
+        serie: "0001",
+        nroDoc: "000001",
+        numero_orden_completo: "0001-000001",
+      };
+    }
+  },
+
+  // Crear orden de servicio
+  create: async (ordenData: OrdenServicioData): Promise<OrdenServicioData> => {
+    try {
+      const response = await api.post("/ordenes-servicio", ordenData);
+      return response.data;
+    } catch (error) {
+      console.error("Ordenes Servicio API error:", error);
       throw error;
     }
   },
