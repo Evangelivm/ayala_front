@@ -42,7 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Trash2, FileText } from "lucide-react";
+import { ClipboardList, Plus, Trash2, FileText, X } from "lucide-react";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -824,6 +824,48 @@ export default function OrdenCompraPage() {
     setIsNuevaOrdenModalOpen(false);
   };
 
+  // Función para eliminar orden de compra
+  const handleDeleteOrdenCompra = async (id: number) => {
+    if (!confirm("¿Está seguro de que desea eliminar esta orden de compra?")) {
+      return;
+    }
+
+    try {
+      toast.loading("Eliminando orden de compra...");
+      await ordenesCompraApi.delete(id);
+      toast.dismiss();
+      toast.success("Orden de compra eliminada exitosamente");
+      loadOrdenesCompra();
+    } catch (error) {
+      console.error("Error al eliminar orden de compra:", error);
+      toast.dismiss();
+      toast.error("Error al eliminar la orden de compra", {
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
+  // Función para eliminar orden de servicio
+  const handleDeleteOrdenServicio = async (id: number) => {
+    if (!confirm("¿Está seguro de que desea eliminar esta orden de servicio?")) {
+      return;
+    }
+
+    try {
+      toast.loading("Eliminando orden de servicio...");
+      await ordenesServicioApi.delete(id);
+      toast.dismiss();
+      toast.success("Orden de servicio eliminada exitosamente");
+      loadOrdenesServicio();
+    } catch (error) {
+      console.error("Error al eliminar orden de servicio:", error);
+      toast.dismiss();
+      toast.error("Error al eliminar la orden de servicio", {
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min p-6">
@@ -939,13 +981,16 @@ export default function OrdenCompraPage() {
                           <TableHead className="text-xs font-bold text-center">
                             PDF
                           </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Acciones
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {ordenesCompra.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={16}
+                              colSpan={17}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -1054,6 +1099,16 @@ export default function OrdenCompraPage() {
                                   <FileText className="h-4 w-4" />
                                 </a>
                               </TableCell>
+                              <TableCell className="text-xs text-center">
+                                <button
+                                  onClick={() => orden.id_orden_compra && handleDeleteOrdenCompra(orden.id_orden_compra)}
+                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
+                                  title="Eliminar"
+                                  disabled={!orden.id_orden_compra}
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </TableCell>
                             </TableRow>
                           ))
                         )}
@@ -1122,13 +1177,16 @@ export default function OrdenCompraPage() {
                           <TableHead className="text-xs font-bold text-center">
                             PDF
                           </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Acciones
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {ordenesServicio.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={16}
+                              colSpan={17}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -1236,6 +1294,16 @@ export default function OrdenCompraPage() {
                                 >
                                   <FileText className="h-4 w-4" />
                                 </a>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                <button
+                                  onClick={() => orden.id_orden_servicio && handleDeleteOrdenServicio(orden.id_orden_servicio)}
+                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
+                                  title="Eliminar"
+                                  disabled={!orden.id_orden_servicio}
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
                               </TableCell>
                             </TableRow>
                           ))

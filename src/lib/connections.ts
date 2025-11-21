@@ -3259,6 +3259,16 @@ export const ordenesCompraApi = {
       };
     }
   },
+
+  // Eliminar una orden de compra
+  delete: async (id: number): Promise<void> => {
+    try {
+      await api.delete(`/ordenes-compra/${id}`);
+    } catch (error) {
+      console.error("Error eliminando orden de compra:", error);
+      throw error;
+    }
+  },
 };
 
 // ============ ORDENES SERVICIO API ============
@@ -3355,6 +3365,16 @@ export const ordenesServicioApi = {
         tipo_cambio: 0,
         fecha: new Date().toISOString().split("T")[0],
       };
+    }
+  },
+
+  // Eliminar una orden de servicio
+  delete: async (id: number): Promise<void> => {
+    try {
+      await api.delete(`/ordenes-servicio/${id}`);
+    } catch (error) {
+      console.error("Error eliminando orden de servicio:", error);
+      throw error;
     }
   },
 };
