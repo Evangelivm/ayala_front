@@ -3183,6 +3183,7 @@ export interface OrdenCompraData {
   auto_administrador?: number;
   auto_contabilidad?: number;
   has_anticipo?: number;
+  nombre_proveedor?: string; // Nombre del proveedor desde la relación
   items: Array<{
     codigo_item: string;
     descripcion_item: string;
@@ -3280,6 +3281,7 @@ export interface OrdenServicioData {
   auto_administrador?: number;
   auto_contabilidad?: number;
   has_anticipo?: number;
+  nombre_proveedor?: string; // Nombre del proveedor desde la relación
   items: Array<{
     codigo_item: string;
     descripcion_item: string;

@@ -97,6 +97,7 @@ export default function OrdenCompraPage() {
     razonSocial: "",
     retencionProveedor: "",
     almacenCentral: false, // Checkbox Almacén Central
+    anticipo: false, // Checkbox Anticipo
     serie: "0001",
     nroDoc: "",
     fechaEmision: new Date(),
@@ -731,9 +732,10 @@ export default function OrdenCompraPage() {
         centro_costo_nivel1: nuevaOrdenData.centroCostoNivel1Codigo,
         centro_costo_nivel2: nuevaOrdenData.centroCostoNivel2Codigo,
         centro_costo_nivel3: nuevaOrdenData.centroCostoNivel3Codigo,
-        unidad_id: nuevaOrdenData.unidad_id || null,
+        unidad_id: nuevaOrdenData.unidad_id > 0 ? nuevaOrdenData.unidad_id : null,
         retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
         almacen_central: nuevaOrdenData.almacenCentral ? "SI" : "NO",
+        has_anticipo: nuevaOrdenData.anticipo ? 1 : 0,
         items: itemsParaBackend,
         subtotal: nuevaOrdenData.subtotal,
         igv: nuevaOrdenData.igv,
@@ -786,6 +788,7 @@ export default function OrdenCompraPage() {
       razonSocial: "",
       retencionProveedor: "",
       almacenCentral: false,
+      anticipo: false,
       serie: "0001",
       nroDoc: "",
       fechaEmision: new Date(),
@@ -927,8 +930,8 @@ export default function OrdenCompraPage() {
                           <TableHead className="text-xs font-bold text-center">
                             Auto Contab.
                           </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Has Anticipo
+                          <TableHead className="text-xs font-bold">
+                            Proveedor
                           </TableHead>
                           <TableHead className="text-xs font-bold">
                             Observaciones
@@ -1028,8 +1031,10 @@ export default function OrdenCompraPage() {
                               <TableCell className="text-xs text-center">
                                 {orden.auto_contabilidad === 1 ? "Procede" : orden.auto_contabilidad === 0 ? "No procede" : "-"}
                               </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.has_anticipo === 1 ? "Procede" : orden.has_anticipo === 0 ? "No procede" : "-"}
+                              <TableCell className="text-xs">
+                                {orden.nombre_proveedor || (
+                                  <span className="text-gray-400 italic">Sin proveedor</span>
+                                )}
                               </TableCell>
                               <TableCell className="text-xs">
                                 {orden.observaciones ? (
@@ -1108,8 +1113,8 @@ export default function OrdenCompraPage() {
                           <TableHead className="text-xs font-bold text-center">
                             Auto Contab.
                           </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Has Anticipo
+                          <TableHead className="text-xs font-bold">
+                            Proveedor
                           </TableHead>
                           <TableHead className="text-xs font-bold">
                             Observaciones
@@ -1209,8 +1214,10 @@ export default function OrdenCompraPage() {
                               <TableCell className="text-xs text-center">
                                 {orden.auto_contabilidad === 1 ? "Procede" : orden.auto_contabilidad === 0 ? "No procede" : "-"}
                               </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.has_anticipo === 1 ? "Procede" : orden.has_anticipo === 0 ? "No procede" : "-"}
+                              <TableCell className="text-xs">
+                                {orden.nombre_proveedor || (
+                                  <span className="text-gray-400 italic">Sin proveedor</span>
+                                )}
                               </TableCell>
                               <TableCell className="text-xs">
                                 {orden.observaciones ? (
@@ -2058,25 +2065,47 @@ export default function OrdenCompraPage() {
                         <Label className="text-xs font-semibold mb-2 block">
                           Opciones
                         </Label>
-                        <div className="flex items-center space-x-2 h-8">
-                          <input
-                            type="checkbox"
-                            id="almacen-central"
-                            checked={nuevaOrdenData.almacenCentral}
-                            onChange={(e) =>
-                              handleNuevaOrdenInputChange(
-                                "almacenCentral",
-                                e.target.checked
-                              )
-                            }
-                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <label
-                            htmlFor="almacen-central"
-                            className="text-xs font-medium text-gray-700 cursor-pointer"
-                          >
-                            Almacén Central
-                          </label>
+                        <div className="flex flex-col space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="almacen-central"
+                              checked={nuevaOrdenData.almacenCentral}
+                              onChange={(e) =>
+                                handleNuevaOrdenInputChange(
+                                  "almacenCentral",
+                                  e.target.checked
+                                )
+                              }
+                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label
+                              htmlFor="almacen-central"
+                              className="text-xs font-medium text-gray-700 cursor-pointer"
+                            >
+                              Almacén Central
+                            </label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="anticipo"
+                              checked={nuevaOrdenData.anticipo}
+                              onChange={(e) =>
+                                handleNuevaOrdenInputChange(
+                                  "anticipo",
+                                  e.target.checked
+                                )
+                              }
+                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label
+                              htmlFor="anticipo"
+                              className="text-xs font-medium text-gray-700 cursor-pointer"
+                            >
+                              Anticipo
+                            </label>
+                          </div>
                         </div>
                       </div>
                       <div className="col-span-2">
@@ -2305,19 +2334,29 @@ export default function OrdenCompraPage() {
                                 </TableCell>
                                 <TableCell>
                                   <Input
-                                    type="number"
+                                    type="text"
                                     value={item.cantidad_solicitada}
-                                    onChange={(e) =>
-                                      handleItemChange(
-                                        index,
-                                        "cantidad_solicitada",
-                                        parseFloat(e.target.value) || 0
-                                      )
-                                    }
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      // Permitir solo números enteros (sin puntos ni comas)
+                                      if (value === '' || /^\d+$/.test(value)) {
+                                        handleItemChange(
+                                          index,
+                                          "cantidad_solicitada",
+                                          value === '' ? 0 : parseInt(value)
+                                        );
+                                      }
+                                    }}
+                                    onKeyPress={(e) => {
+                                      // Bloquear cualquier tecla que no sea un número
+                                      if (!/[0-9]/.test(e.key)) {
+                                        e.preventDefault();
+                                      }
+                                    }}
                                     className="h-8 text-xs border border-gray-300 p-2 text-center rounded"
-                                    min="0"
-                                    step="0.01"
                                     required
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                   />
                                 </TableCell>
                                 <TableCell>
