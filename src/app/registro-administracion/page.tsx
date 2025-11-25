@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -32,8 +32,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWebSocket } from "@/lib/useWebSocket";
 
-export default function RegistroGerenciaFinanzasPage() {
+export default function RegistroAdministracionPage() {
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
   const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
 
@@ -47,6 +48,18 @@ export default function RegistroGerenciaFinanzasPage() {
     loadOrdenesCompra();
     loadOrdenesServicio();
   }, []);
+
+  // WebSocket: Escuchar actualizaciones en tiempo real
+  const handleOrdenCompraUpdate = useCallback(() => {
+    loadOrdenesCompra();
+  }, []);
+
+  const handleOrdenServicioUpdate = useCallback(() => {
+    loadOrdenesServicio();
+  }, []);
+
+  useWebSocket('ordenCompraUpdated', handleOrdenCompraUpdate);
+  useWebSocket('ordenServicioUpdated', handleOrdenServicioUpdate);
 
   const loadOrdenesCompra = async () => {
     try {
@@ -158,10 +171,10 @@ export default function RegistroGerenciaFinanzasPage() {
         <div className="mx-auto w-full">
           <div className="mb-6">
             <h1 className="text-3xl font-bold tracking-tight">
-              Registro de Gerencia de Finanzas
+              Registro de Administración
             </h1>
             <p className="text-muted-foreground">
-              Autorizaciones - Gerencia de Finanzas
+              Autorizaciones - Administración
             </p>
           </div>
 
@@ -246,7 +259,7 @@ export default function RegistroGerenciaFinanzasPage() {
             <TabsContent value="compra" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Órdenes de Compra - Autorizaciones - Gerencia de Finanzas</CardTitle>
+                  <CardTitle>Órdenes de Compra - Autorizaciones - Administración</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="border rounded-lg">
@@ -356,8 +369,12 @@ export default function RegistroGerenciaFinanzasPage() {
                                       : orden.estado === "APROBADA"
                                         ? "bg-green-100 text-green-800"
                                         : orden.estado === "COMPLETADA"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : "bg-gray-100 text-gray-800"
+                                          ? "bg-purple-100 text-purple-800"
+                                          : orden.estado === "CANCELADA"
+                                            ? "bg-red-100 text-red-800"
+                                            : orden.estado === "FIRMADA"
+                                              ? "bg-indigo-100 text-indigo-800"
+                                              : "bg-gray-100 text-gray-800"
                                   }`}
                                 >
                                   {orden.estado}
@@ -368,16 +385,28 @@ export default function RegistroGerenciaFinanzasPage() {
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
                                     SÍ
                                   </span>
-                                ) : orden.tiene_anticipo === "NO" ? (
+                                ) : (
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                                     NO
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.procede_pago ? (
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.procede_pago === "TRANSFERIR"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : orden.procede_pago === "PAGAR"
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.procede_pago}
                                   </span>
                                 ) : (
                                   "-"
                                 )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.procede_pago || "-"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.auto_administrador === true ? (
@@ -445,7 +474,7 @@ export default function RegistroGerenciaFinanzasPage() {
             <TabsContent value="servicio" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Órdenes de Servicio - Autorizaciones - Gerencia de Finanzas</CardTitle>
+                  <CardTitle>Órdenes de Servicio - Autorizaciones - Administración</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="border rounded-lg">
@@ -555,8 +584,12 @@ export default function RegistroGerenciaFinanzasPage() {
                                       : orden.estado === "APROBADA"
                                         ? "bg-green-100 text-green-800"
                                         : orden.estado === "COMPLETADA"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : "bg-gray-100 text-gray-800"
+                                          ? "bg-purple-100 text-purple-800"
+                                          : orden.estado === "CANCELADA"
+                                            ? "bg-red-100 text-red-800"
+                                            : orden.estado === "FIRMADA"
+                                              ? "bg-indigo-100 text-indigo-800"
+                                              : "bg-gray-100 text-gray-800"
                                   }`}
                                 >
                                   {orden.estado}
@@ -567,16 +600,28 @@ export default function RegistroGerenciaFinanzasPage() {
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
                                     SÍ
                                   </span>
-                                ) : orden.tiene_anticipo === "NO" ? (
+                                ) : (
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                                     NO
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.procede_pago ? (
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.procede_pago === "TRANSFERIR"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : orden.procede_pago === "PAGAR"
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.procede_pago}
                                   </span>
                                 ) : (
                                   "-"
                                 )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.procede_pago || "-"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.auto_administrador === true ? (

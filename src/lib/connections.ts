@@ -3290,6 +3290,16 @@ export const ordenesCompraApi = {
     }
   },
 
+  // Transferir orden de compra (Gerencia)
+  transferir: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/transferir`);
+    } catch (error) {
+      console.error("Error transfiriendo orden de compra:", error);
+      throw error;
+    }
+  },
+
   // Pagar orden de compra
   pagar: async (id: number): Promise<void> => {
     try {
@@ -3424,6 +3434,16 @@ export const ordenesServicioApi = {
       await api.patch(`/ordenes-servicio/${id}/aprobar-administrador`);
     } catch (error) {
       console.error("Error aprobando orden de servicio para administración:", error);
+      throw error;
+    }
+  },
+
+  // Transferir orden de servicio (Gerencia)
+  transferir: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/transferir`);
+    } catch (error) {
+      console.error("Error transfiriendo orden de servicio:", error);
       throw error;
     }
   },

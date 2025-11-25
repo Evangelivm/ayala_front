@@ -1070,12 +1070,10 @@ export default function OrdenCompraPage() {
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
                                     SÍ
                                   </span>
-                                ) : orden.tiene_anticipo === "NO" ? (
+                                ) : (
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                                     NO
                                   </span>
-                                ) : (
-                                  "-"
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
@@ -1296,12 +1294,10 @@ export default function OrdenCompraPage() {
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
                                     SÍ
                                   </span>
-                                ) : orden.tiene_anticipo === "NO" ? (
+                                ) : (
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                                     NO
                                   </span>
-                                ) : (
-                                  "-"
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 export default function RegistroContabilidadPage() {
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
@@ -42,13 +43,8 @@ export default function RegistroContabilidadPage() {
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
   const [filtroContabilidad, setFiltroContabilidad] = useState<string>("TODOS");
 
-  // Cargar órdenes al montar el componente
-  useEffect(() => {
-    loadOrdenesCompra();
-    loadOrdenesServicio();
-  }, []);
-
-  const loadOrdenesCompra = async () => {
+  // Funciones para cargar órdenes
+  const loadOrdenesCompra = useCallback(async () => {
     try {
       const data = await ordenesCompraApi.getAll();
       setOrdenesCompra(data);
@@ -56,9 +52,9 @@ export default function RegistroContabilidadPage() {
       console.error("Error loading ordenes compra:", error);
       setOrdenesCompra([]);
     }
-  };
+  }, []);
 
-  const loadOrdenesServicio = async () => {
+  const loadOrdenesServicio = useCallback(async () => {
     try {
       const data = await ordenesServicioApi.getAll();
       setOrdenesServicio(data);
@@ -66,7 +62,25 @@ export default function RegistroContabilidadPage() {
       console.error("Error loading ordenes servicio:", error);
       setOrdenesServicio([]);
     }
-  };
+  }, []);
+
+  // Cargar órdenes al montar el componente
+  useEffect(() => {
+    loadOrdenesCompra();
+    loadOrdenesServicio();
+  }, [loadOrdenesCompra, loadOrdenesServicio]);
+
+  // WebSocket: Escuchar actualizaciones en tiempo real
+  const handleOrdenCompraUpdate = useCallback(() => {
+    loadOrdenesCompra();
+  }, [loadOrdenesCompra]);
+
+  const handleOrdenServicioUpdate = useCallback(() => {
+    loadOrdenesServicio();
+  }, [loadOrdenesServicio]);
+
+  useWebSocket('ordenCompraUpdated', handleOrdenCompraUpdate);
+  useWebSocket('ordenServicioUpdated', handleOrdenServicioUpdate);
 
   // Función para aprobar orden de compra
   const handleAprobarOrdenCompra = async (id: number) => {
@@ -356,8 +370,12 @@ export default function RegistroContabilidadPage() {
                                       : orden.estado === "APROBADA"
                                         ? "bg-green-100 text-green-800"
                                         : orden.estado === "COMPLETADA"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : "bg-gray-100 text-gray-800"
+                                          ? "bg-purple-100 text-purple-800"
+                                          : orden.estado === "CANCELADA"
+                                            ? "bg-red-100 text-red-800"
+                                            : orden.estado === "FIRMADA"
+                                              ? "bg-indigo-100 text-indigo-800"
+                                              : "bg-gray-100 text-gray-800"
                                   }`}
                                 >
                                   {orden.estado}
@@ -368,16 +386,24 @@ export default function RegistroContabilidadPage() {
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
                                     SÍ
                                   </span>
-                                ) : orden.tiene_anticipo === "NO" ? (
+                                ) : (
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                                     NO
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.procede_pago === "TRANSFERIR" ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                    TRANSFERIDO
+                                  </span>
+                                ) : orden.procede_pago === "PAGAR" ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    ORDENAR PAGO
                                   </span>
                                 ) : (
                                   "-"
                                 )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.procede_pago || "-"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.auto_administrador === true ? (
@@ -555,8 +581,12 @@ export default function RegistroContabilidadPage() {
                                       : orden.estado === "APROBADA"
                                         ? "bg-green-100 text-green-800"
                                         : orden.estado === "COMPLETADA"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : "bg-gray-100 text-gray-800"
+                                          ? "bg-purple-100 text-purple-800"
+                                          : orden.estado === "CANCELADA"
+                                            ? "bg-red-100 text-red-800"
+                                            : orden.estado === "FIRMADA"
+                                              ? "bg-indigo-100 text-indigo-800"
+                                              : "bg-gray-100 text-gray-800"
                                   }`}
                                 >
                                   {orden.estado}
@@ -567,16 +597,24 @@ export default function RegistroContabilidadPage() {
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
                                     SÍ
                                   </span>
-                                ) : orden.tiene_anticipo === "NO" ? (
+                                ) : (
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                                     NO
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.procede_pago === "TRANSFERIR" ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                    TRANSFERIDO
+                                  </span>
+                                ) : orden.procede_pago === "PAGAR" ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    ORDENAR PAGO
                                   </span>
                                 ) : (
                                   "-"
                                 )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.procede_pago || "-"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.auto_administrador === true ? (

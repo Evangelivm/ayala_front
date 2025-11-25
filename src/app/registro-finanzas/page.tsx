@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 export default function RegistroFinanzasPage() {
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
@@ -47,6 +48,18 @@ export default function RegistroFinanzasPage() {
     loadOrdenesCompra();
     loadOrdenesServicio();
   }, []);
+
+  // WebSocket: Escuchar actualizaciones en tiempo real
+  const handleOrdenCompraUpdate = useCallback(() => {
+    loadOrdenesCompra();
+  }, []);
+
+  const handleOrdenServicioUpdate = useCallback(() => {
+    loadOrdenesServicio();
+  }, []);
+
+  useWebSocket('ordenCompraUpdated', handleOrdenCompraUpdate);
+  useWebSocket('ordenServicioUpdated', handleOrdenServicioUpdate);
 
   const loadOrdenesCompra = async () => {
     try {
@@ -434,9 +447,9 @@ export default function RegistroFinanzasPage() {
                               <TableCell className="text-xs text-center">
                                 <button
                                   onClick={() => orden.id_orden_compra && handlePagarOrdenCompra(orden.id_orden_compra)}
-                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold"
+                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Pagar"
-                                  disabled={!orden.id_orden_compra || orden.procede_pago === "PAGAR"}
+                                  disabled={!orden.id_orden_compra || orden.procede_pago === "PAGAR" || orden.auto_administrador !== true || orden.auto_contabilidad !== true}
                                 >
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Pagar
@@ -643,9 +656,9 @@ export default function RegistroFinanzasPage() {
                               <TableCell className="text-xs text-center">
                                 <button
                                   onClick={() => orden.id_orden_servicio && handlePagarOrdenServicio(orden.id_orden_servicio)}
-                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold"
+                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Pagar"
-                                  disabled={!orden.id_orden_servicio || orden.procede_pago === "PAGAR"}
+                                  disabled={!orden.id_orden_servicio || orden.procede_pago === "PAGAR" || orden.auto_administrador !== true || orden.auto_contabilidad !== true}
                                 >
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Pagar

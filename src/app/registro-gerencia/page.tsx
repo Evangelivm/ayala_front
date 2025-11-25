@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 export default function RegistroGerenciaPage() {
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
@@ -42,13 +43,8 @@ export default function RegistroGerenciaPage() {
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
   const [filtroAdministracion, setFiltroAdministracion] = useState<string>("TODOS");
 
-  // Cargar órdenes al montar el componente
-  useEffect(() => {
-    loadOrdenesCompra();
-    loadOrdenesServicio();
-  }, []);
-
-  const loadOrdenesCompra = async () => {
+  // Funciones para cargar órdenes
+  const loadOrdenesCompra = useCallback(async () => {
     try {
       const data = await ordenesCompraApi.getAll();
       setOrdenesCompra(data);
@@ -56,9 +52,9 @@ export default function RegistroGerenciaPage() {
       console.error("Error loading ordenes compra:", error);
       setOrdenesCompra([]);
     }
-  };
+  }, []);
 
-  const loadOrdenesServicio = async () => {
+  const loadOrdenesServicio = useCallback(async () => {
     try {
       const data = await ordenesServicioApi.getAll();
       setOrdenesServicio(data);
@@ -66,7 +62,25 @@ export default function RegistroGerenciaPage() {
       console.error("Error loading ordenes servicio:", error);
       setOrdenesServicio([]);
     }
-  };
+  }, []);
+
+  // Cargar órdenes al montar el componente
+  useEffect(() => {
+    loadOrdenesCompra();
+    loadOrdenesServicio();
+  }, [loadOrdenesCompra, loadOrdenesServicio]);
+
+  // WebSocket: Escuchar actualizaciones en tiempo real
+  const handleOrdenCompraUpdate = useCallback(() => {
+    loadOrdenesCompra();
+  }, [loadOrdenesCompra]);
+
+  const handleOrdenServicioUpdate = useCallback(() => {
+    loadOrdenesServicio();
+  }, [loadOrdenesServicio]);
+
+  useWebSocket('ordenCompraUpdated', handleOrdenCompraUpdate);
+  useWebSocket('ordenServicioUpdated', handleOrdenServicioUpdate);
 
   // Función para transferir orden de compra
   const handleTransferirOrdenCompra = async (id: number) => {
@@ -76,7 +90,7 @@ export default function RegistroGerenciaPage() {
 
     try {
       toast.loading("Transfiriendo orden de compra...");
-      await ordenesCompraApi.aprobarAdministrador(id);
+      await ordenesCompraApi.transferir(id);
       toast.dismiss();
       toast.success("Orden de compra transferida exitosamente");
       loadOrdenesCompra();
@@ -97,7 +111,7 @@ export default function RegistroGerenciaPage() {
 
     try {
       toast.loading("Transfiriendo orden de servicio...");
-      await ordenesServicioApi.aprobarAdministrador(id);
+      await ordenesServicioApi.transferir(id);
       toast.dismiss();
       toast.success("Orden de servicio transferida exitosamente");
       loadOrdenesServicio();
@@ -368,12 +382,10 @@ export default function RegistroGerenciaPage() {
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
                                     SÍ
                                   </span>
-                                ) : orden.tiene_anticipo === "NO" ? (
+                                ) : (
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                                     NO
                                   </span>
-                                ) : (
-                                  "-"
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
@@ -434,9 +446,9 @@ export default function RegistroGerenciaPage() {
                               <TableCell className="text-xs text-center">
                                 <button
                                   onClick={() => orden.id_orden_compra && handleTransferirOrdenCompra(orden.id_orden_compra)}
-                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold"
+                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Transferir"
-                                  disabled={!orden.id_orden_compra || orden.procede_pago === "TRANSFERIR"}
+                                  disabled={!orden.id_orden_compra || orden.procede_pago === "TRANSFERIR" || orden.auto_administrador !== true || orden.auto_contabilidad !== true}
                                 >
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Transferir
@@ -577,12 +589,10 @@ export default function RegistroGerenciaPage() {
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
                                     SÍ
                                   </span>
-                                ) : orden.tiene_anticipo === "NO" ? (
+                                ) : (
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                                     NO
                                   </span>
-                                ) : (
-                                  "-"
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
@@ -643,9 +653,9 @@ export default function RegistroGerenciaPage() {
                               <TableCell className="text-xs text-center">
                                 <button
                                   onClick={() => orden.id_orden_servicio && handleTransferirOrdenServicio(orden.id_orden_servicio)}
-                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold"
+                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Transferir"
-                                  disabled={!orden.id_orden_servicio || orden.procede_pago === "TRANSFERIR"}
+                                  disabled={!orden.id_orden_servicio || orden.procede_pago === "TRANSFERIR" || orden.auto_administrador !== true || orden.auto_contabilidad !== true}
                                 >
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Transferir
