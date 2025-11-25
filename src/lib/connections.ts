@@ -3180,8 +3180,8 @@ export interface OrdenCompraData {
   unidad_id?: number | null;
   tiene_anticipo?: string | number;
   procede_pago?: string | number;
-  auto_administrador?: number;
-  auto_contabilidad?: number;
+  auto_administrador?: boolean;
+  auto_contabilidad?: boolean;
   has_anticipo?: number;
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
   items: Array<{
@@ -3269,6 +3269,36 @@ export const ordenesCompraApi = {
       throw error;
     }
   },
+
+  // Aprobar orden de compra para contabilidad
+  aprobarContabilidad: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/aprobar-contabilidad`);
+    } catch (error) {
+      console.error("Error aprobando orden de compra para contabilidad:", error);
+      throw error;
+    }
+  },
+
+  // Aprobar orden de compra para administración
+  aprobarAdministrador: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/aprobar-administrador`);
+    } catch (error) {
+      console.error("Error aprobando orden de compra para administración:", error);
+      throw error;
+    }
+  },
+
+  // Pagar orden de compra
+  pagar: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/pagar`);
+    } catch (error) {
+      console.error("Error pagando orden de compra:", error);
+      throw error;
+    }
+  },
 };
 
 // ============ ORDENES SERVICIO API ============
@@ -3288,8 +3318,8 @@ export interface OrdenServicioData {
   retencion?: string;
   tiene_anticipo?: string | number;
   procede_pago?: string | number;
-  auto_administrador?: number;
-  auto_contabilidad?: number;
+  auto_administrador?: boolean;
+  auto_contabilidad?: boolean;
   has_anticipo?: number;
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
   items: Array<{
@@ -3376,6 +3406,50 @@ export const ordenesServicioApi = {
       console.error("Error eliminando orden de servicio:", error);
       throw error;
     }
+  },
+
+  // Aprobar orden de servicio para contabilidad
+  aprobarContabilidad: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/aprobar-contabilidad`);
+    } catch (error) {
+      console.error("Error aprobando orden de servicio para contabilidad:", error);
+      throw error;
+    }
+  },
+
+  // Aprobar orden de servicio para administración
+  aprobarAdministrador: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/aprobar-administrador`);
+    } catch (error) {
+      console.error("Error aprobando orden de servicio para administración:", error);
+      throw error;
+    }
+  },
+
+  // Pagar orden de servicio
+  pagar: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/pagar`);
+    } catch (error) {
+      console.error("Error pagando orden de servicio:", error);
+      throw error;
+    }
+  },
+};
+
+// ============ URL HELPERS ============
+// Funciones helper para generar URLs que necesitan acceso directo a archivos (PDFs, etc.)
+export const urlHelpers = {
+  // Obtener URL del PDF de orden de compra
+  getOrdenCompraPdfUrl: (idOrdenCompra: number): string => {
+    return `${API_BASE_URL}/ordenes-compra/pdf/${idOrdenCompra}`;
+  },
+
+  // Obtener URL del PDF de orden de servicio
+  getOrdenServicioPdfUrl: (idOrdenServicio: number): string => {
+    return `${API_BASE_URL}/ordenes-servicio/pdf/${idOrdenServicio}`;
   },
 };
 

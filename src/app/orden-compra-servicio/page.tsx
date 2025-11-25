@@ -22,6 +22,7 @@ import {
   type OrdenCompraData,
   ordenesServicioApi,
   type OrdenServicioData,
+  urlHelpers,
 } from "@/lib/connections";
 import {
   Dialog,
@@ -64,7 +65,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function OrdenCompraPage() {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCentroCostoModalOpen, setIsCentroCostoModalOpen] = useState(false);
   const [isNuevaOrdenModalOpen, setIsNuevaOrdenModalOpen] = useState(false);
@@ -736,6 +736,7 @@ export default function OrdenCompraPage() {
         retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
         almacen_central: nuevaOrdenData.almacenCentral ? "SI" : "NO",
         has_anticipo: nuevaOrdenData.anticipo ? 1 : 0,
+        tiene_anticipo: nuevaOrdenData.anticipo ? "SI" : "NO",
         items: itemsParaBackend,
         subtotal: nuevaOrdenData.subtotal,
         igv: nuevaOrdenData.igv,
@@ -1065,16 +1066,46 @@ export default function OrdenCompraPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                {orden.tiene_anticipo || "-"}
+                                {orden.tiene_anticipo === "SI" ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    SÍ
+                                  </span>
+                                ) : orden.tiene_anticipo === "NO" ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                    NO
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.procede_pago || "-"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                {orden.auto_administrador === 1 ? "Procede" : orden.auto_administrador === 0 ? "No procede" : "-"}
+                                {orden.auto_administrador === true ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    APROBADO
+                                  </span>
+                                ) : orden.auto_administrador === false ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                    PENDIENTE
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                {orden.auto_contabilidad === 1 ? "Procede" : orden.auto_contabilidad === 0 ? "No procede" : "-"}
+                                {orden.auto_contabilidad === true ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    APROBADO
+                                  </span>
+                                ) : orden.auto_contabilidad === false ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                    PENDIENTE
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
                               </TableCell>
                               <TableCell className="text-xs">
                                 {orden.nombre_proveedor || (
@@ -1090,7 +1121,7 @@ export default function OrdenCompraPage() {
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 <a
-                                  href={`${API_URL}/ordenes-compra/pdf/${orden.id_orden_compra}`}
+                                  href={orden.id_orden_compra ? urlHelpers.getOrdenCompraPdfUrl(orden.id_orden_compra) : '#'}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
@@ -1261,16 +1292,46 @@ export default function OrdenCompraPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                {orden.tiene_anticipo || "-"}
+                                {orden.tiene_anticipo === "SI" ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    SÍ
+                                  </span>
+                                ) : orden.tiene_anticipo === "NO" ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                    NO
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.procede_pago || "-"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                {orden.auto_administrador === 1 ? "Procede" : orden.auto_administrador === 0 ? "No procede" : "-"}
+                                {orden.auto_administrador === true ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    APROBADO
+                                  </span>
+                                ) : orden.auto_administrador === false ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                    PENDIENTE
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                {orden.auto_contabilidad === 1 ? "Procede" : orden.auto_contabilidad === 0 ? "No procede" : "-"}
+                                {orden.auto_contabilidad === true ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    APROBADO
+                                  </span>
+                                ) : orden.auto_contabilidad === false ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                    PENDIENTE
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
                               </TableCell>
                               <TableCell className="text-xs">
                                 {orden.nombre_proveedor || (
@@ -1286,7 +1347,7 @@ export default function OrdenCompraPage() {
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 <a
-                                  href={`${API_URL}/ordenes-servicio/pdf/${orden.id_orden_servicio}`}
+                                  href={orden.id_orden_servicio ? urlHelpers.getOrdenServicioPdfUrl(orden.id_orden_servicio) : '#'}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
