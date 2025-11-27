@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, FileText, CheckCircle, Search, Filter } from "lucide-react";
+import { ClipboardList, FileText, CheckCircle, Search, Filter, Upload, X } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -33,6 +33,14 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWebSocket } from "@/lib/useWebSocket";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function RegistroGerenciaPage() {
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
@@ -42,6 +50,12 @@ export default function RegistroGerenciaPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
   const [filtroAdministracion, setFiltroAdministracion] = useState<string>("TODOS");
+
+  // Estados para el diálogo de subida de archivos
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [currentOrdenId, setCurrentOrdenId] = useState<number | null>(null);
+  const [currentOrdenType, setCurrentOrdenType] = useState<"compra" | "servicio" | null>(null);
 
   // Funciones para cargar órdenes
   const loadOrdenesCompra = useCallback(async () => {
@@ -119,6 +133,60 @@ export default function RegistroGerenciaPage() {
       console.error("Error al transferir orden de servicio:", error);
       toast.dismiss();
       toast.error("Error al transferir la orden de servicio", {
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
+  // Función para abrir el diálogo de subida
+  const handleOpenUploadDialog = (ordenId: number, type: "compra" | "servicio") => {
+    setCurrentOrdenId(ordenId);
+    setCurrentOrdenType(type);
+    setIsUploadDialogOpen(true);
+  };
+
+  // Función para cerrar el diálogo de subida
+  const handleCloseUploadDialog = () => {
+    setIsUploadDialogOpen(false);
+    setSelectedFile(null);
+    setCurrentOrdenId(null);
+    setCurrentOrdenType(null);
+  };
+
+  // Función para manejar la selección de archivo
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  // Función para confirmar la subida del archivo
+  const handleConfirmUpload = async () => {
+    if (!selectedFile || !currentOrdenId || !currentOrdenType) {
+      toast.error("No se ha seleccionado un archivo");
+      return;
+    }
+
+    try {
+      toast.loading("Subiendo archivo...");
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      if (currentOrdenType === "compra") {
+        await ordenesCompraApi.uploadFile(currentOrdenId, formData);
+      } else {
+        await ordenesServicioApi.uploadFile(currentOrdenId, formData);
+      }
+
+      toast.dismiss();
+      toast.success("Archivo subido exitosamente");
+      handleCloseUploadDialog();
+    } catch (error) {
+      console.error("Error al subir archivo:", error);
+      toast.dismiss();
+      toast.error("Error al subir el archivo", {
         description: error instanceof Error ? error.message : "Error desconocido",
       });
     }
@@ -444,15 +512,26 @@ export default function RegistroGerenciaPage() {
                                 </a>
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                <button
-                                  onClick={() => orden.id_orden_compra && handleTransferirOrdenCompra(orden.id_orden_compra)}
-                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="Transferir"
-                                  disabled={!orden.id_orden_compra || orden.procede_pago === "TRANSFERIR" || orden.auto_administrador !== true || orden.auto_contabilidad !== true}
-                                >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Transferir
-                                </button>
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => orden.id_orden_compra && handleTransferirOrdenCompra(orden.id_orden_compra)}
+                                    className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Transferir"
+                                    disabled={!orden.id_orden_compra || orden.procede_pago === "TRANSFERIR" || orden.auto_administrador !== true || orden.auto_contabilidad !== true}
+                                  >
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Transferir
+                                  </button>
+                                  <button
+                                    onClick={() => orden.id_orden_compra && handleOpenUploadDialog(orden.id_orden_compra, "compra")}
+                                    className="inline-flex items-center justify-center px-3 h-8 text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Subir archivo"
+                                    disabled={!orden.id_orden_compra}
+                                  >
+                                    <Upload className="h-3 w-3 mr-1" />
+                                    Subir
+                                  </button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))
@@ -651,15 +730,26 @@ export default function RegistroGerenciaPage() {
                                 </a>
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                <button
-                                  onClick={() => orden.id_orden_servicio && handleTransferirOrdenServicio(orden.id_orden_servicio)}
-                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="Transferir"
-                                  disabled={!orden.id_orden_servicio || orden.procede_pago === "TRANSFERIR" || orden.auto_administrador !== true || orden.auto_contabilidad !== true}
-                                >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Transferir
-                                </button>
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => orden.id_orden_servicio && handleTransferirOrdenServicio(orden.id_orden_servicio)}
+                                    className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Transferir"
+                                    disabled={!orden.id_orden_servicio || orden.procede_pago === "TRANSFERIR" || orden.auto_administrador !== true || orden.auto_contabilidad !== true}
+                                  >
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Transferir
+                                  </button>
+                                  <button
+                                    onClick={() => orden.id_orden_servicio && handleOpenUploadDialog(orden.id_orden_servicio, "servicio")}
+                                    className="inline-flex items-center justify-center px-3 h-8 text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Subir archivo"
+                                    disabled={!orden.id_orden_servicio}
+                                  >
+                                    <Upload className="h-3 w-3 mr-1" />
+                                    Subir
+                                  </button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))
@@ -671,6 +761,86 @@ export default function RegistroGerenciaPage() {
               </Card>
             </TabsContent>
           </Tabs>
+
+          {/* Diálogo para subir archivos */}
+          <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Subir Archivo</DialogTitle>
+                <DialogDescription>
+                  Seleccione un archivo para la orden {currentOrdenType === "compra" ? "de compra" : "de servicio"} #{currentOrdenId}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-4">
+                {/* Input de archivo */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                  <input
+                    type="file"
+                    id="file-upload"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="cursor-pointer flex flex-col items-center"
+                  >
+                    <Upload className="h-12 w-12 text-gray-400 mb-3" />
+                    <p className="text-sm font-semibold text-gray-700 mb-1">
+                      Haz clic para seleccionar un archivo
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      PDF, Word, Excel, o Imágenes
+                    </p>
+                  </label>
+                </div>
+
+                {/* Vista previa del archivo seleccionado */}
+                {selectedFile && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-8 w-8 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {selectedFile.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {(selectedFile.size / 1024).toFixed(2)} KB
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedFile(null)}
+                        className="text-gray-400 hover:text-red-600 transition-colors"
+                        title="Eliminar archivo"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={handleCloseUploadDialog}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleConfirmUpload}
+                  disabled={!selectedFile}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Confirmar Subida
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>

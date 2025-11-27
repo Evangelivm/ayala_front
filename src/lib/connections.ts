@@ -3195,6 +3195,7 @@ export interface OrdenCompraData {
   igv: number;
   total: number;
   observaciones?: string;
+  url?: string | null;
 }
 
 export const ordenesCompraApi = {
@@ -3309,6 +3310,33 @@ export const ordenesCompraApi = {
       throw error;
     }
   },
+
+  // Subir archivo para orden de compra
+  uploadFile: async (id: number, formData: FormData): Promise<{
+    success: boolean;
+    message: string;
+    fileUrl: string;
+    filePath: string;
+    fileId: string;
+  }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-compra/${id}/upload`, {
+        method: 'POST',
+        body: formData,
+        // No establecer Content-Type, el navegador lo hará automáticamente con el boundary correcto
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir archivo');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo archivo de orden de compra:", error);
+      throw error;
+    }
+  },
 };
 
 // ============ ORDENES SERVICIO API ============
@@ -3343,6 +3371,7 @@ export interface OrdenServicioData {
   igv: number;
   total: number;
   observaciones?: string;
+  url?: string | null;
 }
 
 export const ordenesServicioApi = {
@@ -3454,6 +3483,33 @@ export const ordenesServicioApi = {
       await api.patch(`/ordenes-servicio/${id}/pagar`);
     } catch (error) {
       console.error("Error pagando orden de servicio:", error);
+      throw error;
+    }
+  },
+
+  // Subir archivo para orden de servicio
+  uploadFile: async (id: number, formData: FormData): Promise<{
+    success: boolean;
+    message: string;
+    fileUrl: string;
+    filePath: string;
+    fileId: string;
+  }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-servicio/${id}/upload`, {
+        method: 'POST',
+        body: formData,
+        // No establecer Content-Type, el navegador lo hará automáticamente con el boundary correcto
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir archivo');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo archivo de orden de servicio:", error);
       throw error;
     }
   },

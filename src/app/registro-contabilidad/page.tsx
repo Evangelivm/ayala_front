@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, FileText, CheckCircle, Search, Filter } from "lucide-react";
+import { ClipboardList, FileText, CheckCircle, Search, Filter, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -310,6 +310,9 @@ export default function RegistroContabilidadPage() {
                             PDF
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Operación
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acción
                           </TableHead>
                         </TableRow>
@@ -318,7 +321,7 @@ export default function RegistroContabilidadPage() {
                         {ordenesFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={15}
+                              colSpan={16}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -448,6 +451,27 @@ export default function RegistroContabilidadPage() {
                                 </a>
                               </TableCell>
                               <TableCell className="text-xs text-center">
+                                {orden.url ? (
+                                  <a
+                                    href={orden.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                                    title="Ver archivo en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-red-400 bg-red-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay archivo subido"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
                                 <button
                                   onClick={() => orden.id_orden_compra && handleAprobarOrdenCompra(orden.id_orden_compra)}
                                   className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold"
@@ -521,6 +545,9 @@ export default function RegistroContabilidadPage() {
                             PDF
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Operación
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acción
                           </TableHead>
                         </TableRow>
@@ -529,7 +556,7 @@ export default function RegistroContabilidadPage() {
                         {ordenesServicioFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={15}
+                              colSpan={16}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -657,6 +684,27 @@ export default function RegistroContabilidadPage() {
                                 >
                                   <FileText className="h-4 w-4" />
                                 </a>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.url ? (
+                                  <a
+                                    href={orden.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                                    title="Ver archivo en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-red-400 bg-red-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay archivo subido"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 <button
