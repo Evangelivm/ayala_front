@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, FileText, CheckCircle, Search, Filter, Upload, X } from "lucide-react";
+import { ClipboardList, FileText, CheckCircle, Search, Filter, Upload, X, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -378,6 +378,9 @@ export default function RegistroGerenciaPage() {
                             PDF
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Operación
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acción
                           </TableHead>
                         </TableRow>
@@ -386,7 +389,7 @@ export default function RegistroGerenciaPage() {
                         {ordenesFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={15}
+                              colSpan={16}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -512,6 +515,27 @@ export default function RegistroGerenciaPage() {
                                 </a>
                               </TableCell>
                               <TableCell className="text-xs text-center">
+                                {orden.url ? (
+                                  <a
+                                    href={orden.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                                    title="Ver archivo en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-red-400 bg-red-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay archivo subido"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
                                 <div className="flex items-center justify-center gap-2">
                                   <button
                                     onClick={() => orden.id_orden_compra && handleTransferirOrdenCompra(orden.id_orden_compra)}
@@ -596,6 +620,9 @@ export default function RegistroGerenciaPage() {
                             PDF
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Operación
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acción
                           </TableHead>
                         </TableRow>
@@ -604,7 +631,7 @@ export default function RegistroGerenciaPage() {
                         {ordenesServicioFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={15}
+                              colSpan={16}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -728,6 +755,27 @@ export default function RegistroGerenciaPage() {
                                 >
                                   <FileText className="h-4 w-4" />
                                 </a>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.url ? (
+                                  <a
+                                    href={orden.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                                    title="Ver archivo en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-red-400 bg-red-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay archivo subido"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 <div className="flex items-center justify-center gap-2">

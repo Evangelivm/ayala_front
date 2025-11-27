@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Trash2, FileText, X } from "lucide-react";
+import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink } from "lucide-react";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -983,6 +983,9 @@ export default function OrdenCompraPage() {
                             PDF
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Operación
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acciones
                           </TableHead>
                         </TableRow>
@@ -991,7 +994,7 @@ export default function OrdenCompraPage() {
                         {ordenesCompra.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={17}
+                              colSpan={18}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -1129,6 +1132,27 @@ export default function OrdenCompraPage() {
                                 </a>
                               </TableCell>
                               <TableCell className="text-xs text-center">
+                                {orden.url ? (
+                                  <a
+                                    href={orden.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                                    title="Ver archivo en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-red-400 bg-red-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay archivo subido"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
                                 <button
                                   onClick={() => orden.id_orden_compra && handleDeleteOrdenCompra(orden.id_orden_compra)}
                                   className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
@@ -1207,6 +1231,9 @@ export default function OrdenCompraPage() {
                             PDF
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Operación
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acciones
                           </TableHead>
                         </TableRow>
@@ -1215,7 +1242,7 @@ export default function OrdenCompraPage() {
                         {ordenesServicio.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={17}
+                              colSpan={18}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -1351,6 +1378,27 @@ export default function OrdenCompraPage() {
                                 >
                                   <FileText className="h-4 w-4" />
                                 </a>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.url ? (
+                                  <a
+                                    href={orden.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                                    title="Ver archivo en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-red-400 bg-red-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay archivo subido"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 <button
