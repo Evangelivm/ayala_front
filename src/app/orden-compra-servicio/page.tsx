@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink } from "lucide-react";
+import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink, Edit } from "lucide-react";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -69,6 +69,7 @@ export default function OrdenCompraPage() {
   const [isCentroCostoModalOpen, setIsCentroCostoModalOpen] = useState(false);
   const [isNuevaOrdenModalOpen, setIsNuevaOrdenModalOpen] = useState(false);
   const [tipoOrden, setTipoOrden] = useState<"compra" | "servicio">("compra"); // Controla qué tipo de orden se está creando
+  const [ordenEditandoId, setOrdenEditandoId] = useState<number | null>(null); // ID de la orden que se está editando
   const [isNuevoCentroCostoModalOpen, setIsNuevoCentroCostoModalOpen] = useState(false);
   const [isCentroCostoListModalOpen, setIsCentroCostoListModalOpen] = useState(false);
   const [isProveedoresModalOpen, setIsProveedoresModalOpen] = useState(false);
@@ -80,6 +81,7 @@ export default function OrdenCompraPage() {
   const [proveedores, setProveedores] = useState<ProveedorData[]>([]);
   const [items, setItems] = useState<ItemData[]>([]);
   const [itemSearchQuery, setItemSearchQuery] = useState("");
+  const [proveedorSearchQuery, setProveedorSearchQuery] = useState("");
   const [centrosCosto, setCentrosCosto] = useState<CentroCostoData[]>([]);
   const [centrosProyecto, setCentrosProyecto] = useState<CentroProyectoData[]>([]);
   const [fases, setFases] = useState<FaseControlData[]>([]);
@@ -156,11 +158,27 @@ export default function OrdenCompraPage() {
     margenFact: ".00",
   });
 
+  // Hook de debounce para optimizar cálculos
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounce = useCallback((fn: () => void, delay: number = 300) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(fn, delay);
+  }, []);
+
   // Cargar camiones y órdenes al montar el componente
   useEffect(() => {
     loadCamiones();
     loadOrdenesCompra();
     loadOrdenesServicio();
+
+    // Limpiar timer de debounce al desmontar
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, []);
 
   // Cargar el siguiente número de orden cuando se abre el modal
@@ -537,6 +555,7 @@ export default function OrdenCompraPage() {
         setTimeout(() => calcularTotales(nuevaOrdenData.items), 0);
         setIsProveedoresModalOpen(false);
         setSelectedProveedor(null);
+        setProveedorSearchQuery("");
       }
     }
   };
@@ -589,8 +608,8 @@ export default function OrdenCompraPage() {
     }
   };
 
-  // Funciones para Nueva Orden
-  const handleNuevaOrdenInputChange = (
+  // Funciones para Nueva Orden (optimizada con useCallback)
+  const handleNuevaOrdenInputChange = useCallback((
     field: string,
     value: string | Date | number | boolean | { porcentaje: number; monto: number }
   ) => {
@@ -600,9 +619,33 @@ export default function OrdenCompraPage() {
     if (field === "moneda" && value === "DOLARES") {
       obtenerTipoCambio();
     }
-  };
+  }, []);
 
-  const handleItemChange = (
+  // Función optimizada para calcular totales (memoizada) - DEBE estar antes de handleItemChange
+  const calcularTotales = useCallback((items: Array<{ subtotal: number }>) => {
+    const subtotalCalculado = items.reduce((acc, item) => acc + (item.subtotal || 0), 0);
+    const igvCalculado = subtotalCalculado * (nuevaOrdenData.igvPorcentaje / 100);
+    const totalCalculado = subtotalCalculado + igvCalculado;
+    const retencionMonto = nuevaOrdenData.aplicarRetencion
+      ? totalCalculado * (nuevaOrdenData.retencion.porcentaje / 100)
+      : 0;
+    const netoAPagarCalculado = totalCalculado - retencionMonto;
+
+    setNuevaOrdenData((prev) => ({
+      ...prev,
+      subtotal: subtotalCalculado,
+      igv: igvCalculado,
+      total: totalCalculado,
+      retencion: {
+        ...prev.retencion,
+        monto: retencionMonto,
+      },
+      netoAPagar: netoAPagarCalculado,
+    }));
+  }, [nuevaOrdenData.igvPorcentaje, nuevaOrdenData.aplicarRetencion, nuevaOrdenData.retencion.porcentaje]);
+
+  // Optimizado con debouncing para evitar cálculos excesivos
+  const handleItemChange = useCallback((
     index: number,
     field: string,
     value: string | number
@@ -621,9 +664,12 @@ export default function OrdenCompraPage() {
       updatedItems[index].subtotal = cantidad * precio;
     }
 
+    // Actualizar estado inmediatamente para UI responsiva
     setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
-    calcularTotales(updatedItems);
-  };
+
+    // Calcular totales con debounce (solo después de que el usuario deje de escribir)
+    debounce(() => calcularTotales(updatedItems), 300);
+  }, [nuevaOrdenData.items, debounce, calcularTotales]);
 
   // Handler para abrir modal de items
   const handleOpenItemsModal = () => {
@@ -670,28 +716,6 @@ export default function OrdenCompraPage() {
     calcularTotales(updatedItems);
   };
 
-  const calcularTotales = (items: Array<{ subtotal: number }>) => {
-    const subtotalCalculado = items.reduce((acc, item) => acc + (item.subtotal || 0), 0);
-    const igvCalculado = subtotalCalculado * (nuevaOrdenData.igvPorcentaje / 100);
-    const totalCalculado = subtotalCalculado + igvCalculado;
-    const retencionMonto = nuevaOrdenData.aplicarRetencion
-      ? totalCalculado * (nuevaOrdenData.retencion.porcentaje / 100)
-      : 0;
-    const netoAPagarCalculado = totalCalculado - retencionMonto;
-
-    setNuevaOrdenData((prev) => ({
-      ...prev,
-      subtotal: subtotalCalculado,
-      igv: igvCalculado,
-      total: totalCalculado,
-      retencion: {
-        ...prev.retencion,
-        monto: retencionMonto,
-      },
-      netoAPagar: netoAPagarCalculado,
-    }));
-  };
-
   const handleNuevaOrdenSave = async () => {
     try {
       // Validaciones básicas
@@ -728,7 +752,7 @@ export default function OrdenCompraPage() {
         fecha_orden: nuevaOrdenData.fechaEmision.toISOString(),
         moneda: nuevaOrdenData.moneda,
         fecha_registro: nuevaOrdenData.fechaServicio.toISOString(),
-        estado: "PENDIENTE",
+        estado: nuevaOrdenData.estado || "PENDIENTE", // Preservar estado al editar
         centro_costo_nivel1: nuevaOrdenData.centroCostoNivel1Codigo,
         centro_costo_nivel2: nuevaOrdenData.centroCostoNivel2Codigo,
         centro_costo_nivel3: nuevaOrdenData.centroCostoNivel3Codigo,
@@ -750,11 +774,16 @@ export default function OrdenCompraPage() {
       const api = tipoOrden === "compra" ? ordenesCompraApi : ordenesServicioApi;
       const tipoTexto = tipoOrden === "compra" ? "compra" : "servicio";
 
+      // Determinar si es creación o actualización
+      const esEdicion = ordenEditandoId !== null;
+
       // Mostrar toast de carga
-      toast.loading(`Creando orden de ${tipoTexto}...`);
+      toast.loading(`${esEdicion ? 'Actualizando' : 'Creando'} orden de ${tipoTexto}...`);
 
       // Enviar al backend usando la API configurada
-      const result = await api.create(ordenParaEnviar);
+      const result = esEdicion
+        ? await api.update(ordenEditandoId, ordenParaEnviar)
+        : await api.create(ordenParaEnviar);
 
       // Cerrar el toast de carga
       toast.dismiss();
@@ -762,7 +791,7 @@ export default function OrdenCompraPage() {
       console.log("Respuesta del servidor:", result);
 
       // Mostrar toast de éxito
-      toast.success(`Orden de ${tipoTexto} creada exitosamente`, {
+      toast.success(`Orden de ${tipoTexto} ${esEdicion ? 'actualizada' : 'creada'} exitosamente`, {
         description: `Número de orden: ${numero_orden}`,
       });
 
@@ -774,9 +803,11 @@ export default function OrdenCompraPage() {
       setIsNuevaOrdenModalOpen(false);
       handleNuevaOrdenCancel();
     } catch (error) {
-      console.error(`Error al guardar orden de ${tipoOrden === "compra" ? "compra" : "servicio"}:`, error);
+      const tipoTexto = tipoOrden === "compra" ? "compra" : "servicio";
+      const esEdicion = ordenEditandoId !== null;
+      console.error(`Error al ${esEdicion ? 'actualizar' : 'guardar'} orden de ${tipoTexto}:`, error);
       toast.dismiss();
-      toast.error(`Error al crear la orden de ${tipoOrden === "compra" ? "compra" : "servicio"}`, {
+      toast.error(`Error al ${esEdicion ? 'actualizar' : 'crear'} la orden de ${tipoTexto}`, {
         description: error instanceof Error ? error.message : "Error desconocido",
       });
     }
@@ -823,6 +854,128 @@ export default function OrdenCompraPage() {
       observacion: "",
     });
     setIsNuevaOrdenModalOpen(false);
+    setOrdenEditandoId(null);
+  };
+
+  // Función para editar una orden de compra
+  const handleEditOrdenCompra = async (orden: OrdenCompraData) => {
+    try {
+      // Extraer serie y número del documento
+      const [serie, nroDoc] = orden.numero_orden.split("-");
+
+      // Cargar los datos en el formulario
+      setNuevaOrdenData({
+        id_proveedor: orden.id_proveedor,
+        nroCliente: orden.ruc_proveedor || "",
+        razonSocial: orden.nombre_proveedor || "",
+        retencionProveedor: "",
+        almacenCentral: false, // No está en el modelo actual
+        anticipo: orden.tiene_anticipo === "SI" || orden.tiene_anticipo === 1,
+        serie: serie || "0001",
+        nroDoc: nroDoc || "",
+        fechaEmision: new Date(orden.fecha_orden),
+        moneda: orden.moneda,
+        tipoCambio: 0,
+        fechaServicio: new Date(orden.fecha_registro),
+        estado: orden.estado,
+        centroCostoNivel1Codigo: orden.centro_costo_nivel1 || "",
+        centroCostoNivel2Codigo: orden.centro_costo_nivel2 || "",
+        centroCostoNivel3Codigo: orden.centro_costo_nivel3 || "",
+        unidad: "",
+        unidad_id: orden.unidad_id || 0,
+        igvPorcentaje: 18, // Calcular desde IGV y subtotal si es necesario
+        aplicarRetencion: false, // Determinar basado en datos
+        retencion: {
+          porcentaje: 3,
+          monto: 0,
+        },
+        items: (orden.items || []).map(item => ({
+          codigo_item: item.codigo_item,
+          descripcion_item: item.descripcion_item,
+          cantidad_solicitada: Number(item.cantidad_solicitada) || 0,
+          unidadMed: "UNIDAD", // Valor por defecto, actualizar si está disponible
+          precio_unitario: Number(item.precio_unitario) || 0,
+          subtotal: Number(item.subtotal) || 0,
+        })),
+        subtotal: Number(orden.subtotal) || 0,
+        igv: Number(orden.igv) || 0,
+        total: Number(orden.total) || 0,
+        netoAPagar: Number(orden.total) || 0,
+        observacion: orden.observaciones || "",
+      });
+
+      // Cargar datos del proveedor si es necesario
+      if (orden.id_proveedor) {
+        await fetchProveedores();
+      }
+
+      setOrdenEditandoId(orden.id_orden_compra || null);
+      setTipoOrden("compra");
+      setIsNuevaOrdenModalOpen(true);
+    } catch (error) {
+      console.error("Error al cargar datos de la orden de compra:", error);
+      toast.error("Error al cargar los datos de la orden");
+    }
+  };
+
+  // Función para editar una orden de servicio
+  const handleEditOrdenServicio = async (orden: OrdenServicioData) => {
+    try {
+      // Extraer serie y número del documento
+      const [serie, nroDoc] = orden.numero_orden.split("-");
+
+      // Cargar los datos en el formulario
+      setNuevaOrdenData({
+        id_proveedor: orden.id_proveedor,
+        nroCliente: orden.ruc_proveedor || "",
+        razonSocial: orden.nombre_proveedor || "",
+        retencionProveedor: "",
+        almacenCentral: false,
+        anticipo: orden.tiene_anticipo === "SI" || orden.tiene_anticipo === 1,
+        serie: serie || "0001",
+        nroDoc: nroDoc || "",
+        fechaEmision: new Date(orden.fecha_orden),
+        moneda: orden.moneda,
+        tipoCambio: 0,
+        fechaServicio: new Date(orden.fecha_registro),
+        estado: orden.estado,
+        centroCostoNivel1Codigo: orden.centro_costo_nivel1 || "",
+        centroCostoNivel2Codigo: orden.centro_costo_nivel2 || "",
+        centroCostoNivel3Codigo: orden.centro_costo_nivel3 || "",
+        unidad: "",
+        unidad_id: orden.unidad_id || 0,
+        igvPorcentaje: 18,
+        aplicarRetencion: false,
+        retencion: {
+          porcentaje: 3,
+          monto: 0,
+        },
+        items: (orden.items || []).map(item => ({
+          codigo_item: item.codigo_item,
+          descripcion_item: item.descripcion_item,
+          cantidad_solicitada: Number(item.cantidad_solicitada) || 0,
+          unidadMed: "UNIDAD",
+          precio_unitario: Number(item.precio_unitario) || 0,
+          subtotal: Number(item.subtotal) || 0,
+        })),
+        subtotal: Number(orden.subtotal) || 0,
+        igv: Number(orden.igv) || 0,
+        total: Number(orden.total) || 0,
+        netoAPagar: Number(orden.total) || 0,
+        observacion: orden.observaciones || "",
+      });
+
+      if (orden.id_proveedor) {
+        await fetchProveedores();
+      }
+
+      setOrdenEditandoId(orden.id_orden_servicio || null);
+      setTipoOrden("servicio");
+      setIsNuevaOrdenModalOpen(true);
+    } catch (error) {
+      console.error("Error al cargar datos de la orden de servicio:", error);
+      toast.error("Error al cargar los datos de la orden");
+    }
   };
 
   // Función para eliminar orden de compra
@@ -1153,14 +1306,23 @@ export default function OrdenCompraPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                <button
-                                  onClick={() => orden.id_orden_compra && handleDeleteOrdenCompra(orden.id_orden_compra)}
-                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
-                                  title="Eliminar"
-                                  disabled={!orden.id_orden_compra}
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleEditOrdenCompra(orden)}
+                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
+                                    title="Editar"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => orden.id_orden_compra && handleDeleteOrdenCompra(orden.id_orden_compra)}
+                                    className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
+                                    title="Eliminar"
+                                    disabled={!orden.id_orden_compra}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))
@@ -1401,14 +1563,23 @@ export default function OrdenCompraPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                <button
-                                  onClick={() => orden.id_orden_servicio && handleDeleteOrdenServicio(orden.id_orden_servicio)}
-                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
-                                  title="Eliminar"
-                                  disabled={!orden.id_orden_servicio}
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleEditOrdenServicio(orden)}
+                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
+                                    title="Editar"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => orden.id_orden_servicio && handleDeleteOrdenServicio(orden.id_orden_servicio)}
+                                    className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
+                                    title="Eliminar"
+                                    disabled={!orden.id_orden_servicio}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))
@@ -1978,10 +2149,16 @@ export default function OrdenCompraPage() {
                 <DialogContent className="max-w-[95vw] max-h-[90vh] w-full overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>
-                      {tipoOrden === "compra" ? "Nueva Orden de Compra" : "Nueva Orden de Servicio"}
+                      {ordenEditandoId
+                        ? `Editar Orden de ${tipoOrden === "compra" ? "Compra" : "Servicio"}`
+                        : `Nueva Orden de ${tipoOrden === "compra" ? "Compra" : "Servicio"}`
+                      }
                     </DialogTitle>
                     <DialogDescription>
-                      Complete los datos para crear una nueva orden de {tipoOrden === "compra" ? "compra" : "servicio"}
+                      {ordenEditandoId
+                        ? `Edite los datos de la orden de ${tipoOrden === "compra" ? "compra" : "servicio"}`
+                        : `Complete los datos para crear una nueva orden de ${tipoOrden === "compra" ? "compra" : "servicio"}`
+                      }
                     </DialogDescription>
                   </DialogHeader>
 
@@ -2349,29 +2526,43 @@ export default function OrdenCompraPage() {
                         >
                           Nivel 1 (Proyecto):
                         </Label>
-                        <Select
-                          value={nuevaOrdenData.centroCostoNivel1Codigo}
-                          onValueChange={handleCentroCostoNivel1Change}
-                          onOpenChange={(open) => {
-                            if (open && centrosProyecto.length === 0) {
-                              loadCentrosProyecto();
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Seleccionar proyecto..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {centrosProyecto.map((centro) => (
-                              <SelectItem
-                                key={centro.id}
-                                value={centro.codigo}
-                              >
-                                {centro.proyecto}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex gap-1">
+                          <Select
+                            value={nuevaOrdenData.centroCostoNivel1Codigo}
+                            onValueChange={handleCentroCostoNivel1Change}
+                            onOpenChange={(open) => {
+                              if (open && centrosProyecto.length === 0) {
+                                loadCentrosProyecto();
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Seleccionar proyecto..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {centrosProyecto.map((centro) => (
+                                <SelectItem
+                                  key={centro.id}
+                                  value={centro.codigo}
+                                >
+                                  {centro.proyecto}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {nuevaOrdenData.centroCostoNivel1Codigo && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                              onClick={() => handleCentroCostoNivel1Change("")}
+                              title="Limpiar selección"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="col-span-4">
                         <Label
@@ -2380,29 +2571,43 @@ export default function OrdenCompraPage() {
                         >
                           Nivel 2 (Fase):
                         </Label>
-                        <Select
-                          value={nuevaOrdenData.centroCostoNivel2Codigo}
-                          onValueChange={handleCentroCostoNivel2Change}
-                          onOpenChange={(open) => {
-                            if (open && fases.length === 0) {
-                              loadFases();
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Seleccionar fase..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {fases.map((fase) => (
-                              <SelectItem
-                                key={fase.id}
-                                value={fase.codigo || ""}
-                              >
-                                {fase.descripcion}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex gap-1">
+                          <Select
+                            value={nuevaOrdenData.centroCostoNivel2Codigo}
+                            onValueChange={handleCentroCostoNivel2Change}
+                            onOpenChange={(open) => {
+                              if (open && fases.length === 0) {
+                                loadFases();
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Seleccionar fase..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {fases.map((fase) => (
+                                <SelectItem
+                                  key={fase.id}
+                                  value={fase.codigo || ""}
+                                >
+                                  {fase.descripcion}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {nuevaOrdenData.centroCostoNivel2Codigo && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                              onClick={() => handleCentroCostoNivel2Change("")}
+                              title="Limpiar selección"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="col-span-4">
                         <Label
@@ -2411,29 +2616,43 @@ export default function OrdenCompraPage() {
                         >
                           Nivel 3 (Rubro):
                         </Label>
-                        <Select
-                          value={nuevaOrdenData.centroCostoNivel3Codigo}
-                          onValueChange={handleCentroCostoNivel3Change}
-                          onOpenChange={(open) => {
-                            if (open && rubros.length === 0) {
-                              loadRubros();
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Seleccionar rubro..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {rubros.map((rubro) => (
-                              <SelectItem
-                                key={rubro.id}
-                                value={rubro.codigo}
-                              >
-                                {rubro.descripcion}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex gap-1">
+                          <Select
+                            value={nuevaOrdenData.centroCostoNivel3Codigo}
+                            onValueChange={handleCentroCostoNivel3Change}
+                            onOpenChange={(open) => {
+                              if (open && rubros.length === 0) {
+                                loadRubros();
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Seleccionar rubro..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {rubros.map((rubro) => (
+                                <SelectItem
+                                  key={rubro.id}
+                                  value={rubro.codigo}
+                                >
+                                  {rubro.descripcion}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {nuevaOrdenData.centroCostoNivel3Codigo && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                              onClick={() => handleCentroCostoNivel3Change("")}
+                              title="Limpiar selección"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -2751,6 +2970,8 @@ export default function OrdenCompraPage() {
                     <Input
                       className="max-w-xs h-8 text-sm bg-yellow-100"
                       placeholder="Buscar por documento o razón social..."
+                      value={proveedorSearchQuery}
+                      onChange={(e) => setProveedorSearchQuery(e.target.value)}
                     />
                   </div>
 
@@ -2772,27 +2993,36 @@ export default function OrdenCompraPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {proveedores.map((proveedor) => (
-                            <TableRow
-                              key={proveedor.id_proveedor}
-                              className={`cursor-pointer transition-colors ${
-                                selectedProveedor === proveedor.id_proveedor
-                                  ? "bg-blue-200 hover:bg-blue-300"
-                                  : "hover:bg-gray-50"
-                              }`}
-                              onClick={() => handleProveedorRowClick(proveedor.id_proveedor)}
-                            >
-                              <TableCell className="text-xs text-center">
-                                {proveedor.ruc}
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                {proveedor.nombre_proveedor}
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                {proveedor.direccion}
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {proveedores
+                            .filter((proveedor) => {
+                              if (!proveedorSearchQuery.trim()) return true;
+                              const query = proveedorSearchQuery.toLowerCase();
+                              return (
+                                proveedor.ruc?.toLowerCase().includes(query) ||
+                                proveedor.nombre_proveedor?.toLowerCase().includes(query)
+                              );
+                            })
+                            .map((proveedor) => (
+                              <TableRow
+                                key={proveedor.id_proveedor}
+                                className={`cursor-pointer transition-colors ${
+                                  selectedProveedor === proveedor.id_proveedor
+                                    ? "bg-blue-200 hover:bg-blue-300"
+                                    : "hover:bg-gray-50"
+                                }`}
+                                onClick={() => handleProveedorRowClick(proveedor.id_proveedor)}
+                              >
+                                <TableCell className="text-xs text-center">
+                                  {proveedor.ruc}
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  {proveedor.nombre_proveedor}
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  {proveedor.direccion}
+                                </TableCell>
+                              </TableRow>
+                            ))}
                         </TableBody>
                       </Table>
                     </div>
@@ -2813,6 +3043,7 @@ export default function OrdenCompraPage() {
                       onClick={() => {
                         setIsProveedoresModalOpen(false);
                         setSelectedProveedor(null);
+                        setProveedorSearchQuery("");
                       }}
                     >
                       Cancelar

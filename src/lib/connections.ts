@@ -3184,6 +3184,7 @@ export interface OrdenCompraData {
   auto_contabilidad?: boolean;
   has_anticipo?: number;
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
+  ruc_proveedor?: string; // RUC del proveedor desde la relación
   items: Array<{
     codigo_item: string;
     descripcion_item: string;
@@ -3234,6 +3235,17 @@ export const ordenesCompraApi = {
   create: async (ordenData: OrdenCompraData): Promise<OrdenCompraData> => {
     try {
       const response = await api.post("/ordenes-compra", ordenData);
+      return response.data;
+    } catch (error) {
+      console.error("Ordenes Compra API error:", error);
+      throw error;
+    }
+  },
+
+  // Actualizar orden de compra
+  update: async (id: number, ordenData: OrdenCompraData): Promise<OrdenCompraData> => {
+    try {
+      const response = await api.put(`/ordenes-compra/${id}`, ordenData);
       return response.data;
     } catch (error) {
       console.error("Ordenes Compra API error:", error);
@@ -3360,6 +3372,7 @@ export interface OrdenServicioData {
   auto_contabilidad?: boolean;
   has_anticipo?: number;
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
+  ruc_proveedor?: string; // RUC del proveedor desde la relación
   items: Array<{
     codigo_item: string;
     descripcion_item: string;
@@ -3410,6 +3423,17 @@ export const ordenesServicioApi = {
   create: async (ordenData: OrdenServicioData): Promise<OrdenServicioData> => {
     try {
       const response = await api.post("/ordenes-servicio", ordenData);
+      return response.data;
+    } catch (error) {
+      console.error("Ordenes Servicio API error:", error);
+      throw error;
+    }
+  },
+
+  // Actualizar orden de servicio
+  update: async (id: number, ordenData: OrdenServicioData): Promise<OrdenServicioData> => {
+    try {
+      const response = await api.put(`/ordenes-servicio/${id}`, ordenData);
       return response.data;
     } catch (error) {
       console.error("Ordenes Servicio API error:", error);
