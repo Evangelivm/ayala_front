@@ -2726,29 +2726,19 @@ export default function OrdenCompraPage() {
                                 </TableCell>
                                 <TableCell>
                                   <Input
-                                    type="text"
+                                    type="number"
                                     value={item.cantidad_solicitada}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      // Permitir solo números enteros (sin puntos ni comas)
-                                      if (value === '' || /^\d+$/.test(value)) {
-                                        handleItemChange(
-                                          index,
-                                          "cantidad_solicitada",
-                                          value === '' ? 0 : parseInt(value)
-                                        );
-                                      }
-                                    }}
-                                    onKeyPress={(e) => {
-                                      // Bloquear cualquier tecla que no sea un número
-                                      if (!/[0-9]/.test(e.key)) {
-                                        e.preventDefault();
-                                      }
-                                    }}
+                                    onChange={(e) =>
+                                      handleItemChange(
+                                        index,
+                                        "cantidad_solicitada",
+                                        parseFloat(e.target.value) || 0
+                                      )
+                                    }
                                     className="h-8 text-xs border border-gray-300 p-2 text-center rounded"
+                                    min="0"
+                                    step="0.01"
                                     required
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
                                   />
                                 </TableCell>
                                 <TableCell>

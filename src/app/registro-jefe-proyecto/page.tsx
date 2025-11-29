@@ -34,17 +34,34 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWebSocket } from "@/lib/useWebSocket";
 
-export default function RegistroContabilidadPage() {
+export default function RegistroJefeProyectoPage() {
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
   const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
 
   // Estados para filtros y búsqueda
   const [searchQuery, setSearchQuery] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
-  const [filtroContabilidad, setFiltroContabilidad] = useState<string>("TODOS");
+  const [filtroJefeProyecto, setFiltroJefeProyecto] = useState<string>("TODOS");
 
-  // Funciones para cargar órdenes
-  const loadOrdenesCompra = useCallback(async () => {
+  // Cargar órdenes al montar el componente
+  useEffect(() => {
+    loadOrdenesCompra();
+    loadOrdenesServicio();
+  }, []);
+
+  // WebSocket: Escuchar actualizaciones en tiempo real
+  const handleOrdenCompraUpdate = useCallback(() => {
+    loadOrdenesCompra();
+  }, []);
+
+  const handleOrdenServicioUpdate = useCallback(() => {
+    loadOrdenesServicio();
+  }, []);
+
+  useWebSocket('ordenCompraUpdated', handleOrdenCompraUpdate);
+  useWebSocket('ordenServicioUpdated', handleOrdenServicioUpdate);
+
+  const loadOrdenesCompra = async () => {
     try {
       const data = await ordenesCompraApi.getAll();
       setOrdenesCompra(data);
@@ -52,9 +69,9 @@ export default function RegistroContabilidadPage() {
       console.error("Error loading ordenes compra:", error);
       setOrdenesCompra([]);
     }
-  }, []);
+  };
 
-  const loadOrdenesServicio = useCallback(async () => {
+  const loadOrdenesServicio = async () => {
     try {
       const data = await ordenesServicioApi.getAll();
       setOrdenesServicio(data);
@@ -62,37 +79,19 @@ export default function RegistroContabilidadPage() {
       console.error("Error loading ordenes servicio:", error);
       setOrdenesServicio([]);
     }
-  }, []);
-
-  // Cargar órdenes al montar el componente
-  useEffect(() => {
-    loadOrdenesCompra();
-    loadOrdenesServicio();
-  }, [loadOrdenesCompra, loadOrdenesServicio]);
-
-  // WebSocket: Escuchar actualizaciones en tiempo real
-  const handleOrdenCompraUpdate = useCallback(() => {
-    loadOrdenesCompra();
-  }, [loadOrdenesCompra]);
-
-  const handleOrdenServicioUpdate = useCallback(() => {
-    loadOrdenesServicio();
-  }, [loadOrdenesServicio]);
-
-  useWebSocket('ordenCompraUpdated', handleOrdenCompraUpdate);
-  useWebSocket('ordenServicioUpdated', handleOrdenServicioUpdate);
+  };
 
   // Función para aprobar orden de compra
   const handleAprobarOrdenCompra = async (id: number) => {
-    if (!confirm("¿Está seguro de que desea aprobar esta orden de compra para contabilidad?")) {
+    if (!confirm("¿Está seguro de que desea aprobar esta orden de compra como jefe de proyecto?")) {
       return;
     }
 
     try {
       toast.loading("Aprobando orden de compra...");
-      await ordenesCompraApi.aprobarContabilidad(id);
+      await ordenesCompraApi.aprobarJefeProyecto(id);
       toast.dismiss();
-      toast.success("Orden de compra aprobada para contabilidad exitosamente");
+      toast.success("Orden de compra aprobada como jefe de proyecto exitosamente");
       loadOrdenesCompra();
     } catch (error) {
       console.error("Error al aprobar orden de compra:", error);
@@ -105,15 +104,15 @@ export default function RegistroContabilidadPage() {
 
   // Función para aprobar orden de servicio
   const handleAprobarOrdenServicio = async (id: number) => {
-    if (!confirm("¿Está seguro de que desea aprobar esta orden de servicio para contabilidad?")) {
+    if (!confirm("¿Está seguro de que desea aprobar esta orden de servicio como jefe de proyecto?")) {
       return;
     }
 
     try {
       toast.loading("Aprobando orden de servicio...");
-      await ordenesServicioApi.aprobarContabilidad(id);
+      await ordenesServicioApi.aprobarJefeProyecto(id);
       toast.dismiss();
-      toast.success("Orden de servicio aprobada para contabilidad exitosamente");
+      toast.success("Orden de servicio aprobada como jefe de proyecto exitosamente");
       loadOrdenesServicio();
     } catch (error) {
       console.error("Error al aprobar orden de servicio:", error);
@@ -135,15 +134,15 @@ export default function RegistroContabilidadPage() {
       // Filtro por estado
       const matchEstado = filtroEstado === "TODOS" || orden.estado === filtroEstado;
 
-      // Filtro por aprobación contabilidad
-      const matchContabilidad =
-        filtroContabilidad === "TODOS" ||
-        (filtroContabilidad === "APROBADO" && orden.auto_contabilidad === true) ||
-        (filtroContabilidad === "PENDIENTE" && (orden.auto_contabilidad === false || !orden.auto_contabilidad));
+      // Filtro por aprobación jefe de proyecto
+      const matchJefeProyecto =
+        filtroJefeProyecto === "TODOS" ||
+        (filtroJefeProyecto === "APROBADO" && orden.jefe_proyecto === true) ||
+        (filtroJefeProyecto === "PENDIENTE" && (orden.jefe_proyecto === false || !orden.jefe_proyecto));
 
-      return matchSearch && matchEstado && matchContabilidad;
+      return matchSearch && matchEstado && matchJefeProyecto;
     });
-  }, [ordenesCompra, searchQuery, filtroEstado, filtroContabilidad]);
+  }, [ordenesCompra, searchQuery, filtroEstado, filtroJefeProyecto]);
 
   // Función para filtrar órdenes de servicio
   const ordenesServicioFiltradas = useMemo(() => {
@@ -156,15 +155,15 @@ export default function RegistroContabilidadPage() {
       // Filtro por estado
       const matchEstado = filtroEstado === "TODOS" || orden.estado === filtroEstado;
 
-      // Filtro por aprobación contabilidad
-      const matchContabilidad =
-        filtroContabilidad === "TODOS" ||
-        (filtroContabilidad === "APROBADO" && orden.auto_contabilidad === true) ||
-        (filtroContabilidad === "PENDIENTE" && (orden.auto_contabilidad === false || !orden.auto_contabilidad));
+      // Filtro por aprobación jefe de proyecto
+      const matchJefeProyecto =
+        filtroJefeProyecto === "TODOS" ||
+        (filtroJefeProyecto === "APROBADO" && orden.jefe_proyecto === true) ||
+        (filtroJefeProyecto === "PENDIENTE" && (orden.jefe_proyecto === false || !orden.jefe_proyecto));
 
-      return matchSearch && matchEstado && matchContabilidad;
+      return matchSearch && matchEstado && matchJefeProyecto;
     });
-  }, [ordenesServicio, searchQuery, filtroEstado, filtroContabilidad]);
+  }, [ordenesServicio, searchQuery, filtroEstado, filtroJefeProyecto]);
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -172,10 +171,10 @@ export default function RegistroContabilidadPage() {
         <div className="mx-auto w-full">
           <div className="mb-6">
             <h1 className="text-3xl font-bold tracking-tight">
-              Registro de Contabilidad
+              Registro de Jefe de Proyecto
             </h1>
             <p className="text-muted-foreground">
-              Autorizaciones - Contabilidad
+              Autorizaciones - Jefe de Proyecto
             </p>
           </div>
 
@@ -220,13 +219,13 @@ export default function RegistroContabilidadPage() {
                   </Select>
                 </div>
 
-                {/* Filtro por Aprobación Contabilidad */}
+                {/* Filtro por Aprobación Jefe de Proyecto */}
                 <div>
-                  <Label htmlFor="filtro-contabilidad" className="text-sm font-semibold mb-2 block">
-                    Aprobación Contabilidad
+                  <Label htmlFor="filtro-jefe-proyecto" className="text-sm font-semibold mb-2 block">
+                    Aprobación Jefe Proyecto
                   </Label>
-                  <Select value={filtroContabilidad} onValueChange={setFiltroContabilidad}>
-                    <SelectTrigger id="filtro-contabilidad">
+                  <Select value={filtroJefeProyecto} onValueChange={setFiltroJefeProyecto}>
+                    <SelectTrigger id="filtro-jefe-proyecto">
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
@@ -260,7 +259,7 @@ export default function RegistroContabilidadPage() {
             <TabsContent value="compra" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Órdenes de Compra - Autorizaciones - Contabilidad</CardTitle>
+                  <CardTitle>Órdenes de Compra - Autorizaciones - Jefe de Proyecto</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="border rounded-lg">
@@ -399,13 +398,17 @@ export default function RegistroContabilidadPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                {orden.procede_pago === "TRANSFERIR" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                    TRANSFERIDO
-                                  </span>
-                                ) : orden.procede_pago === "PAGAR" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    ORDENAR PAGO
+                                {orden.procede_pago ? (
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.procede_pago === "TRANSFERIR"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : orden.procede_pago === "PAGAR"
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.procede_pago}
                                   </span>
                                 ) : (
                                   "-"
@@ -491,8 +494,8 @@ export default function RegistroContabilidadPage() {
                                 <button
                                   onClick={() => orden.id_orden_compra && handleAprobarOrdenCompra(orden.id_orden_compra)}
                                   className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold"
-                                  title="Aprobar para Contabilidad"
-                                  disabled={!orden.id_orden_compra || orden.auto_contabilidad === true}
+                                  title="Aprobar como Jefe de Proyecto"
+                                  disabled={!orden.id_orden_compra || orden.jefe_proyecto === true}
                                 >
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Aprobar
@@ -511,7 +514,7 @@ export default function RegistroContabilidadPage() {
             <TabsContent value="servicio" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Órdenes de Servicio - Autorizaciones - Contabilidad</CardTitle>
+                  <CardTitle>Órdenes de Servicio - Autorizaciones - Jefe de Proyecto</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="border rounded-lg">
@@ -650,13 +653,17 @@ export default function RegistroContabilidadPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                {orden.procede_pago === "TRANSFERIR" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                    TRANSFERIDO
-                                  </span>
-                                ) : orden.procede_pago === "PAGAR" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    ORDENAR PAGO
+                                {orden.procede_pago ? (
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.procede_pago === "TRANSFERIR"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : orden.procede_pago === "PAGAR"
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.procede_pago}
                                   </span>
                                 ) : (
                                   "-"
@@ -742,8 +749,8 @@ export default function RegistroContabilidadPage() {
                                 <button
                                   onClick={() => orden.id_orden_servicio && handleAprobarOrdenServicio(orden.id_orden_servicio)}
                                   className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold"
-                                  title="Aprobar para Contabilidad"
-                                  disabled={!orden.id_orden_servicio || orden.auto_contabilidad === true}
+                                  title="Aprobar como Jefe de Proyecto"
+                                  disabled={!orden.id_orden_servicio || orden.jefe_proyecto === true}
                                 >
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Aprobar

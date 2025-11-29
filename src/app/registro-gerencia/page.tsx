@@ -369,6 +369,9 @@ export default function RegistroGerenciaPage() {
                             Auto Admin.
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Auto Jefe
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Auto Contab.
                           </TableHead>
                           <TableHead className="text-xs font-bold">
@@ -389,7 +392,7 @@ export default function RegistroGerenciaPage() {
                         {ordenesFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={16}
+                              colSpan={17}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -478,6 +481,19 @@ export default function RegistroGerenciaPage() {
                                     APROBADO
                                   </span>
                                 ) : orden.auto_administrador === false ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                    PENDIENTE
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.jefe_proyecto === true ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    APROBADO
+                                  </span>
+                                ) : orden.jefe_proyecto === false ? (
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
                                     PENDIENTE
                                   </span>
@@ -611,6 +627,9 @@ export default function RegistroGerenciaPage() {
                             Auto Admin.
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Auto Jefe
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Auto Contab.
                           </TableHead>
                           <TableHead className="text-xs font-bold">
@@ -631,7 +650,7 @@ export default function RegistroGerenciaPage() {
                         {ordenesServicioFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={16}
+                              colSpan={17}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -720,6 +739,19 @@ export default function RegistroGerenciaPage() {
                                     APROBADO
                                   </span>
                                 ) : orden.auto_administrador === false ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                    PENDIENTE
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.jefe_proyecto === true ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    APROBADO
+                                  </span>
+                                ) : orden.jefe_proyecto === false ? (
                                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
                                     PENDIENTE
                                   </span>

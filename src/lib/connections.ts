@@ -3182,6 +3182,7 @@ export interface OrdenCompraData {
   procede_pago?: string | number;
   auto_administrador?: boolean;
   auto_contabilidad?: boolean;
+  jefe_proyecto?: boolean;
   has_anticipo?: number;
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
   ruc_proveedor?: string; // RUC del proveedor desde la relación
@@ -3303,6 +3304,16 @@ export const ordenesCompraApi = {
     }
   },
 
+  // Aprobar orden de compra para jefe de proyecto
+  aprobarJefeProyecto: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/aprobar-jefe-proyecto`);
+    } catch (error) {
+      console.error("Error aprobando orden de compra para jefe de proyecto:", error);
+      throw error;
+    }
+  },
+
   // Transferir orden de compra (Gerencia)
   transferir: async (id: number): Promise<void> => {
     try {
@@ -3370,6 +3381,7 @@ export interface OrdenServicioData {
   procede_pago?: string | number;
   auto_administrador?: boolean;
   auto_contabilidad?: boolean;
+  jefe_proyecto?: boolean;
   has_anticipo?: number;
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
   ruc_proveedor?: string; // RUC del proveedor desde la relación
@@ -3487,6 +3499,16 @@ export const ordenesServicioApi = {
       await api.patch(`/ordenes-servicio/${id}/aprobar-administrador`);
     } catch (error) {
       console.error("Error aprobando orden de servicio para administración:", error);
+      throw error;
+    }
+  },
+
+  // Aprobar orden de servicio para jefe de proyecto
+  aprobarJefeProyecto: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/aprobar-jefe-proyecto`);
+    } catch (error) {
+      console.error("Error aprobando orden de servicio para jefe de proyecto:", error);
       throw error;
     }
   },
