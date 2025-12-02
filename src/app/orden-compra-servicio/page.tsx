@@ -45,6 +45,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink, Edit } from "lucide-react";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
+import { DetraccionSelectDialog } from "@/components/detraccion-select-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -757,7 +758,16 @@ export default function OrdenCompraPage() {
         centro_costo_nivel2: nuevaOrdenData.centroCostoNivel2Codigo,
         centro_costo_nivel3: nuevaOrdenData.centroCostoNivel3Codigo,
         unidad_id: nuevaOrdenData.unidad_id > 0 ? nuevaOrdenData.unidad_id : null,
-        retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
+        // Para orden de compra: retencion, para orden de servicio: detraccion
+        ...(tipoOrden === "compra"
+          ? { retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO" }
+          : { detraccion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO" }
+        ),
+        // Valor de retención o detracción según el tipo de orden
+        ...(tipoOrden === "compra"
+          ? { valor_retencion: nuevaOrdenData.retencion.monto }
+          : { valor_detraccion: nuevaOrdenData.retencion.monto }
+        ),
         almacen_central: nuevaOrdenData.almacenCentral ? "SI" : "NO",
         has_anticipo: nuevaOrdenData.anticipo ? 1 : 0,
         tiene_anticipo: nuevaOrdenData.anticipo ? "SI" : "NO",
@@ -868,14 +878,14 @@ export default function OrdenCompraPage() {
         id_proveedor: orden.id_proveedor,
         nroCliente: orden.ruc_proveedor || "",
         razonSocial: orden.nombre_proveedor || "",
-        retencionProveedor: "",
-        almacenCentral: false, // No está en el modelo actual
+        retencionProveedor: orden.retencion || "",
+        almacenCentral: orden.almacen_central === "SI",
         anticipo: orden.tiene_anticipo === "SI" || orden.tiene_anticipo === 1,
         serie: serie || "0001",
         nroDoc: nroDoc || "",
         fechaEmision: new Date(orden.fecha_orden),
         moneda: orden.moneda,
-        tipoCambio: 0,
+        tipoCambio: Number(orden.tipo_cambio) || 0,
         fechaServicio: new Date(orden.fecha_registro),
         estado: orden.estado,
         centroCostoNivel1Codigo: orden.centro_costo_nivel1 || "",
@@ -884,10 +894,10 @@ export default function OrdenCompraPage() {
         unidad: "",
         unidad_id: orden.unidad_id || 0,
         igvPorcentaje: 18, // Calcular desde IGV y subtotal si es necesario
-        aplicarRetencion: false, // Determinar basado en datos
+        aplicarRetencion: orden.retencion === "SI",
         retencion: {
           porcentaje: 3,
-          monto: 0,
+          monto: Number(orden.valor_retencion) || 0,
         },
         items: (orden.items || []).map(item => ({
           codigo_item: item.codigo_item,
@@ -929,14 +939,14 @@ export default function OrdenCompraPage() {
         id_proveedor: orden.id_proveedor,
         nroCliente: orden.ruc_proveedor || "",
         razonSocial: orden.nombre_proveedor || "",
-        retencionProveedor: "",
-        almacenCentral: false,
+        retencionProveedor: orden.detraccion || "",
+        almacenCentral: orden.almacen_central === "SI",
         anticipo: orden.tiene_anticipo === "SI" || orden.tiene_anticipo === 1,
         serie: serie || "0001",
         nroDoc: nroDoc || "",
         fechaEmision: new Date(orden.fecha_orden),
         moneda: orden.moneda,
-        tipoCambio: 0,
+        tipoCambio: Number(orden.tipo_cambio) || 0,
         fechaServicio: new Date(orden.fecha_registro),
         estado: orden.estado,
         centroCostoNivel1Codigo: orden.centro_costo_nivel1 || "",
@@ -945,10 +955,10 @@ export default function OrdenCompraPage() {
         unidad: "",
         unidad_id: orden.unidad_id || 0,
         igvPorcentaje: 18,
-        aplicarRetencion: false,
+        aplicarRetencion: orden.detraccion === "SI",
         retencion: {
           porcentaje: 3,
-          monto: 0,
+          monto: Number(orden.valor_detraccion) || 0,
         },
         items: (orden.items || []).map(item => ({
           codigo_item: item.codigo_item,
@@ -1094,9 +1104,6 @@ export default function OrdenCompraPage() {
                             Fecha Orden
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
-                            Fecha Registro
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
                             Moneda
                           </TableHead>
                           <TableHead className="text-xs font-bold text-right">
@@ -1112,7 +1119,10 @@ export default function OrdenCompraPage() {
                             Estado
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
-                            Estado Firma
+                            Retención
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            Valor Retención
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
                             Tiene Anticipo
@@ -1172,11 +1182,6 @@ export default function OrdenCompraPage() {
                                   locale: es,
                                 })}
                               </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {format(new Date(orden.fecha_registro), "dd/MM/yyyy", {
-                                  locale: es,
-                                })}
-                              </TableCell>
                               <TableCell className="text-xs text-center font-semibold">
                                 {orden.moneda}
                               </TableCell>
@@ -1205,21 +1210,16 @@ export default function OrdenCompraPage() {
                                 </span>
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                {orden.estado_firma ? (
-                                  <span
-                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                      orden.estado_firma === "PENDIENTE"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : orden.estado_firma === "FIRMADA"
-                                          ? "bg-green-100 text-green-800"
-                                          : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {orden.estado_firma}
+                                {orden.retencion ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                    {orden.retencion}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400 italic">Sin estado</span>
+                                  <span className="text-gray-400 italic">-</span>
                                 )}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">
+                                {orden.valor_retencion ? Number(orden.valor_retencion).toFixed(2) : "0.00"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.tiene_anticipo === "SI" ? (
@@ -1351,9 +1351,6 @@ export default function OrdenCompraPage() {
                             Fecha Orden
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
-                            Fecha Registro
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
                             Moneda
                           </TableHead>
                           <TableHead className="text-xs font-bold text-right">
@@ -1369,7 +1366,10 @@ export default function OrdenCompraPage() {
                             Estado
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
-                            Estado Firma
+                            Detracción
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            Valor Detracción
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
                             Tiene Anticipo
@@ -1429,11 +1429,6 @@ export default function OrdenCompraPage() {
                                   locale: es,
                                 })}
                               </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {format(new Date(orden.fecha_registro), "dd/MM/yyyy", {
-                                  locale: es,
-                                })}
-                              </TableCell>
                               <TableCell className="text-xs text-center font-semibold">
                                 {orden.moneda}
                               </TableCell>
@@ -1462,21 +1457,16 @@ export default function OrdenCompraPage() {
                                 </span>
                               </TableCell>
                               <TableCell className="text-xs text-center">
-                                {orden.estado_firma ? (
-                                  <span
-                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                      orden.estado_firma === "PENDIENTE"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : orden.estado_firma === "FIRMADA"
-                                          ? "bg-green-100 text-green-800"
-                                          : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {orden.estado_firma}
+                                {orden.detraccion ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                                    {orden.detraccion}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400 italic">Sin estado</span>
+                                  <span className="text-gray-400 italic">-</span>
                                 )}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">
+                                {orden.valor_detraccion ? Number(orden.valor_detraccion).toFixed(2) : "0.00"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.tiene_anticipo === "SI" ? (
@@ -2201,7 +2191,7 @@ export default function OrdenCompraPage() {
                           htmlFor="retencion"
                           className="text-xs font-semibold"
                         >
-                          Retención:
+                          {tipoOrden === "compra" ? "Retención:" : "Detracción:"}
                         </Label>
                         <Select
                           value={nuevaOrdenData.aplicarRetencion ? "SI" : "NO"}
@@ -2323,7 +2313,7 @@ export default function OrdenCompraPage() {
                           htmlFor="fecha-servicio"
                           className="text-xs font-semibold"
                         >
-                          Fecha Compra:
+                          {tipoOrden === "compra" ? "Fecha Compra:" : "Fecha Servicio:"}
                         </Label>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -2879,34 +2869,57 @@ export default function OrdenCompraPage() {
                             </div>
                           )}
 
-                          {/* Retención - Solo se muestra si está activada */}
+                          {/* Retención/Detracción - Solo se muestra si está activada */}
                           {nuevaOrdenData.aplicarRetencion && (
-                            <div className="flex justify-between items-center text-sm border-t pt-2">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold">Retención:</span>
-                                <Select
-                                  value={nuevaOrdenData.retencion.porcentaje.toString()}
-                                  onValueChange={(value) => {
-                                    handleNuevaOrdenInputChange("retencion", {
-                                      ...nuevaOrdenData.retencion,
-                                      porcentaje: parseInt(value),
-                                    });
-                                    calcularTotales(nuevaOrdenData.items);
-                                  }}
-                                >
-                                  <SelectTrigger className="h-7 w-20 text-xs">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="0">0%</SelectItem>
-                                    <SelectItem value="3">3%</SelectItem>
-                                    <SelectItem value="8">8%</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                            <div className="border-t pt-2">
+                              <div className="flex justify-between items-start text-sm mb-2">
+                                <span className="font-semibold">{tipoOrden === "compra" ? "Retención:" : "Detracción:"}</span>
+                                <span className="font-mono text-red-600">
+                                  -{nuevaOrdenData.retencion.monto.toFixed(2)}
+                                </span>
                               </div>
-                              <span className="font-mono text-red-600">
-                                -{nuevaOrdenData.retencion.monto.toFixed(2)}
-                              </span>
+
+                              {/* Para orden de compra: Select simple */}
+                              {tipoOrden === "compra" ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-600">Porcentaje:</span>
+                                  <Select
+                                    value={nuevaOrdenData.retencion.porcentaje.toString()}
+                                    onValueChange={(value) => {
+                                      handleNuevaOrdenInputChange("retencion", {
+                                        ...nuevaOrdenData.retencion,
+                                        porcentaje: parseInt(value),
+                                      });
+                                      calcularTotales(nuevaOrdenData.items);
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 w-20 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="0">0%</SelectItem>
+                                      <SelectItem value="3">3%</SelectItem>
+                                      <SelectItem value="8">8%</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              ) : (
+                                /* Para orden de servicio: Diálogo de selección */
+                                <div className="scale-95 origin-left">
+                                  <DetraccionSelectDialog
+                                    currentPorcentaje={nuevaOrdenData.retencion.porcentaje}
+                                    onSelect={(porcentaje, codigo, descripcion) => {
+                                      handleNuevaOrdenInputChange("retencion", {
+                                        ...nuevaOrdenData.retencion,
+                                        porcentaje: porcentaje,
+                                      });
+                                      calcularTotales(nuevaOrdenData.items);
+                                    }}
+                                    buttonText="Seleccionar tipo de detracción"
+                                    buttonClassName="h-7 text-xs bg-purple-50 hover:bg-purple-100 border-purple-300"
+                                  />
+                                </div>
+                              )}
                             </div>
                           )}
 

@@ -3186,6 +3186,10 @@ export interface OrdenCompraData {
   has_anticipo?: number;
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
   ruc_proveedor?: string; // RUC del proveedor desde la relación
+  retencion?: string; // Indica si aplica retención ("SI" o "NO")
+  almacen_central?: string; // Indica si es almacén central ("SI" o "NO")
+  tipo_cambio?: number | string; // Tipo de cambio para la orden
+  valor_retencion?: number | string; // Valor/monto de la retención
   items: Array<{
     codigo_item: string;
     descripcion_item: string;
@@ -3385,6 +3389,10 @@ export interface OrdenServicioData {
   has_anticipo?: number;
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
   ruc_proveedor?: string; // RUC del proveedor desde la relación
+  detraccion?: string; // Indica si aplica detracción ("SI" o "NO")
+  almacen_central?: string; // Indica si es almacén central ("SI" o "NO")
+  tipo_cambio?: number | string; // Tipo de cambio para la orden
+  valor_detraccion?: number | string; // Valor/monto de la detracción
   items: Array<{
     codigo_item: string;
     descripcion_item: string;
