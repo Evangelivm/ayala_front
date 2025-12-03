@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink, Edit } from "lucide-react";
+import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink, Edit, Upload } from "lucide-react";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { DetraccionSelectDialog } from "@/components/detraccion-select-dialog";
 import { Calendar } from "@/components/ui/calendar";
@@ -90,6 +90,14 @@ export default function OrdenCompraPage() {
   const [camiones, setCamiones] = useState<CamionData[]>([]);
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
   const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
+
+  // Estados para subida de archivos (Cotización y Factura)
+  const [isUploadCotizacionDialogOpen, setIsUploadCotizacionDialogOpen] = useState(false);
+  const [isUploadFacturaDialogOpen, setIsUploadFacturaDialogOpen] = useState(false);
+  const [selectedFileCotizacion, setSelectedFileCotizacion] = useState<File | null>(null);
+  const [selectedFileFactura, setSelectedFileFactura] = useState<File | null>(null);
+  const [currentOrdenIdForUpload, setCurrentOrdenIdForUpload] = useState<number | null>(null);
+  const [currentOrdenTypeForUpload, setCurrentOrdenTypeForUpload] = useState<"compra" | "servicio" | null>(null);
 
   // Estado para Nueva Orden
   const [nuevaOrdenData, setNuevaOrdenData] = useState({
@@ -182,12 +190,12 @@ export default function OrdenCompraPage() {
     };
   }, []);
 
-  // Cargar el siguiente número de orden cuando se abre el modal
+  // Cargar el siguiente número de orden cuando se abre el modal SOLO si es una nueva orden
   useEffect(() => {
-    if (isNuevaOrdenModalOpen) {
+    if (isNuevaOrdenModalOpen && ordenEditandoId === null) {
       cargarSiguienteNumeroOrden();
     }
-  }, [isNuevaOrdenModalOpen]);
+  }, [isNuevaOrdenModalOpen, ordenEditandoId]);
 
   const cargarSiguienteNumeroOrden = async () => {
     try {
@@ -738,6 +746,35 @@ export default function OrdenCompraPage() {
       // Preparar datos para enviar al backend
       const numero_orden = `${nuevaOrdenData.serie}-${nuevaOrdenData.nroDoc}`;
 
+      // Validar que el número de orden no exista ya
+      const ordenesExistentes = tipoOrden === "compra" ? ordenesCompra : ordenesServicio;
+      const ordenDuplicada = ordenesExistentes.find(
+        (orden) => orden.numero_orden === numero_orden
+      );
+
+      // Si encontramos una orden duplicada, verificar si es la misma que estamos editando
+      if (ordenDuplicada && ordenEditandoId !== null) {
+        const idOrdenDuplicada = tipoOrden === "compra"
+          ? (ordenDuplicada as OrdenCompraData).id_orden_compra
+          : (ordenDuplicada as OrdenServicioData).id_orden_servicio;
+
+        // Comparar convirtiendo ambos a número para evitar problemas de tipos
+        const esLaMismaOrden = Number(idOrdenDuplicada) === Number(ordenEditandoId);
+
+        if (!esLaMismaOrden) {
+          toast.error("Este número de orden ya existe", {
+            description: `El número ${numero_orden} ya está registrado en el sistema. Por favor, use otro número.`,
+          });
+          return;
+        }
+      } else if (ordenDuplicada && ordenEditandoId === null) {
+        // Si no estamos editando (nuevo registro) y existe duplicado, mostrar error
+        toast.error("Este número de orden ya existe", {
+          description: `El número ${numero_orden} ya está registrado en el sistema. Por favor, use otro número.`,
+        });
+        return;
+      }
+
       // Transformar items al formato del backend
       const itemsParaBackend = nuevaOrdenData.items.map((item) => ({
         codigo_item: item.codigo_item,
@@ -817,13 +854,27 @@ export default function OrdenCompraPage() {
       const esEdicion = ordenEditandoId !== null;
       console.error(`Error al ${esEdicion ? 'actualizar' : 'guardar'} orden de ${tipoTexto}:`, error);
       toast.dismiss();
+
+      // Extraer el mensaje de error del objeto de error de Axios
+      let errorMessage = "Error desconocido";
+      if (error && typeof error === 'object') {
+        // @ts-expect-error - Acceder a la respuesta de error de Axios
+        if (error.response?.data?.message) {
+          // @ts-expect-error - Acceso a propiedad de respuesta de Axios
+          errorMessage = error.response.data.message;
+        } else if (error instanceof Error) {
+          errorMessage = error.message;
+        }
+      }
+
       toast.error(`Error al ${esEdicion ? 'actualizar' : 'crear'} la orden de ${tipoTexto}`, {
-        description: error instanceof Error ? error.message : "Error desconocido",
+        description: errorMessage,
+        duration: 7000, // Mostrar el toast por más tiempo para que el usuario pueda leerlo
       });
     }
   };
 
-  const handleNuevaOrdenCancel = () => {
+  const limpiarFormularioOrden = () => {
     setNuevaOrdenData({
       id_proveedor: 0,
       nroCliente: "",
@@ -863,8 +914,12 @@ export default function OrdenCompraPage() {
       netoAPagar: 0,
       observacion: "",
     });
-    setIsNuevaOrdenModalOpen(false);
     setOrdenEditandoId(null);
+  };
+
+  const handleNuevaOrdenCancel = () => {
+    limpiarFormularioOrden();
+    setIsNuevaOrdenModalOpen(false);
   };
 
   // Función para editar una orden de compra
@@ -1030,6 +1085,124 @@ export default function OrdenCompraPage() {
     }
   };
 
+  // ===== HANDLERS PARA SUBIDA DE COTIZACIÓN Y FACTURA =====
+
+  // Función para abrir el diálogo de subida de cotización
+  const handleOpenUploadCotizacionDialog = (ordenId: number, type: "compra" | "servicio") => {
+    setCurrentOrdenIdForUpload(ordenId);
+    setCurrentOrdenTypeForUpload(type);
+    setIsUploadCotizacionDialogOpen(true);
+  };
+
+  // Función para cerrar el diálogo de subida de cotización
+  const handleCloseUploadCotizacionDialog = () => {
+    setIsUploadCotizacionDialogOpen(false);
+    setSelectedFileCotizacion(null);
+    setCurrentOrdenIdForUpload(null);
+    setCurrentOrdenTypeForUpload(null);
+  };
+
+  // Función para manejar la selección de archivo de cotización
+  const handleFileCotizacionSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFileCotizacion(file);
+    }
+  };
+
+  // Función para confirmar la subida de cotización
+  const handleConfirmUploadCotizacion = async () => {
+    if (!selectedFileCotizacion || !currentOrdenIdForUpload || !currentOrdenTypeForUpload) {
+      toast.error("No se ha seleccionado un archivo");
+      return;
+    }
+
+    try {
+      toast.loading("Subiendo cotización...");
+
+      const formData = new FormData();
+      formData.append('file', selectedFileCotizacion);
+
+      if (currentOrdenTypeForUpload === "compra") {
+        await ordenesCompraApi.uploadCotizacion(currentOrdenIdForUpload, formData);
+      } else {
+        await ordenesServicioApi.uploadCotizacion(currentOrdenIdForUpload, formData);
+      }
+
+      toast.dismiss();
+      toast.success("Cotización subida exitosamente");
+      handleCloseUploadCotizacionDialog();
+
+      // Recargar las órdenes para actualizar los links
+      loadOrdenesCompra();
+      loadOrdenesServicio();
+    } catch (error) {
+      console.error("Error al subir cotización:", error);
+      toast.dismiss();
+      toast.error("Error al subir la cotización", {
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
+  // Función para abrir el diálogo de subida de factura
+  const handleOpenUploadFacturaDialog = (ordenId: number, type: "compra" | "servicio") => {
+    setCurrentOrdenIdForUpload(ordenId);
+    setCurrentOrdenTypeForUpload(type);
+    setIsUploadFacturaDialogOpen(true);
+  };
+
+  // Función para cerrar el diálogo de subida de factura
+  const handleCloseUploadFacturaDialog = () => {
+    setIsUploadFacturaDialogOpen(false);
+    setSelectedFileFactura(null);
+    setCurrentOrdenIdForUpload(null);
+    setCurrentOrdenTypeForUpload(null);
+  };
+
+  // Función para manejar la selección de archivo de factura
+  const handleFileFacturaSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFileFactura(file);
+    }
+  };
+
+  // Función para confirmar la subida de factura
+  const handleConfirmUploadFactura = async () => {
+    if (!selectedFileFactura || !currentOrdenIdForUpload || !currentOrdenTypeForUpload) {
+      toast.error("No se ha seleccionado un archivo");
+      return;
+    }
+
+    try {
+      toast.loading("Subiendo factura...");
+
+      const formData = new FormData();
+      formData.append('file', selectedFileFactura);
+
+      if (currentOrdenTypeForUpload === "compra") {
+        await ordenesCompraApi.uploadFactura(currentOrdenIdForUpload, formData);
+      } else {
+        await ordenesServicioApi.uploadFactura(currentOrdenIdForUpload, formData);
+      }
+
+      toast.dismiss();
+      toast.success("Factura subida exitosamente");
+      handleCloseUploadFacturaDialog();
+
+      // Recargar las órdenes para actualizar los links
+      loadOrdenesCompra();
+      loadOrdenesServicio();
+    } catch (error) {
+      console.error("Error al subir factura:", error);
+      toast.dismiss();
+      toast.error("Error al subir la factura", {
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min p-6">
@@ -1048,6 +1221,7 @@ export default function OrdenCompraPage() {
             <Button
               className="flex items-center gap-2"
               onClick={() => {
+                limpiarFormularioOrden(); // Limpiar formulario
                 setTipoOrden("servicio");
                 setIsNuevaOrdenModalOpen(true);
               }}
@@ -1059,6 +1233,7 @@ export default function OrdenCompraPage() {
             <Button
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
               onClick={() => {
+                limpiarFormularioOrden(); // Limpiar formulario
                 setTipoOrden("compra");
                 setIsNuevaOrdenModalOpen(true);
               }}
@@ -1149,6 +1324,12 @@ export default function OrdenCompraPage() {
                             Operación
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Cotización
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Factura
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acciones
                           </TableHead>
                         </TableRow>
@@ -1157,7 +1338,7 @@ export default function OrdenCompraPage() {
                         {ordenesCompra.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={18}
+                              colSpan={20}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -1307,6 +1488,72 @@ export default function OrdenCompraPage() {
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 <div className="flex items-center justify-center gap-1">
+                                  {/* Botón para ver cotización */}
+                                  {orden.url_cotizacion ? (
+                                    <a
+                                      href={orden.url_cotizacion}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center justify-center w-8 h-8 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
+                                      title="Ver cotización en Dropbox"
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
+                                    </a>
+                                  ) : (
+                                    <button
+                                      disabled
+                                      className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                      title="No hay cotización subida"
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  {/* Botón para subir cotización */}
+                                  <button
+                                    onClick={() => orden.id_orden_compra && handleOpenUploadCotizacionDialog(orden.id_orden_compra, "compra")}
+                                    className="inline-flex items-center justify-center w-8 h-8 text-white bg-purple-600 hover:bg-purple-700 rounded transition-colors"
+                                    title="Subir cotización"
+                                    disabled={!orden.id_orden_compra}
+                                  >
+                                    <Upload className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  {/* Botón para ver factura */}
+                                  {orden.url_factura ? (
+                                    <a
+                                      href={orden.url_factura}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
+                                      title="Ver factura en Dropbox"
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
+                                    </a>
+                                  ) : (
+                                    <button
+                                      disabled
+                                      className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                      title="No hay factura subida"
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  {/* Botón para subir factura */}
+                                  <button
+                                    onClick={() => orden.id_orden_compra && handleOpenUploadFacturaDialog(orden.id_orden_compra, "compra")}
+                                    className="inline-flex items-center justify-center w-8 h-8 text-white bg-orange-600 hover:bg-orange-700 rounded transition-colors"
+                                    title="Subir factura"
+                                    disabled={!orden.id_orden_compra}
+                                  >
+                                    <Upload className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                <div className="flex items-center justify-center gap-1">
                                   <button
                                     onClick={() => handleEditOrdenCompra(orden)}
                                     className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
@@ -1396,6 +1643,12 @@ export default function OrdenCompraPage() {
                             Operación
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Cotización
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Factura
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acciones
                           </TableHead>
                         </TableRow>
@@ -1404,7 +1657,7 @@ export default function OrdenCompraPage() {
                         {ordenesServicio.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={18}
+                              colSpan={20}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -1551,6 +1804,72 @@ export default function OrdenCompraPage() {
                                     <ExternalLink className="h-4 w-4" />
                                   </button>
                                 )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  {/* Botón para ver cotización */}
+                                  {orden.url_cotizacion ? (
+                                    <a
+                                      href={orden.url_cotizacion}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center justify-center w-8 h-8 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
+                                      title="Ver cotización en Dropbox"
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
+                                    </a>
+                                  ) : (
+                                    <button
+                                      disabled
+                                      className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                      title="No hay cotización subida"
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  {/* Botón para subir cotización */}
+                                  <button
+                                    onClick={() => orden.id_orden_servicio && handleOpenUploadCotizacionDialog(orden.id_orden_servicio, "servicio")}
+                                    className="inline-flex items-center justify-center w-8 h-8 text-white bg-purple-600 hover:bg-purple-700 rounded transition-colors"
+                                    title="Subir cotización"
+                                    disabled={!orden.id_orden_servicio}
+                                  >
+                                    <Upload className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  {/* Botón para ver factura */}
+                                  {orden.url_factura ? (
+                                    <a
+                                      href={orden.url_factura}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
+                                      title="Ver factura en Dropbox"
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
+                                    </a>
+                                  ) : (
+                                    <button
+                                      disabled
+                                      className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                      title="No hay factura subida"
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  {/* Botón para subir factura */}
+                                  <button
+                                    onClick={() => orden.id_orden_servicio && handleOpenUploadFacturaDialog(orden.id_orden_servicio, "servicio")}
+                                    className="inline-flex items-center justify-center w-8 h-8 text-white bg-orange-600 hover:bg-orange-700 rounded transition-colors"
+                                    title="Subir factura"
+                                    disabled={!orden.id_orden_servicio}
+                                  >
+                                    <Upload className="h-4 w-4" />
+                                  </button>
+                                </div>
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 <div className="flex items-center justify-center gap-1">
@@ -3150,6 +3469,166 @@ export default function OrdenCompraPage() {
                       }}
                     >
                       Cancelar
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Diálogo para subir Cotización */}
+              <Dialog open={isUploadCotizacionDialogOpen} onOpenChange={setIsUploadCotizacionDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Subir Cotización</DialogTitle>
+                    <DialogDescription>
+                      Seleccione un archivo de cotización para la orden {currentOrdenTypeForUpload === "compra" ? "de compra" : "de servicio"} #{currentOrdenIdForUpload}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-4 py-4">
+                    {/* Input de archivo */}
+                    <div className="border-2 border-dashed border-purple-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
+                      <input
+                        type="file"
+                        id="file-upload-cotizacion"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                        onChange={handleFileCotizacionSelect}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="file-upload-cotizacion"
+                        className="cursor-pointer flex flex-col items-center"
+                      >
+                        <Upload className="h-12 w-12 text-purple-400 mb-3" />
+                        <p className="text-sm font-semibold text-gray-700 mb-1">
+                          Haz clic para seleccionar una cotización
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          PDF, Word, Excel, o Imágenes
+                        </p>
+                      </label>
+                    </div>
+
+                    {/* Vista previa del archivo seleccionado */}
+                    {selectedFileCotizacion && (
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-8 w-8 text-purple-600" />
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {selectedFileCotizacion.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {(selectedFileCotizacion.size / 1024).toFixed(2)} KB
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setSelectedFileCotizacion(null)}
+                            className="text-gray-400 hover:text-red-600 transition-colors"
+                            title="Eliminar archivo"
+                          >
+                            <X className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleCloseUploadCotizacionDialog}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleConfirmUploadCotizacion}
+                      disabled={!selectedFileCotizacion}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Confirmar Subida
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Diálogo para subir Factura */}
+              <Dialog open={isUploadFacturaDialogOpen} onOpenChange={setIsUploadFacturaDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Subir Factura</DialogTitle>
+                    <DialogDescription>
+                      Seleccione un archivo de factura para la orden {currentOrdenTypeForUpload === "compra" ? "de compra" : "de servicio"} #{currentOrdenIdForUpload}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-4 py-4">
+                    {/* Input de archivo */}
+                    <div className="border-2 border-dashed border-orange-300 rounded-lg p-6 text-center hover:border-orange-400 transition-colors">
+                      <input
+                        type="file"
+                        id="file-upload-factura"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                        onChange={handleFileFacturaSelect}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="file-upload-factura"
+                        className="cursor-pointer flex flex-col items-center"
+                      >
+                        <Upload className="h-12 w-12 text-orange-400 mb-3" />
+                        <p className="text-sm font-semibold text-gray-700 mb-1">
+                          Haz clic para seleccionar una factura
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          PDF, Word, Excel, o Imágenes
+                        </p>
+                      </label>
+                    </div>
+
+                    {/* Vista previa del archivo seleccionado */}
+                    {selectedFileFactura && (
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-8 w-8 text-orange-600" />
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {selectedFileFactura.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {(selectedFileFactura.size / 1024).toFixed(2)} KB
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setSelectedFileFactura(null)}
+                            className="text-gray-400 hover:text-red-600 transition-colors"
+                            title="Eliminar archivo"
+                          >
+                            <X className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleCloseUploadFacturaDialog}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleConfirmUploadFactura}
+                      disabled={!selectedFileFactura}
+                      className="bg-orange-600 hover:bg-orange-700"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Confirmar Subida
                     </Button>
                   </div>
                 </DialogContent>

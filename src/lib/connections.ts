@@ -3202,6 +3202,8 @@ export interface OrdenCompraData {
   total: number;
   observaciones?: string;
   url?: string | null;
+  url_cotizacion?: string | null;
+  url_factura?: string | null;
 }
 
 export const ordenesCompraApi = {
@@ -3364,6 +3366,58 @@ export const ordenesCompraApi = {
       throw error;
     }
   },
+
+  // Subir cotización para orden de compra
+  uploadCotizacion: async (id: number, formData: FormData): Promise<{
+    success: boolean;
+    message: string;
+    fileUrl: string;
+    filePath: string;
+    fileId: string;
+  }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-compra/${id}/upload-cotizacion`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir cotización');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo cotización de orden de compra:", error);
+      throw error;
+    }
+  },
+
+  // Subir factura para orden de compra
+  uploadFactura: async (id: number, formData: FormData): Promise<{
+    success: boolean;
+    message: string;
+    fileUrl: string;
+    filePath: string;
+    fileId: string;
+  }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-compra/${id}/upload-factura`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir factura');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo factura de orden de compra:", error);
+      throw error;
+    }
+  },
 };
 
 // ============ ORDENES SERVICIO API ============
@@ -3405,6 +3459,8 @@ export interface OrdenServicioData {
   total: number;
   observaciones?: string;
   url?: string | null;
+  url_cotizacion?: string | null;
+  url_factura?: string | null;
 }
 
 export const ordenesServicioApi = {
@@ -3564,6 +3620,58 @@ export const ordenesServicioApi = {
       return response.json();
     } catch (error) {
       console.error("Error subiendo archivo de orden de servicio:", error);
+      throw error;
+    }
+  },
+
+  // Subir cotización para orden de servicio
+  uploadCotizacion: async (id: number, formData: FormData): Promise<{
+    success: boolean;
+    message: string;
+    fileUrl: string;
+    filePath: string;
+    fileId: string;
+  }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-servicio/${id}/upload-cotizacion`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir cotización');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo cotización de orden de servicio:", error);
+      throw error;
+    }
+  },
+
+  // Subir factura para orden de servicio
+  uploadFactura: async (id: number, formData: FormData): Promise<{
+    success: boolean;
+    message: string;
+    fileUrl: string;
+    filePath: string;
+    fileId: string;
+  }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-servicio/${id}/upload-factura`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir factura');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo factura de orden de servicio:", error);
       throw error;
     }
   },

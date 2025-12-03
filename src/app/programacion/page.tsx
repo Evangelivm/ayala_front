@@ -402,6 +402,10 @@ export default function ProgramacionPage() {
 
   // Función para verificar si una fila está completa
   const isRowComplete = (row: ManualRow) => {
+    // Validar formato de hora
+    const horaRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+    const horaValida = row.hora_partida && horaRegex.test(row.hora_partida);
+
     const basicFieldsComplete =
       row.fecha &&
       row.unidad &&
@@ -409,7 +413,7 @@ export default function ProgramacionPage() {
       row.proveedor &&
       row.proveedor_id &&
       row.programacion &&
-      row.hora_partida &&
+      horaValida &&
       row.estado_programacion &&
       row.punto_partida_ubigeo &&
       row.punto_partida_direccion &&
@@ -439,22 +443,39 @@ export default function ProgramacionPage() {
     setIsLoading(true);
     try {
       // Convertir ManualRow a ProgramacionData con IDs
-      const dataToSend = manualRows.map((row) => ({
-        fecha: new Date(row.fecha),
-        unidad: row.unidad_id,
-        proveedor: row.proveedor_id,
-        programacion: row.programacion,
-        hora_partida: `${row.hora_partida}:00`,
-        estado_programacion: row.estado_programacion,
-        comentarios: row.comentarios,
-        punto_partida_ubigeo: row.punto_partida_ubigeo,
-        punto_partida_direccion: row.punto_partida_direccion,
-        punto_llegada_ubigeo: row.punto_llegada_ubigeo,
-        punto_llegada_direccion: row.punto_llegada_direccion,
-        peso: row.peso,
-        id_proyecto: row.proyecto_id > 0 ? row.proyecto_id : undefined,
-        id_subproyecto: row.subproyecto_id > 0 ? row.subproyecto_id : undefined,
-      }));
+      const dataToSend = manualRows.map((row) => {
+        // Formatear hora_partida para asegurar formato HH:MM:SS
+        let horaFormateada = row.hora_partida || "08:00";
+
+        // Si la hora no está vacía y no incluye segundos, agregar :00
+        if (horaFormateada && !horaFormateada.includes(":00:") && horaFormateada.split(":").length === 2) {
+          horaFormateada = `${horaFormateada}:00`;
+        }
+
+        // Validar formato HH:MM o HH:MM:SS
+        const horaRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+        if (!horaRegex.test(horaFormateada)) {
+          console.warn(`Hora inválida en fila: ${horaFormateada}, usando valor por defecto 08:00:00`);
+          horaFormateada = "08:00:00";
+        }
+
+        return {
+          fecha: new Date(row.fecha),
+          unidad: row.unidad_id,
+          proveedor: row.proveedor_id,
+          programacion: row.programacion,
+          hora_partida: horaFormateada,
+          estado_programacion: row.estado_programacion,
+          comentarios: row.comentarios,
+          punto_partida_ubigeo: row.punto_partida_ubigeo,
+          punto_partida_direccion: row.punto_partida_direccion,
+          punto_llegada_ubigeo: row.punto_llegada_ubigeo,
+          punto_llegada_direccion: row.punto_llegada_direccion,
+          peso: row.peso,
+          id_proyecto: row.proyecto_id > 0 ? row.proyecto_id : undefined,
+          id_subproyecto: row.subproyecto_id > 0 ? row.subproyecto_id : undefined,
+        };
+      });
 
       const result = await programacionApi.createBatch(dataToSend);
 
