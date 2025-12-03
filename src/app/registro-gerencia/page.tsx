@@ -342,9 +342,6 @@ export default function RegistroGerenciaPage() {
                             Fecha Orden
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
-                            Fecha Registro
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
                             Moneda
                           </TableHead>
                           <TableHead className="text-xs font-bold text-right">
@@ -358,6 +355,12 @@ export default function RegistroGerenciaPage() {
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
                             Estado
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Retención
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            Valor Retención
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
                             Tiene Anticipo
@@ -384,6 +387,12 @@ export default function RegistroGerenciaPage() {
                             Operación
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Cotización
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Factura
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acción
                           </TableHead>
                         </TableRow>
@@ -392,7 +401,7 @@ export default function RegistroGerenciaPage() {
                         {ordenesFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={17}
+                              colSpan={19}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -416,11 +425,6 @@ export default function RegistroGerenciaPage() {
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {format(new Date(orden.fecha_orden), "dd/MM/yyyy", {
-                                  locale: es,
-                                })}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {format(new Date(orden.fecha_registro), "dd/MM/yyyy", {
                                   locale: es,
                                 })}
                               </TableCell>
@@ -450,6 +454,18 @@ export default function RegistroGerenciaPage() {
                                 >
                                   {orden.estado}
                                 </span>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.retencion ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                    {orden.retencion}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 italic">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">
+                                {orden.valor_retencion ? Number(orden.valor_retencion).toFixed(2) : "0.00"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.tiene_anticipo === "SI" ? (
@@ -552,6 +568,48 @@ export default function RegistroGerenciaPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
+                                {orden.url_cotizacion ? (
+                                  <a
+                                    href={orden.url_cotizacion}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
+                                    title="Ver cotización en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay cotización subida"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.url_factura ? (
+                                  <a
+                                    href={orden.url_factura}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
+                                    title="Ver factura en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay factura subida"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
                                 <div className="flex items-center justify-center gap-2">
                                   <button
                                     onClick={() => orden.id_orden_compra && handleTransferirOrdenCompra(orden.id_orden_compra)}
@@ -566,7 +624,10 @@ export default function RegistroGerenciaPage() {
                                     onClick={() => orden.id_orden_compra && handleOpenUploadDialog(orden.id_orden_compra, "compra")}
                                     className="inline-flex items-center justify-center px-3 h-8 text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Subir archivo"
-                                    disabled={!orden.id_orden_compra}
+                                    disabled={
+                                      !orden.id_orden_compra ||
+                                      [orden.auto_administrador, orden.jefe_proyecto, orden.auto_contabilidad].filter(Boolean).length < 2
+                                    }
                                   >
                                     <Upload className="h-3 w-3 mr-1" />
                                     Subir
@@ -600,9 +661,6 @@ export default function RegistroGerenciaPage() {
                             Fecha Orden
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
-                            Fecha Registro
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
                             Moneda
                           </TableHead>
                           <TableHead className="text-xs font-bold text-right">
@@ -616,6 +674,12 @@ export default function RegistroGerenciaPage() {
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
                             Estado
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Detracción
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            Valor Detracción
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
                             Tiene Anticipo
@@ -642,6 +706,12 @@ export default function RegistroGerenciaPage() {
                             Operación
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Cotización
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Factura
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acción
                           </TableHead>
                         </TableRow>
@@ -650,7 +720,7 @@ export default function RegistroGerenciaPage() {
                         {ordenesServicioFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={17}
+                              colSpan={19}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -674,11 +744,6 @@ export default function RegistroGerenciaPage() {
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {format(new Date(orden.fecha_orden), "dd/MM/yyyy", {
-                                  locale: es,
-                                })}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {format(new Date(orden.fecha_registro), "dd/MM/yyyy", {
                                   locale: es,
                                 })}
                               </TableCell>
@@ -708,6 +773,18 @@ export default function RegistroGerenciaPage() {
                                 >
                                   {orden.estado}
                                 </span>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.detraccion ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                                    {orden.detraccion}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 italic">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">
+                                {orden.valor_detraccion ? Number(orden.valor_detraccion).toFixed(2) : "0.00"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.tiene_anticipo === "SI" ? (
@@ -810,6 +887,48 @@ export default function RegistroGerenciaPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
+                                {orden.url_cotizacion ? (
+                                  <a
+                                    href={orden.url_cotizacion}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
+                                    title="Ver cotización en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay cotización subida"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.url_factura ? (
+                                  <a
+                                    href={orden.url_factura}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
+                                    title="Ver factura en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay factura subida"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
                                 <div className="flex items-center justify-center gap-2">
                                   <button
                                     onClick={() => orden.id_orden_servicio && handleTransferirOrdenServicio(orden.id_orden_servicio)}
@@ -824,7 +943,10 @@ export default function RegistroGerenciaPage() {
                                     onClick={() => orden.id_orden_servicio && handleOpenUploadDialog(orden.id_orden_servicio, "servicio")}
                                     className="inline-flex items-center justify-center px-3 h-8 text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Subir archivo"
-                                    disabled={!orden.id_orden_servicio}
+                                    disabled={
+                                      !orden.id_orden_servicio ||
+                                      [orden.auto_administrador, orden.jefe_proyecto, orden.auto_contabilidad].filter(Boolean).length < 2
+                                    }
                                   >
                                     <Upload className="h-3 w-3 mr-1" />
                                     Subir

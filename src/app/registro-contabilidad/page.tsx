@@ -274,9 +274,6 @@ export default function RegistroContabilidadPage() {
                             Fecha Orden
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
-                            Fecha Registro
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
                             Moneda
                           </TableHead>
                           <TableHead className="text-xs font-bold text-right">
@@ -290,6 +287,12 @@ export default function RegistroContabilidadPage() {
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
                             Estado
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Retención
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            Valor Retención
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
                             Tiene Anticipo
@@ -351,11 +354,6 @@ export default function RegistroContabilidadPage() {
                                   locale: es,
                                 })}
                               </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {format(new Date(orden.fecha_registro), "dd/MM/yyyy", {
-                                  locale: es,
-                                })}
-                              </TableCell>
                               <TableCell className="text-xs text-center font-semibold">
                                 {orden.moneda}
                               </TableCell>
@@ -386,6 +384,18 @@ export default function RegistroContabilidadPage() {
                                 >
                                   {orden.estado}
                                 </span>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.retencion ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                    {orden.retencion}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 italic">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">
+                                {orden.valor_retencion ? Number(orden.valor_retencion).toFixed(2) : "0.00"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.tiene_anticipo === "SI" ? (
@@ -525,9 +535,6 @@ export default function RegistroContabilidadPage() {
                             Fecha Orden
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
-                            Fecha Registro
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
                             Moneda
                           </TableHead>
                           <TableHead className="text-xs font-bold text-right">
@@ -541,6 +548,12 @@ export default function RegistroContabilidadPage() {
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
                             Estado
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Detracción
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-right">
+                            Valor Detracción
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
                             Tiene Anticipo
@@ -602,11 +615,6 @@ export default function RegistroContabilidadPage() {
                                   locale: es,
                                 })}
                               </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {format(new Date(orden.fecha_registro), "dd/MM/yyyy", {
-                                  locale: es,
-                                })}
-                              </TableCell>
                               <TableCell className="text-xs text-center font-semibold">
                                 {orden.moneda}
                               </TableCell>
@@ -637,6 +645,18 @@ export default function RegistroContabilidadPage() {
                                 >
                                   {orden.estado}
                                 </span>
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.detraccion ? (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                                    {orden.detraccion}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 italic">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">
+                                {orden.valor_detraccion ? Number(orden.valor_detraccion).toFixed(2) : "0.00"}
                               </TableCell>
                               <TableCell className="text-xs text-center">
                                 {orden.tiene_anticipo === "SI" ? (

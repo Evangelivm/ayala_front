@@ -52,7 +52,7 @@ import {
 } from "@/lib/indexeddb";
 
 // Opciones para los selects
-const PROGRAMACIONES = ["AFIRMADO", "ELIMINACION", "SUB BASE", "1 INTERNOS"];
+const PROGRAMACIONES = ["AFIRMADO", "ELIMINACION", "SUB BASE", "1 INTERNOS", "BASE GRANULAR"];
 const ESTADOS = ["OK", "EN PROCESO", "NO EJECUTADO"];
 
 export default function ProgramacionPage() {
