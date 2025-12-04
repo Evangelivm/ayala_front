@@ -495,6 +495,70 @@ export default function ProgramacionPage() {
     }
   };
 
+  // Función para guardar un registro individual
+  const handleSaveIndividualRow = async (rowId: string) => {
+    const row = manualRows.find((r) => r.id === rowId);
+
+    if (!row) {
+      toast.error("Registro no encontrado");
+      return;
+    }
+
+    if (!isRowComplete(row)) {
+      toast.error("Por favor completa todos los campos obligatorios");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Formatear hora_partida para asegurar formato HH:MM:SS
+      let horaFormateada = row.hora_partida || "08:00";
+
+      // Si la hora no está vacía y no incluye segundos, agregar :00
+      if (horaFormateada && !horaFormateada.includes(":00:") && horaFormateada.split(":").length === 2) {
+        horaFormateada = `${horaFormateada}:00`;
+      }
+
+      // Validar formato HH:MM o HH:MM:SS
+      const horaRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+      if (!horaRegex.test(horaFormateada)) {
+        console.warn(`Hora inválida en fila: ${horaFormateada}, usando valor por defecto 08:00:00`);
+        horaFormateada = "08:00:00";
+      }
+
+      const dataToSend = [{
+        fecha: new Date(row.fecha),
+        unidad: row.unidad_id,
+        proveedor: row.proveedor_id,
+        programacion: row.programacion,
+        hora_partida: horaFormateada,
+        estado_programacion: row.estado_programacion,
+        comentarios: row.comentarios,
+        punto_partida_ubigeo: row.punto_partida_ubigeo,
+        punto_partida_direccion: row.punto_partida_direccion,
+        punto_llegada_ubigeo: row.punto_llegada_ubigeo,
+        punto_llegada_direccion: row.punto_llegada_direccion,
+        peso: row.peso,
+        id_proyecto: row.proyecto_id > 0 ? row.proyecto_id : undefined,
+        id_subproyecto: row.subproyecto_id > 0 ? row.subproyecto_id : undefined,
+      }];
+
+      const result = await programacionApi.createBatch(dataToSend);
+
+      toast.success("Registro guardado exitosamente");
+
+      // Eliminar solo este registro de la lista
+      await deleteManualRowDB(rowId);
+      setManualRows(manualRows.filter((r) => r.id !== rowId));
+
+    } catch (error) {
+      toast.error("Error al guardar el registro");
+      console.error("Error saving individual row:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
@@ -939,7 +1003,7 @@ export default function ProgramacionPage() {
                   <Table className="w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="w-[100px]">Acciones</TableHead>
                         <TableHead className="w-[180px]">Fecha</TableHead>
                         <TableHead className="w-[140px]">Unidad</TableHead>
                         <TableHead className="w-[280px]">Proveedor</TableHead>
@@ -971,15 +1035,28 @@ export default function ProgramacionPage() {
                           }
                         >
                           <TableCell className="p-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeManualRow(row.id)}
-                              disabled={isLoading}
-                              className="h-9 w-9 p-0"
-                            >
-                              <X className="h-4 w-4 text-red-500" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleSaveIndividualRow(row.id)}
+                                disabled={isLoading || !isRowComplete(row)}
+                                className="h-9 w-9 p-0"
+                                title="Guardar este registro"
+                              >
+                                <CheckSquare className={`h-4 w-4 ${isRowComplete(row) ? 'text-green-600' : 'text-gray-400'}`} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeManualRow(row.id)}
+                                disabled={isLoading}
+                                className="h-9 w-9 p-0"
+                                title="Eliminar fila"
+                              >
+                                <X className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </div>
                           </TableCell>
                           <TableCell className="p-2">
                             <Input

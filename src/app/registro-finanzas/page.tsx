@@ -547,7 +547,11 @@ export default function RegistroFinanzasPage() {
                                   onClick={() => orden.id_orden_compra && handlePagarOrdenCompra(orden.id_orden_compra)}
                                   className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Pagar"
-                                  disabled={!orden.id_orden_compra || orden.procede_pago === "PAGAR" || orden.auto_administrador !== true || orden.auto_contabilidad !== true}
+                                  disabled={
+                                    !orden.id_orden_compra ||
+                                    orden.procede_pago === "PAGAR" ||
+                                    [orden.auto_administrador, orden.jefe_proyecto, orden.auto_contabilidad].filter(Boolean).length < 2
+                                  }
                                 >
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Pagar
@@ -854,7 +858,11 @@ export default function RegistroFinanzasPage() {
                                   onClick={() => orden.id_orden_servicio && handlePagarOrdenServicio(orden.id_orden_servicio)}
                                   className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Pagar"
-                                  disabled={!orden.id_orden_servicio || orden.procede_pago === "PAGAR" || orden.auto_administrador !== true || orden.auto_contabilidad !== true}
+                                  disabled={
+                                    !orden.id_orden_servicio ||
+                                    orden.procede_pago === "PAGAR" ||
+                                    [orden.auto_administrador, orden.jefe_proyecto, orden.auto_contabilidad].filter(Boolean).length < 2
+                                  }
                                 >
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Pagar
