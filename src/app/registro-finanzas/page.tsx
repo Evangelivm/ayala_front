@@ -550,6 +550,7 @@ export default function RegistroFinanzasPage() {
                                   disabled={
                                     !orden.id_orden_compra ||
                                     orden.procede_pago === "PAGAR" ||
+                                    orden.procede_pago === "TRANSFERIR" ||
                                     [orden.auto_administrador, orden.jefe_proyecto, orden.auto_contabilidad].filter(Boolean).length < 2
                                   }
                                 >
@@ -861,6 +862,7 @@ export default function RegistroFinanzasPage() {
                                   disabled={
                                     !orden.id_orden_servicio ||
                                     orden.procede_pago === "PAGAR" ||
+                                    orden.procede_pago === "TRANSFERIR" ||
                                     [orden.auto_administrador, orden.jefe_proyecto, orden.auto_contabilidad].filter(Boolean).length < 2
                                   }
                                 >

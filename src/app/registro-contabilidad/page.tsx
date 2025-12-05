@@ -319,6 +319,12 @@ export default function RegistroContabilidadPage() {
                             Operación
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Cotización
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Factura
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acción
                           </TableHead>
                         </TableRow>
@@ -327,7 +333,7 @@ export default function RegistroContabilidadPage() {
                         {ordenesFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={17}
+                              colSpan={19}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -498,6 +504,48 @@ export default function RegistroContabilidadPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-xs text-center">
+                                {orden.url_cotizacion ? (
+                                  <a
+                                    href={orden.url_cotizacion}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
+                                    title="Ver cotización en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay cotización subida"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.url_factura ? (
+                                  <a
+                                    href={orden.url_factura}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
+                                    title="Ver factura en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay factura subida"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
                                 <button
                                   onClick={() => orden.id_orden_compra && handleAprobarOrdenCompra(orden.id_orden_compra)}
                                   className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold"
@@ -580,6 +628,12 @@ export default function RegistroContabilidadPage() {
                             Operación
                           </TableHead>
                           <TableHead className="text-xs font-bold text-center">
+                            Cotización
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
+                            Factura
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center">
                             Acción
                           </TableHead>
                         </TableRow>
@@ -588,7 +642,7 @@ export default function RegistroContabilidadPage() {
                         {ordenesServicioFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={17}
+                              colSpan={19}
                               className="text-center py-8 text-gray-400"
                             >
                               <div className="flex flex-col items-center gap-2">
@@ -753,6 +807,48 @@ export default function RegistroContabilidadPage() {
                                     disabled
                                     className="inline-flex items-center justify-center w-8 h-8 text-red-400 bg-red-50 rounded cursor-not-allowed opacity-50"
                                     title="No hay archivo subido"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.url_cotizacion ? (
+                                  <a
+                                    href={orden.url_cotizacion}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
+                                    title="Ver cotización en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay cotización subida"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-center">
+                                {orden.url_factura ? (
+                                  <a
+                                    href={orden.url_factura}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
+                                    title="Ver factura en Dropbox"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
+                                    title="No hay factura subida"
                                   >
                                     <ExternalLink className="h-4 w-4" />
                                   </button>

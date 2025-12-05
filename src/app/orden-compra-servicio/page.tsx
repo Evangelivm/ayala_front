@@ -928,6 +928,13 @@ export default function OrdenCompraPage() {
       // Extraer serie y número del documento
       const [serie, nroDoc] = orden.numero_orden.split("-");
 
+      // Cargar datos de centros de costo ANTES de setear el formulario
+      await Promise.all([
+        loadCentrosProyecto(),
+        loadFases(),
+        loadRubros(),
+      ]);
+
       // Cargar los datos en el formulario
       setNuevaOrdenData({
         id_proveedor: orden.id_proveedor,
@@ -988,6 +995,13 @@ export default function OrdenCompraPage() {
     try {
       // Extraer serie y número del documento
       const [serie, nroDoc] = orden.numero_orden.split("-");
+
+      // Cargar datos de centros de costo ANTES de setear el formulario
+      await Promise.all([
+        loadCentrosProyecto(),
+        loadFases(),
+        loadRubros(),
+      ]);
 
       // Cargar los datos en el formulario
       setNuevaOrdenData({
