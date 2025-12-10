@@ -797,8 +797,14 @@ export default function OrdenCompraPage() {
         unidad_id: nuevaOrdenData.unidad_id > 0 ? nuevaOrdenData.unidad_id : null,
         // Para orden de compra: retencion, para orden de servicio: detraccion
         ...(tipoOrden === "compra"
-          ? { retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO" }
-          : { detraccion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO" }
+          ? {
+              retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
+              porcentaje_valor_retencion: nuevaOrdenData.retencion.porcentaje.toString()
+            }
+          : {
+              detraccion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
+              porcentaje_valor_detraccion: nuevaOrdenData.retencion.porcentaje.toString()
+            }
         ),
         // Valor de retención o detracción según el tipo de orden
         ...(tipoOrden === "compra"
@@ -958,7 +964,7 @@ export default function OrdenCompraPage() {
         igvPorcentaje: 18, // Calcular desde IGV y subtotal si es necesario
         aplicarRetencion: orden.retencion === "SI",
         retencion: {
-          porcentaje: 3,
+          porcentaje: orden.porcentaje_valor_retencion ? Number(orden.porcentaje_valor_retencion) : 3,
           monto: Number(orden.valor_retencion) || 0,
         },
         items: (orden.items || []).map(item => ({
@@ -1026,7 +1032,7 @@ export default function OrdenCompraPage() {
         igvPorcentaje: 18,
         aplicarRetencion: orden.detraccion === "SI",
         retencion: {
-          porcentaje: 3,
+          porcentaje: orden.porcentaje_valor_detraccion ? Number(orden.porcentaje_valor_detraccion) : 3,
           monto: Number(orden.valor_detraccion) || 0,
         },
         items: (orden.items || []).map(item => ({

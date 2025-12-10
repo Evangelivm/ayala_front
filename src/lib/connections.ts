@@ -1,4 +1,5 @@
 import axios from "axios";
+import { decode } from "he";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -2922,6 +2923,14 @@ export interface ProveedorData {
   fecha_actualizacion: Date | null;
 }
 
+// Helper para decodificar HTML entities en proveedores
+const decodeProveedorData = (proveedor: ProveedorData): ProveedorData => ({
+  ...proveedor,
+  nombre_proveedor: proveedor.nombre_proveedor ? decode(proveedor.nombre_proveedor) : proveedor.nombre_proveedor,
+  contacto: proveedor.contacto ? decode(proveedor.contacto) : proveedor.contacto,
+  direccion: proveedor.direccion ? decode(proveedor.direccion) : proveedor.direccion,
+});
+
 export const proveedoresApi = {
   // Obtener todos los proveedores
   getAll: async (): Promise<ProveedorData[]> => {
@@ -2930,14 +2939,14 @@ export const proveedoresApi = {
 
       // Verificar que la respuesta sea válida
       if (response.data && Array.isArray(response.data)) {
-        return response.data;
+        return response.data.map(decodeProveedorData);
       } else if (
         response.data &&
         typeof response.data === "object" &&
         response.data.data
       ) {
         // Si viene envuelto en { data: [...] }
-        return Array.isArray(response.data.data) ? response.data.data : [];
+        return Array.isArray(response.data.data) ? response.data.data.map(decodeProveedorData) : [];
       } else {
         console.warn("Proveedores API returned unexpected format:", response.data);
         return [];
@@ -2952,7 +2961,7 @@ export const proveedoresApi = {
   getById: async (id: number): Promise<ProveedorData | null> => {
     try {
       const response = await api.get(`/proveedores/${id}`);
-      return response.data;
+      return response.data ? decodeProveedorData(response.data) : null;
     } catch (error) {
       console.error("Proveedores API error:", error);
       return null;
@@ -2963,7 +2972,7 @@ export const proveedoresApi = {
   getByDocumento: async (nro_documento: string): Promise<ProveedorData | null> => {
     try {
       const response = await api.get(`/proveedores/documento/${nro_documento}`);
-      return response.data;
+      return response.data ? decodeProveedorData(response.data) : null;
     } catch (error) {
       console.error("Proveedores API error:", error);
       return null;
@@ -2983,6 +2992,14 @@ export interface ItemData {
   modelo: string | null;
 }
 
+// Helper para decodificar HTML entities en items
+const decodeItemData = (item: ItemData): ItemData => ({
+  ...item,
+  descripcion: item.descripcion ? decode(item.descripcion) : item.descripcion,
+  marca: item.marca ? decode(item.marca) : item.marca,
+  modelo: item.modelo ? decode(item.modelo) : item.modelo,
+});
+
 export const itemsApi = {
   // Obtener todos los items
   getAll: async (): Promise<ItemData[]> => {
@@ -2990,13 +3007,13 @@ export const itemsApi = {
       const response = await api.get("/items");
 
       if (response.data && Array.isArray(response.data)) {
-        return response.data;
+        return response.data.map(decodeItemData);
       } else if (
         response.data &&
         typeof response.data === "object" &&
         response.data.data
       ) {
-        return Array.isArray(response.data.data) ? response.data.data : [];
+        return Array.isArray(response.data.data) ? response.data.data.map(decodeItemData) : [];
       } else {
         console.warn("Items API returned unexpected format:", response.data);
         return [];
@@ -3013,13 +3030,13 @@ export const itemsApi = {
       const response = await api.get(`/items?search=${encodeURIComponent(query)}`);
 
       if (response.data && Array.isArray(response.data)) {
-        return response.data;
+        return response.data.map(decodeItemData);
       } else if (
         response.data &&
         typeof response.data === "object" &&
         response.data.data
       ) {
-        return Array.isArray(response.data.data) ? response.data.data : [];
+        return Array.isArray(response.data.data) ? response.data.data.map(decodeItemData) : [];
       } else {
         console.warn("Items API returned unexpected format:", response.data);
         return [];
@@ -3034,7 +3051,7 @@ export const itemsApi = {
   getByCodigo: async (codigo: string): Promise<ItemData | null> => {
     try {
       const response = await api.get(`/items/${codigo}`);
-      return response.data;
+      return response.data ? decodeItemData(response.data) : null;
     } catch (error) {
       console.error("Items API error:", error);
       return null;
@@ -3187,6 +3204,7 @@ export interface OrdenCompraData {
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
   ruc_proveedor?: string; // RUC del proveedor desde la relación
   retencion?: string; // Indica si aplica retención ("SI" o "NO")
+  porcentaje_valor_retencion?: string; // Porcentaje de la retención (ej: "3", "10")
   almacen_central?: string; // Indica si es almacén central ("SI" o "NO")
   tipo_cambio?: number | string; // Tipo de cambio para la orden
   valor_retencion?: number | string; // Valor/monto de la retención
@@ -3206,12 +3224,23 @@ export interface OrdenCompraData {
   url_factura?: string | null;
 }
 
+// Helper para decodificar HTML entities en órdenes de compra
+const decodeOrdenCompraData = (orden: OrdenCompraData): OrdenCompraData => ({
+  ...orden,
+  observaciones: orden.observaciones ? decode(orden.observaciones) : orden.observaciones,
+  nombre_proveedor: orden.nombre_proveedor ? decode(orden.nombre_proveedor) : orden.nombre_proveedor,
+  items: orden.items.map(item => ({
+    ...item,
+    descripcion_item: item.descripcion_item ? decode(item.descripcion_item) : item.descripcion_item,
+  })),
+});
+
 export const ordenesCompraApi = {
   // Obtener todas las órdenes de compra
   getAll: async (): Promise<OrdenCompraData[]> => {
     try {
       const response = await api.get("/ordenes-compra");
-      return response.data;
+      return Array.isArray(response.data) ? response.data.map(decodeOrdenCompraData) : [];
     } catch (error) {
       console.error("Ordenes Compra API error:", error);
       throw error;
@@ -3242,7 +3271,7 @@ export const ordenesCompraApi = {
   create: async (ordenData: OrdenCompraData): Promise<OrdenCompraData> => {
     try {
       const response = await api.post("/ordenes-compra", ordenData);
-      return response.data;
+      return response.data ? decodeOrdenCompraData(response.data) : response.data;
     } catch (error) {
       console.error("Ordenes Compra API error:", error);
       throw error;
@@ -3253,7 +3282,7 @@ export const ordenesCompraApi = {
   update: async (id: number, ordenData: OrdenCompraData): Promise<OrdenCompraData> => {
     try {
       const response = await api.put(`/ordenes-compra/${id}`, ordenData);
-      return response.data;
+      return response.data ? decodeOrdenCompraData(response.data) : response.data;
     } catch (error) {
       console.error("Ordenes Compra API error:", error);
       throw error;
@@ -3444,6 +3473,7 @@ export interface OrdenServicioData {
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
   ruc_proveedor?: string; // RUC del proveedor desde la relación
   detraccion?: string; // Indica si aplica detracción ("SI" o "NO")
+  porcentaje_valor_detraccion?: string; // Porcentaje de la detracción (ej: "3", "10")
   almacen_central?: string; // Indica si es almacén central ("SI" o "NO")
   tipo_cambio?: number | string; // Tipo de cambio para la orden
   valor_detraccion?: number | string; // Valor/monto de la detracción
@@ -3463,12 +3493,23 @@ export interface OrdenServicioData {
   url_factura?: string | null;
 }
 
+// Helper para decodificar HTML entities en órdenes de servicio
+const decodeOrdenServicioData = (orden: OrdenServicioData): OrdenServicioData => ({
+  ...orden,
+  observaciones: orden.observaciones ? decode(orden.observaciones) : orden.observaciones,
+  nombre_proveedor: orden.nombre_proveedor ? decode(orden.nombre_proveedor) : orden.nombre_proveedor,
+  items: orden.items.map(item => ({
+    ...item,
+    descripcion_item: item.descripcion_item ? decode(item.descripcion_item) : item.descripcion_item,
+  })),
+});
+
 export const ordenesServicioApi = {
   // Obtener todas las órdenes de servicio
   getAll: async (): Promise<OrdenServicioData[]> => {
     try {
       const response = await api.get("/ordenes-servicio");
-      return response.data;
+      return Array.isArray(response.data) ? response.data.map(decodeOrdenServicioData) : [];
     } catch (error) {
       console.error("Ordenes Servicio API error:", error);
       throw error;
@@ -3499,7 +3540,7 @@ export const ordenesServicioApi = {
   create: async (ordenData: OrdenServicioData): Promise<OrdenServicioData> => {
     try {
       const response = await api.post("/ordenes-servicio", ordenData);
-      return response.data;
+      return response.data ? decodeOrdenServicioData(response.data) : response.data;
     } catch (error) {
       console.error("Ordenes Servicio API error:", error);
       throw error;
@@ -3510,7 +3551,7 @@ export const ordenesServicioApi = {
   update: async (id: number, ordenData: OrdenServicioData): Promise<OrdenServicioData> => {
     try {
       const response = await api.put(`/ordenes-servicio/${id}`, ordenData);
-      return response.data;
+      return response.data ? decodeOrdenServicioData(response.data) : response.data;
     } catch (error) {
       console.error("Ordenes Servicio API error:", error);
       throw error;
