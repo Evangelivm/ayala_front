@@ -1599,9 +1599,9 @@ export default function OrdenCompraPage() {
                                   </button>
                                   <button
                                     onClick={() => orden.id_orden_compra && handleDeleteOrdenCompra(orden.id_orden_compra)}
-                                    className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
-                                    title="Eliminar"
-                                    disabled={!orden.id_orden_compra}
+                                    className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-red-600"
+                                    title={orden.auto_administrador === true || orden.jefe_proyecto === true || orden.auto_contabilidad === true ? "No se puede eliminar: tiene aprobaciones" : "Eliminar"}
+                                    disabled={!orden.id_orden_compra || orden.auto_administrador === true || orden.jefe_proyecto === true || orden.auto_contabilidad === true}
                                   >
                                     <X className="h-4 w-4" />
                                   </button>
@@ -1934,9 +1934,9 @@ export default function OrdenCompraPage() {
                                   </button>
                                   <button
                                     onClick={() => orden.id_orden_servicio && handleDeleteOrdenServicio(orden.id_orden_servicio)}
-                                    className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
-                                    title="Eliminar"
-                                    disabled={!orden.id_orden_servicio}
+                                    className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-red-600"
+                                    title={orden.auto_administrador === true || orden.jefe_proyecto === true || orden.auto_contabilidad === true ? "No se puede eliminar: tiene aprobaciones" : "Eliminar"}
+                                    disabled={!orden.id_orden_servicio || orden.auto_administrador === true || orden.jefe_proyecto === true || orden.auto_contabilidad === true}
                                   >
                                     <X className="h-4 w-4" />
                                   </button>
