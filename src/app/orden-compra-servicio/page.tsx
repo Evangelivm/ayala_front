@@ -64,6 +64,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 export default function OrdenCompraPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -98,6 +99,9 @@ export default function OrdenCompraPage() {
   const [selectedFileFactura, setSelectedFileFactura] = useState<File | null>(null);
   const [currentOrdenIdForUpload, setCurrentOrdenIdForUpload] = useState<number | null>(null);
   const [currentOrdenTypeForUpload, setCurrentOrdenTypeForUpload] = useState<"compra" | "servicio" | null>(null);
+
+  // Estado para bloquear el botón de guardar mientras se está guardando
+  const [isSavingOrden, setIsSavingOrden] = useState(false);
 
   // Estado para Nueva Orden
   const [nuevaOrdenData, setNuevaOrdenData] = useState({
@@ -211,6 +215,50 @@ export default function OrdenCompraPage() {
       toast.error("Error al cargar el número de orden");
     }
   };
+
+  // Escuchar actualizaciones de órdenes de compra por WebSocket
+  useWebSocket('ordenCompraUpdated', () => {
+    console.log('📡 Orden de compra actualizada - Recargando lista...');
+    loadOrdenesCompra();
+  });
+
+  // Escuchar actualizaciones de órdenes de servicio por WebSocket
+  useWebSocket('ordenServicioUpdated', () => {
+    console.log('📡 Orden de servicio actualizada - Recargando lista...');
+    loadOrdenesServicio();
+  });
+
+  // Escuchar el siguiente número de orden de compra disponible
+  useWebSocket<{ serie: string; nroDoc: string; numero_orden_completo: string }>(
+    'siguienteNumeroOrdenCompra',
+    (data) => {
+      // Solo actualizar si el modal está abierto, no estamos editando, y es una orden de compra
+      if (isNuevaOrdenModalOpen && ordenEditandoId === null && tipoOrden === 'compra' && data) {
+        console.log('📡 Siguiente número de orden de compra recibido:', data.numero_orden_completo);
+        setNuevaOrdenData((prev) => ({
+          ...prev,
+          serie: data.serie,
+          nroDoc: data.nroDoc,
+        }));
+      }
+    }
+  );
+
+  // Escuchar el siguiente número de orden de servicio disponible
+  useWebSocket<{ serie: string; nroDoc: string; numero_orden_completo: string }>(
+    'siguienteNumeroOrdenServicio',
+    (data) => {
+      // Solo actualizar si el modal está abierto, no estamos editando, y es una orden de servicio
+      if (isNuevaOrdenModalOpen && ordenEditandoId === null && tipoOrden === 'servicio' && data) {
+        console.log('📡 Siguiente número de orden de servicio recibido:', data.numero_orden_completo);
+        setNuevaOrdenData((prev) => ({
+          ...prev,
+          serie: data.serie,
+          nroDoc: data.nroDoc,
+        }));
+      }
+    }
+  );
 
   const centrosCostoMock = [
     { codigo: "0801", nombre: "NUEVA INDEPENDENCIA -MOVIMIENTO DE TIERRAS" },
@@ -726,23 +774,30 @@ export default function OrdenCompraPage() {
   };
 
   const handleNuevaOrdenSave = async () => {
+    // Validaciones básicas
+    if (!nuevaOrdenData.id_proveedor) {
+      toast.error("Debe seleccionar un proveedor");
+      return;
+    }
+
+    if (!nuevaOrdenData.serie || !nuevaOrdenData.nroDoc) {
+      toast.error("Debe ingresar la serie y número de documento");
+      return;
+    }
+
+    if (nuevaOrdenData.items.length === 0) {
+      toast.error("Debe agregar al menos un item a la orden");
+      return;
+    }
+
+    // Prevenir doble envío bloqueando el botón
+    if (isSavingOrden) {
+      return;
+    }
+
+    setIsSavingOrden(true);
+
     try {
-      // Validaciones básicas
-      if (!nuevaOrdenData.id_proveedor) {
-        toast.error("Debe seleccionar un proveedor");
-        return;
-      }
-
-      if (!nuevaOrdenData.serie || !nuevaOrdenData.nroDoc) {
-        toast.error("Debe ingresar la serie y número de documento");
-        return;
-      }
-
-      if (nuevaOrdenData.items.length === 0) {
-        toast.error("Debe agregar al menos un item a la orden");
-        return;
-      }
-
       // Preparar datos para enviar al backend
       const numero_orden = `${nuevaOrdenData.serie}-${nuevaOrdenData.nroDoc}`;
 
@@ -877,6 +932,9 @@ export default function OrdenCompraPage() {
         description: errorMessage,
         duration: 7000, // Mostrar el toast por más tiempo para que el usuario pueda leerlo
       });
+    } finally {
+      // Desbloquear el botón después de guardar (exitoso o con error)
+      setIsSavingOrden(false);
     }
   };
 
@@ -926,6 +984,7 @@ export default function OrdenCompraPage() {
   const handleNuevaOrdenCancel = () => {
     limpiarFormularioOrden();
     setIsNuevaOrdenModalOpen(false);
+    setIsSavingOrden(false); // Resetear el estado de guardando al cancelar
   };
 
   // Función para editar una orden de compra
@@ -940,6 +999,9 @@ export default function OrdenCompraPage() {
         loadFases(),
         loadRubros(),
       ]);
+
+      // Buscar la placa del camión si existe unidad_id
+      const camionSeleccionado = camiones.find(c => c.id_camion === orden.unidad_id);
 
       // Cargar los datos en el formulario
       setNuevaOrdenData({
@@ -959,7 +1021,7 @@ export default function OrdenCompraPage() {
         centroCostoNivel1Codigo: orden.centro_costo_nivel1 || "",
         centroCostoNivel2Codigo: orden.centro_costo_nivel2 || "",
         centroCostoNivel3Codigo: orden.centro_costo_nivel3 || "",
-        unidad: "",
+        unidad: camionSeleccionado?.placa || "",
         unidad_id: orden.unidad_id || 0,
         igvPorcentaje: 18, // Calcular desde IGV y subtotal si es necesario
         aplicarRetencion: orden.retencion === "SI",
@@ -1009,6 +1071,9 @@ export default function OrdenCompraPage() {
         loadRubros(),
       ]);
 
+      // Buscar la placa del camión si existe unidad_id
+      const camionSeleccionado = camiones.find(c => c.id_camion === orden.unidad_id);
+
       // Cargar los datos en el formulario
       setNuevaOrdenData({
         id_proveedor: orden.id_proveedor,
@@ -1027,7 +1092,7 @@ export default function OrdenCompraPage() {
         centroCostoNivel1Codigo: orden.centro_costo_nivel1 || "",
         centroCostoNivel2Codigo: orden.centro_costo_nivel2 || "",
         centroCostoNivel3Codigo: orden.centro_costo_nivel3 || "",
-        unidad: "",
+        unidad: camionSeleccionado?.placa || "",
         unidad_id: orden.unidad_id || 0,
         igvPorcentaje: 18,
         aplicarRetencion: orden.detraccion === "SI",
@@ -3312,14 +3377,16 @@ export default function OrdenCompraPage() {
                       variant="outline"
                       className="px-6 h-9"
                       onClick={handleNuevaOrdenCancel}
+                      disabled={isSavingOrden}
                     >
                       Cancelar
                     </Button>
                     <Button
                       className="px-6 h-9 bg-orange-500 hover:bg-orange-600"
                       onClick={handleNuevaOrdenSave}
+                      disabled={isSavingOrden}
                     >
-                      Guardar
+                      {isSavingOrden ? "Guardando..." : "Guardar"}
                     </Button>
                   </div>
                 </DialogContent>

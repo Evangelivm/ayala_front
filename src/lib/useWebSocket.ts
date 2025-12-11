@@ -34,7 +34,7 @@ function getSocketInstance(): Socket {
   return socketInstance;
 }
 
-export function useWebSocket(event: string, callback: () => void) {
+export function useWebSocket<T = unknown>(event: string, callback: (data?: T) => void) {
   const callbackRef = useRef(callback);
 
   // Mantener el callback actualizado sin causar re-renders
@@ -45,9 +45,9 @@ export function useWebSocket(event: string, callback: () => void) {
   useEffect(() => {
     const socket = getSocketInstance();
 
-    // Wrapper que siempre llama al callback más reciente
-    const eventHandler = () => {
-      callbackRef.current();
+    // Wrapper que siempre llama al callback más reciente con los datos del evento
+    const eventHandler = (data?: T) => {
+      callbackRef.current(data);
     };
 
     // Escuchar el evento específico

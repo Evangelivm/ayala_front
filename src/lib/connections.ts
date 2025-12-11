@@ -3229,10 +3229,10 @@ const decodeOrdenCompraData = (orden: OrdenCompraData): OrdenCompraData => ({
   ...orden,
   observaciones: orden.observaciones ? decode(orden.observaciones) : orden.observaciones,
   nombre_proveedor: orden.nombre_proveedor ? decode(orden.nombre_proveedor) : orden.nombre_proveedor,
-  items: orden.items.map(item => ({
+  items: orden.items ? orden.items.map(item => ({
     ...item,
     descripcion_item: item.descripcion_item ? decode(item.descripcion_item) : item.descripcion_item,
-  })),
+  })) : [],
 });
 
 export const ordenesCompraApi = {
@@ -3271,7 +3271,18 @@ export const ordenesCompraApi = {
   create: async (ordenData: OrdenCompraData): Promise<OrdenCompraData> => {
     try {
       const response = await api.post("/ordenes-compra", ordenData);
-      return response.data ? decodeOrdenCompraData(response.data) : response.data;
+      // La respuesta del backend viene como { success, message, data }
+      // donde data contiene la orden con detalles
+      if (response.data && response.data.data) {
+        const orden = response.data.data;
+        // Mapear detalles a items para compatibilidad
+        const ordenConItems = {
+          ...orden,
+          items: orden.detalles || [],
+        };
+        return decodeOrdenCompraData(ordenConItems);
+      }
+      return response.data;
     } catch (error) {
       console.error("Ordenes Compra API error:", error);
       throw error;
@@ -3498,10 +3509,10 @@ const decodeOrdenServicioData = (orden: OrdenServicioData): OrdenServicioData =>
   ...orden,
   observaciones: orden.observaciones ? decode(orden.observaciones) : orden.observaciones,
   nombre_proveedor: orden.nombre_proveedor ? decode(orden.nombre_proveedor) : orden.nombre_proveedor,
-  items: orden.items.map(item => ({
+  items: orden.items ? orden.items.map(item => ({
     ...item,
     descripcion_item: item.descripcion_item ? decode(item.descripcion_item) : item.descripcion_item,
-  })),
+  })) : [],
 });
 
 export const ordenesServicioApi = {
@@ -3540,7 +3551,18 @@ export const ordenesServicioApi = {
   create: async (ordenData: OrdenServicioData): Promise<OrdenServicioData> => {
     try {
       const response = await api.post("/ordenes-servicio", ordenData);
-      return response.data ? decodeOrdenServicioData(response.data) : response.data;
+      // La respuesta del backend viene como { success, message, data }
+      // donde data contiene la orden con detalles
+      if (response.data && response.data.data) {
+        const orden = response.data.data;
+        // Mapear detalles a items para compatibilidad
+        const ordenConItems = {
+          ...orden,
+          items: orden.detalles || [],
+        };
+        return decodeOrdenServicioData(ordenConItems);
+      }
+      return response.data;
     } catch (error) {
       console.error("Ordenes Servicio API error:", error);
       throw error;
