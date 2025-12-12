@@ -14,6 +14,8 @@ import {
   type FaseControlData,
   rubroApi,
   type RubroData,
+  facturaApi,
+  type FacturaData,
 } from "@/lib/connections";
 import {
   Dialog,
@@ -33,7 +35,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Trash2, Edit, X } from "lucide-react";
+import { ClipboardList, Plus, Trash2, Edit, X, FileText, RefreshCw, RotateCw, Info } from "lucide-react";
+import { EstadoBadge } from "@/components/factura/EstadoBadge";
+import { EnlacesModal } from "@/components/factura/EnlacesModal";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -57,6 +61,8 @@ export default function FacturaPage() {
   const [facturaEditandoId, setFacturaEditandoId] = useState<number | null>(null);
   const [isProveedoresModalOpen, setIsProveedoresModalOpen] = useState(false);
   const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
+  const [isEnlacesModalOpen, setIsEnlacesModalOpen] = useState(false);
+  const [selectedFacturaForModal, setSelectedFacturaForModal] = useState<typeof facturas[0] | null>(null);
   const [selectedProveedor, setSelectedProveedor] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [proveedores, setProveedores] = useState<ProveedorData[]>([]);
@@ -75,7 +81,20 @@ export default function FacturaPage() {
     igv: number;
     total: number;
     estado: string;
+    // Campos adicionales
+    enlace_pdf?: string | null;
+    enlace_xml?: string | null;
+    enlace_cdr?: string | null;
+    aceptada_por_sunat?: boolean | null;
+    sunat_description?: string | null;
+    sunat_note?: string | null;
   }>>([]);
+
+  // Estados para filtros de tabla
+  const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
+  const [filtroProveedor, setFiltroProveedor] = useState<string>("");
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState<Date | undefined>(undefined);
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState<Date | undefined>(undefined);
 
   // Estado para Nueva Factura
   const [nuevaFacturaData, setNuevaFacturaData] = useState({
@@ -142,12 +161,56 @@ export default function FacturaPage() {
     };
   }, []);
 
+  // Polling automático para facturas en PROCESANDO
+  useEffect(() => {
+    // Solo hacer polling si hay facturas en PROCESANDO
+    const facturasEnProcesamiento = facturas.filter(
+      (f) => f.estado === "PROCESANDO"
+    );
+
+    if (facturasEnProcesamiento.length === 0) {
+      return; // No hay nada que hacer
+    }
+
+    // Configurar intervalo de 10 segundos
+    const intervalId = setInterval(() => {
+      console.log(`Polling automático: ${facturasEnProcesamiento.length} facturas en PROCESANDO`);
+      loadFacturas(); // Recargar todas las facturas
+    }, 10000); // 10 segundos
+
+    // Cleanup al desmontar o cuando cambien las facturas
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [facturas]); // Dependencia: facturas
+
   const loadFacturas = async () => {
     try {
-      // TODO: Implementar cuando exista el endpoint
-      setFacturas([]);
+      const data = await facturaApi.getAll();
+
+      // Transformar datos al formato esperado por la tabla
+      const facturasTransformadas = data.map((factura) => ({
+        id: factura.id_factura,
+        numero_factura: `${factura.serie}-${factura.numero}`,
+        fecha_factura: factura.fecha_emision,
+        proveedor: factura.proveedores?.nombre_proveedor || factura.cliente_denominacion,
+        subtotal: factura.total / 1.18, // Calcular subtotal sin IGV
+        igv: factura.total - (factura.total / 1.18),
+        total: factura.total,
+        estado: factura.estado_factura || "SIN PROCESAR",
+        // Datos adicionales para funcionalidades avanzadas
+        enlace_pdf: factura.enlace_del_pdf,
+        enlace_xml: factura.enlace_del_xml,
+        enlace_cdr: factura.enlace_del_cdr,
+        aceptada_por_sunat: factura.aceptada_por_sunat,
+        sunat_description: factura.sunat_description,
+        sunat_note: factura.sunat_note,
+      }));
+
+      setFacturas(facturasTransformadas);
     } catch (error) {
       console.error("Error loading facturas:", error);
+      toast.error("Error al cargar las facturas");
       setFacturas([]);
     }
   };
@@ -462,13 +525,109 @@ export default function FacturaPage() {
     }
 
     try {
-      toast.success("Factura eliminada exitosamente (modo mock)");
+      await facturaApi.delete(id);
+      toast.success("Factura eliminada exitosamente");
       loadFacturas();
     } catch (error) {
       console.error("Error al eliminar factura:", error);
       toast.error("Error al eliminar la factura");
     }
   };
+
+  const handleVerificarEstado = async (id: number) => {
+    try {
+      const status = await facturaApi.getStatus(id);
+
+      if (status.isActive) {
+        toast.info(`Polling activo - Intento ${status.attempts}`, {
+          description: `Estado: ${status.dbRecord.estado_factura}`,
+        });
+      } else {
+        toast.info("Polling no activo", {
+          description: `Estado actual: ${status.dbRecord.estado_factura}`,
+        });
+      }
+
+      // Recargar facturas para actualizar la tabla
+      await loadFacturas();
+    } catch (error) {
+      console.error("Error verificando estado:", error);
+      toast.error("Error al verificar el estado de la factura");
+    }
+  };
+
+  const handleReintentarFactura = async (id: number) => {
+    if (!confirm("¿Está seguro de que desea reintentar esta factura?")) {
+      return;
+    }
+
+    try {
+      await facturaApi.reset(id);
+      toast.success("Factura reseteada para reintento");
+
+      // Forzar detección
+      await facturaApi.forceDetection(id);
+      toast.info("Detección forzada - La factura será procesada nuevamente");
+
+      // Recargar facturas
+      await loadFacturas();
+    } catch (error) {
+      console.error("Error reintentando factura:", error);
+      toast.error("Error al reintentar la factura");
+    }
+  };
+
+  const handleVerDetalles = (id: number) => {
+    const factura = facturas.find((f) => f.id === id);
+    if (!factura) return;
+
+    // Abrir modal de enlaces y detalles SUNAT
+    setSelectedFacturaForModal(factura);
+    setIsEnlacesModalOpen(true);
+  };
+
+  // Función para limpiar filtros
+  const handleLimpiarFiltros = () => {
+    setFiltroEstado("TODOS");
+    setFiltroProveedor("");
+    setFiltroFechaDesde(undefined);
+    setFiltroFechaHasta(undefined);
+  };
+
+  // Filtrar facturas según los criterios
+  const facturasFiltradas = facturas.filter((factura) => {
+    // Filtro por estado
+    if (filtroEstado !== "TODOS" && factura.estado !== filtroEstado) {
+      return false;
+    }
+
+    // Filtro por proveedor (búsqueda parcial)
+    if (filtroProveedor && !factura.proveedor.toLowerCase().includes(filtroProveedor.toLowerCase())) {
+      return false;
+    }
+
+    // Filtro por fecha desde
+    if (filtroFechaDesde) {
+      const fechaFactura = new Date(factura.fecha_factura);
+      const fechaDesde = new Date(filtroFechaDesde);
+      fechaDesde.setHours(0, 0, 0, 0);
+      if (fechaFactura < fechaDesde) {
+        return false;
+      }
+    }
+
+    // Filtro por fecha hasta
+    if (filtroFechaHasta) {
+      const fechaFactura = new Date(factura.fecha_factura);
+      const fechaHasta = new Date(filtroFechaHasta);
+      fechaHasta.setHours(23, 59, 59, 999);
+      if (fechaFactura > fechaHasta) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -480,6 +639,17 @@ export default function FacturaPage() {
               Gestión de facturas del sistema
             </p>
           </div>
+
+          {/* Indicador de polling activo */}
+          {facturas.some((f) => f.estado === "PROCESANDO") && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+              <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
+              <span className="text-sm text-blue-700">
+                Actualizando automáticamente cada 10 segundos...
+                ({facturas.filter((f) => f.estado === "PROCESANDO").length} facturas en proceso)
+              </span>
+            </div>
+          )}
 
           {/* Botones de acción */}
           <div className="flex gap-4 mb-6">
@@ -501,6 +671,112 @@ export default function FacturaPage() {
               <CardTitle>Facturas Registradas</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Filtros */}
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg border">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Filtro por Estado */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Estado</Label>
+                    <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Todos los estados" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TODOS">Todos los estados</SelectItem>
+                        <SelectItem value="SIN PROCESAR">Sin Procesar</SelectItem>
+                        <SelectItem value="PENDIENTE">Pendiente</SelectItem>
+                        <SelectItem value="PROCESANDO">Procesando</SelectItem>
+                        <SelectItem value="COMPLETADO">Completado</SelectItem>
+                        <SelectItem value="FALLADO">Fallado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Filtro por Proveedor */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Proveedor</Label>
+                    <Input
+                      placeholder="Buscar proveedor..."
+                      value={filtroProveedor}
+                      onChange={(e) => setFiltroProveedor(e.target.value)}
+                      className="h-9 text-xs"
+                    />
+                  </div>
+
+                  {/* Filtro por Fecha Desde */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Fecha Desde</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="h-9 w-full justify-start text-xs font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-3 w-3" />
+                          {filtroFechaDesde ? (
+                            format(filtroFechaDesde, "dd/MM/yyyy", { locale: es })
+                          ) : (
+                            <span className="text-gray-400">Seleccionar fecha</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={filtroFechaDesde}
+                          onSelect={setFiltroFechaDesde}
+                          locale={es}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Filtro por Fecha Hasta */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Fecha Hasta</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="h-9 w-full justify-start text-xs font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-3 w-3" />
+                          {filtroFechaHasta ? (
+                            format(filtroFechaHasta, "dd/MM/yyyy", { locale: es })
+                          ) : (
+                            <span className="text-gray-400">Seleccionar fecha</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={filtroFechaHasta}
+                          onSelect={setFiltroFechaHasta}
+                          locale={es}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                {/* Botón Limpiar Filtros y Contador */}
+                <div className="mt-3 flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLimpiarFiltros}
+                    className="h-8 text-xs"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Limpiar Filtros
+                  </Button>
+                  <span className="text-xs text-gray-600">
+                    Mostrando {facturasFiltradas.length} de {facturas.length} facturas
+                  </span>
+                </div>
+              </div>
+
               <div className="border rounded-lg">
                 <Table>
                   <TableHeader>
@@ -522,17 +798,21 @@ export default function FacturaPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {facturas.length === 0 ? (
+                    {facturasFiltradas.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center py-8 text-gray-400">
                           <div className="flex flex-col items-center gap-2">
                             <ClipboardList className="h-8 w-8 opacity-50" />
-                            <p className="text-sm">No hay facturas registradas</p>
+                            <p className="text-sm">
+                              {facturas.length === 0
+                                ? "No hay facturas registradas"
+                                : "No hay facturas que coincidan con los filtros"}
+                            </p>
                           </div>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      facturas.map((factura) => (
+                      facturasFiltradas.map((factura) => (
                         <TableRow key={factura.id} className="hover:bg-gray-50">
                           <TableCell className="text-xs text-center font-mono">
                             {factura.numero_factura}
@@ -553,23 +833,74 @@ export default function FacturaPage() {
                             {factura.total}
                           </TableCell>
                           <TableCell className="text-xs text-center">
-                            {factura.estado}
+                            <div className="flex justify-center">
+                              <EstadoBadge estado={factura.estado} />
+                            </div>
                           </TableCell>
                           <TableCell className="text-xs text-center">
                             <div className="flex items-center justify-center gap-1">
+                              {/* Botón Ver PDF - Solo si está disponible */}
+                              {factura.enlace_pdf && (
+                                <button
+                                  onClick={() => window.open(factura.enlace_pdf!, "_blank")}
+                                  className="inline-flex items-center justify-center w-8 h-8 text-green-600 hover:text-white hover:bg-green-600 rounded transition-colors"
+                                  title="Ver PDF"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </button>
+                              )}
+
+                              {/* Botón Verificar Estado - Para estados PENDIENTE y PROCESANDO */}
+                              {(factura.estado === "PENDIENTE" || factura.estado === "PROCESANDO") && (
+                                <button
+                                  onClick={() => handleVerificarEstado(factura.id)}
+                                  className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
+                                  title="Verificar Estado"
+                                >
+                                  <RefreshCw className="h-4 w-4" />
+                                </button>
+                              )}
+
+                              {/* Botón Reintentar - Solo para facturas FALLADAS */}
+                              {factura.estado === "FALLADO" && (
+                                <button
+                                  onClick={() => handleReintentarFactura(factura.id)}
+                                  className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-white hover:bg-orange-600 rounded transition-colors"
+                                  title="Reintentar"
+                                >
+                                  <RotateCw className="h-4 w-4" />
+                                </button>
+                              )}
+
+                              {/* Botón Editar - Solo para facturas sin procesar */}
+                              {factura.estado === "SIN PROCESAR" && (
+                                <button
+                                  className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
+                                  title="Editar"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                              )}
+
+                              {/* Botón Ver Detalles/Error */}
                               <button
-                                className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
-                                title="Editar"
+                                onClick={() => handleVerDetalles(factura.id)}
+                                className="inline-flex items-center justify-center w-8 h-8 text-purple-600 hover:text-white hover:bg-purple-600 rounded transition-colors"
+                                title="Ver Detalles"
                               >
-                                <Edit className="h-4 w-4" />
+                                <Info className="h-4 w-4" />
                               </button>
-                              <button
-                                onClick={() => handleDeleteFactura(factura.id)}
-                                className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
-                                title="Eliminar"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
+
+                              {/* Botón Eliminar - Solo para sin procesar o falladas */}
+                              {(factura.estado === "SIN PROCESAR" || factura.estado === "FALLADO") && (
+                                <button
+                                  onClick={() => handleDeleteFactura(factura.id)}
+                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
+                                  title="Eliminar"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -1387,6 +1718,16 @@ export default function FacturaPage() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Modal de Enlaces de Descarga */}
+          <EnlacesModal
+            isOpen={isEnlacesModalOpen}
+            onClose={() => {
+              setIsEnlacesModalOpen(false);
+              setSelectedFacturaForModal(null);
+            }}
+            factura={selectedFacturaForModal}
+          />
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,96 +21,16 @@ import {
 } from "@/components/ui/table";
 import { Search } from "lucide-react";
 
-// Tipos de detracción según SUNAT
-const tiposDetraccion = [
-  { codigo: "001", producto: "Azúcar y melaza de caña", porcentaje: 10.0 },
-  { codigo: "003", producto: "Alcohol etílico", porcentaje: 10.0 },
-  { codigo: "004", producto: "Recursos hidrobiológicos", porcentaje: 4.0 },
-  { codigo: "005", producto: "Maíz amarillo duro", porcentaje: 4.0 },
-  { codigo: "007", producto: "Caña de azúcar", porcentaje: 10.0 },
-  { codigo: "008", producto: "Madera", porcentaje: 4.0 },
-  { codigo: "009", producto: "Arena y piedra", porcentaje: 10.0 },
-  {
-    codigo: "010",
-    producto: "Residuos, subproductos, desechos, y formas derivadas",
-    porcentaje: 15.0,
-  },
-  {
-    codigo: "011",
-    producto: "Bienes gravados con el IGV, por renuncia a la exoneración",
-    porcentaje: 12.0,
-  },
-  {
-    codigo: "012",
-    producto: "Intermediación laboral y tercerización",
-    porcentaje: 12.0,
-  },
-  { codigo: "014", producto: "Carne y despojos comestibles", porcentaje: 4.0 },
-  { codigo: "016", producto: "Aceite de pescado", porcentaje: 10.0 },
-  {
-    codigo: "017",
-    producto: "Harina, polvo y pellets de pescado y demás invertebrados",
-    porcentaje: 4.0,
-  },
-  { codigo: "019", producto: "Arrendamiento de bienes", porcentaje: 10.0 },
-  {
-    codigo: "020",
-    producto: "Mantenimiento y reparación de bienes muebles",
-    porcentaje: 12.0,
-  },
-  { codigo: "021", producto: "Movimiento de carga", porcentaje: 10.0 },
-  {
-    codigo: "023",
-    producto: "Otros servicios empresariales",
-    porcentaje: 12.0,
-  },
-  { codigo: "024", producto: "Comisión mercantil", porcentaje: 10.0 },
-  {
-    codigo: "025",
-    producto: "Fabricación de bienes por encargo",
-    porcentaje: 10.0,
-  },
-  {
-    codigo: "026",
-    producto: "Servicio de transporte de personas",
-    porcentaje: 10.0,
-  },
-  { codigo: "027", producto: "Servicio de transporte de bienes", porcentaje: 4.0 },
-  { codigo: "030", producto: "Contratos de construcción", porcentaje: 4.0 },
-  { codigo: "031", producto: "Oro gravado con el IGV", porcentaje: 10.0 },
-  {
-    codigo: "032",
-    producto: "Páprika y otros frutos de los géneros capsicum",
-    porcentaje: 10.0,
-  },
-  {
-    codigo: "034",
-    producto: "Minerales metálicos no auríferos",
-    porcentaje: 10.0,
-  },
-  { codigo: "035", producto: "Bienes exonerados del IGV", porcentaje: 1.5 },
-  {
-    codigo: "036",
-    producto: "Oro y demás minerales metálicos exonerados del IGV",
-    porcentaje: 1.5,
-  },
-  {
-    codigo: "037",
-    producto: "Demás servicios gravados con el IGV",
-    porcentaje: 12.0,
-  },
-  { codigo: "039", producto: "Minerales no metálicos", porcentaje: 10.0 },
-  {
-    codigo: "040",
-    producto: "Bien inmueble gravado con IGV por renuncia a la exoneración",
-    porcentaje: 4.0,
-  },
-  { codigo: "0", producto: "NO APLICA", porcentaje: 0.0 },
-];
+interface TipoDetraccion {
+  id_tipo_detraccion: string;
+  tipo_detraccion: string;
+  porcentaje_detraccion: number;
+}
 
 interface DetraccionSelectDialogProps {
   onSelect: (porcentaje: number, codigo: string, descripcion: string) => void;
   currentPorcentaje?: number;
+  currentCodigo?: string; // Código del tipo de detracción actualmente seleccionado
   buttonText?: string;
   buttonClassName?: string;
 }
@@ -118,29 +38,60 @@ interface DetraccionSelectDialogProps {
 export function DetraccionSelectDialog({
   onSelect,
   currentPorcentaje,
+  currentCodigo,
   buttonText = "Seleccionar tipo de detracción",
   buttonClassName = "",
 }: DetraccionSelectDialogProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCodigo, setSelectedCodigo] = useState<string | null>(null);
+  const [tiposDetraccion, setTiposDetraccion] = useState<TipoDetraccion[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Cargar tipos de detracción desde la API
+  useEffect(() => {
+    const fetchTiposDetraccion = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/tipo-detraccion`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setTiposDetraccion(data);
+        }
+      } catch (error) {
+        console.error("Error al cargar tipos de detracción:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTiposDetraccion();
+  }, []);
 
   // Filtrar tipos de detracción según búsqueda
   const tiposFiltrados = tiposDetraccion.filter((tipo) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     return (
-      tipo.codigo.toLowerCase().includes(query) ||
-      tipo.producto.toLowerCase().includes(query) ||
-      tipo.porcentaje.toString().includes(query)
+      tipo.id_tipo_detraccion.toLowerCase().includes(query) ||
+      tipo.tipo_detraccion.toLowerCase().includes(query) ||
+      tipo.porcentaje_detraccion.toString().includes(query)
     );
   });
 
   const handleSelectTipo = () => {
     if (selectedCodigo) {
-      const tipo = tiposDetraccion.find((t) => t.codigo === selectedCodigo);
+      const tipo = tiposDetraccion.find(
+        (t) => t.id_tipo_detraccion === selectedCodigo
+      );
       if (tipo) {
-        onSelect(tipo.porcentaje, tipo.codigo, tipo.producto);
+        onSelect(
+          parseFloat(tipo.porcentaje_detraccion.toString()),
+          tipo.id_tipo_detraccion,
+          tipo.tipo_detraccion
+        );
         setOpen(false);
         setSelectedCodigo(null);
         setSearchQuery("");
@@ -160,10 +111,11 @@ export function DetraccionSelectDialog({
           variant="outline"
           className={`w-full justify-start text-left font-normal ${buttonClassName}`}
         >
-          {currentPorcentaje !== undefined
+          {currentCodigo
             ? `${currentPorcentaje}% - ${
-                tiposDetraccion.find((t) => t.porcentaje === currentPorcentaje)
-                  ?.producto || "Seleccionado"
+                tiposDetraccion.find(
+                  (t) => t.id_tipo_detraccion === currentCodigo
+                )?.tipo_detraccion || "Seleccionado"
               }`
             : buttonText}
         </Button>
@@ -206,7 +158,16 @@ export function DetraccionSelectDialog({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tiposFiltrados.length === 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={3}
+                      className="text-center py-8 text-gray-400"
+                    >
+                      Cargando...
+                    </TableCell>
+                  </TableRow>
+                ) : tiposFiltrados.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={3}
@@ -218,20 +179,25 @@ export function DetraccionSelectDialog({
                 ) : (
                   tiposFiltrados.map((tipo) => (
                     <TableRow
-                      key={tipo.codigo}
+                      key={tipo.id_tipo_detraccion}
                       className={`cursor-pointer transition-colors ${
-                        selectedCodigo === tipo.codigo
+                        selectedCodigo === tipo.id_tipo_detraccion
                           ? "bg-purple-200 hover:bg-purple-300"
                           : "hover:bg-gray-50"
                       }`}
-                      onClick={() => handleRowClick(tipo.codigo)}
+                      onClick={() => handleRowClick(tipo.id_tipo_detraccion)}
                     >
                       <TableCell className="text-xs text-center font-mono font-semibold">
-                        {tipo.codigo}
+                        {tipo.id_tipo_detraccion}
                       </TableCell>
-                      <TableCell className="text-xs">{tipo.producto}</TableCell>
+                      <TableCell className="text-xs">
+                        {tipo.tipo_detraccion}
+                      </TableCell>
                       <TableCell className="text-xs text-center font-semibold text-purple-700">
-                        {tipo.porcentaje.toFixed(2)}%
+                        {parseFloat(tipo.porcentaje_detraccion.toString()).toFixed(
+                          2
+                        )}
+                        %
                       </TableCell>
                     </TableRow>
                   ))

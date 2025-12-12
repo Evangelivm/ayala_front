@@ -130,6 +130,7 @@ export default function OrdenCompraPage() {
     retencion: {
       porcentaje: 3,
       monto: 0,
+      tipo_detraccion: "", // Código del tipo de detracción (solo para servicio)
     },
     items: [] as Array<{
       codigo_item: string;
@@ -668,7 +669,7 @@ export default function OrdenCompraPage() {
   // Funciones para Nueva Orden (optimizada con useCallback)
   const handleNuevaOrdenInputChange = useCallback((
     field: string,
-    value: string | Date | number | boolean | { porcentaje: number; monto: number }
+    value: string | Date | number | boolean | { porcentaje: number; monto: number; tipo_detraccion: string }
   ) => {
     setNuevaOrdenData((prev) => ({ ...prev, [field]: value }));
 
@@ -679,12 +680,14 @@ export default function OrdenCompraPage() {
   }, []);
 
   // Función optimizada para calcular totales (memoizada) - DEBE estar antes de handleItemChange
-  const calcularTotales = useCallback((items: Array<{ subtotal: number }>) => {
+  const calcularTotales = useCallback((items: Array<{ subtotal: number }>, nuevoPorcentaje?: number) => {
     const subtotalCalculado = items.reduce((acc, item) => acc + (item.subtotal || 0), 0);
     const igvCalculado = subtotalCalculado * (nuevaOrdenData.igvPorcentaje / 100);
     const totalCalculado = subtotalCalculado + igvCalculado;
+    // Usar el nuevo porcentaje si se pasa como parámetro, sino usar el del estado
+    const porcentajeAUsar = nuevoPorcentaje !== undefined ? nuevoPorcentaje : nuevaOrdenData.retencion.porcentaje;
     const retencionMonto = nuevaOrdenData.aplicarRetencion
-      ? totalCalculado * (nuevaOrdenData.retencion.porcentaje / 100)
+      ? totalCalculado * (porcentajeAUsar / 100)
       : 0;
     const netoAPagarCalculado = totalCalculado - retencionMonto;
 
@@ -858,7 +861,8 @@ export default function OrdenCompraPage() {
             }
           : {
               detraccion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
-              porcentaje_valor_detraccion: nuevaOrdenData.retencion.porcentaje.toString()
+              porcentaje_valor_detraccion: nuevaOrdenData.retencion.porcentaje.toString(),
+              tipo_detraccion: nuevaOrdenData.retencion.tipo_detraccion // Código del tipo de detracción
             }
         ),
         // Valor de retención o detracción según el tipo de orden
@@ -963,6 +967,7 @@ export default function OrdenCompraPage() {
       retencion: {
         porcentaje: 3,
         monto: 0,
+        tipo_detraccion: "",
       },
       items: [] as Array<{
         codigo_item: string;
@@ -1028,6 +1033,7 @@ export default function OrdenCompraPage() {
         retencion: {
           porcentaje: orden.porcentaje_valor_retencion ? Number(orden.porcentaje_valor_retencion) : 3,
           monto: Number(orden.valor_retencion) || 0,
+          tipo_detraccion: "", // No aplica para orden de compra
         },
         items: (orden.items || []).map(item => ({
           codigo_item: item.codigo_item,
@@ -1099,6 +1105,7 @@ export default function OrdenCompraPage() {
         retencion: {
           porcentaje: orden.porcentaje_valor_detraccion ? Number(orden.porcentaje_valor_detraccion) : 3,
           monto: Number(orden.valor_detraccion) || 0,
+          tipo_detraccion: "", // Backend doesn't return this field, initialize as empty
         },
         items: (orden.items || []).map(item => ({
           codigo_item: item.codigo_item,
@@ -2638,7 +2645,7 @@ export default function OrdenCompraPage() {
                                 ...prev,
                                 aplicarRetencion: aplicar,
                                 retencion: aplicar
-                                  ? { porcentaje: 3, monto: 0 }
+                                  ? { porcentaje: 3, monto: 0, tipo_detraccion: prev.retencion.tipo_detraccion }
                                   : prev.retencion,
                               };
                               // Recalcular totales con los nuevos datos
@@ -3322,11 +3329,13 @@ export default function OrdenCompraPage() {
                                   <Select
                                     value={nuevaOrdenData.retencion.porcentaje.toString()}
                                     onValueChange={(value) => {
+                                      const nuevoPorcentaje = parseInt(value);
                                       handleNuevaOrdenInputChange("retencion", {
                                         ...nuevaOrdenData.retencion,
-                                        porcentaje: parseInt(value),
+                                        porcentaje: nuevoPorcentaje,
                                       });
-                                      calcularTotales(nuevaOrdenData.items);
+                                      // Pasar el nuevo porcentaje directamente a calcularTotales
+                                      calcularTotales(nuevaOrdenData.items, nuevoPorcentaje);
                                     }}
                                   >
                                     <SelectTrigger className="h-7 w-20 text-xs">
@@ -3344,12 +3353,15 @@ export default function OrdenCompraPage() {
                                 <div className="scale-95 origin-left">
                                   <DetraccionSelectDialog
                                     currentPorcentaje={nuevaOrdenData.retencion.porcentaje}
+                                    currentCodigo={nuevaOrdenData.retencion.tipo_detraccion}
                                     onSelect={(porcentaje, codigo, descripcion) => {
                                       handleNuevaOrdenInputChange("retencion", {
                                         ...nuevaOrdenData.retencion,
                                         porcentaje: porcentaje,
+                                        tipo_detraccion: codigo, // Guardar el código del tipo de detracción
                                       });
-                                      calcularTotales(nuevaOrdenData.items);
+                                      // Pasar el nuevo porcentaje directamente a calcularTotales
+                                      calcularTotales(nuevaOrdenData.items, porcentaje);
                                     }}
                                     buttonText="Seleccionar tipo de detracción"
                                     buttonClassName="h-7 text-xs bg-purple-50 hover:bg-purple-100 border-purple-300"

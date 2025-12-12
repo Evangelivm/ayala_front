@@ -54,15 +54,7 @@ import { UbigeoDialog } from "@/components/ubigeo-dialog";
 import { CamionDialog } from "@/components/camion-dialog";
 import { EmpresaDialog } from "@/components/empresa-dialog";
 import { ubigeosLima } from "@/lib/ubigeos-lima";
-
-// Función helper para obtener fecha local en formato YYYY-MM-DD sin problemas de timezone
-const getFechaLocal = (): string => {
-  const hoy = new Date();
-  const year = hoy.getFullYear();
-  const month = String(hoy.getMonth() + 1).padStart(2, "0");
-  const day = String(hoy.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+import { getTodayPeru } from "@/lib/date-utils";
 
 interface ItemGRE {
   unidad_de_medida: string;
@@ -111,8 +103,8 @@ function GuiaRemisionContent() {
     operacion: "generar_guia",
     serie: "TTT1",
     numero: 1,
-    fecha_de_emision: getFechaLocal(),
-    fecha_de_inicio_de_traslado: getFechaLocal(),
+    fecha_de_emision: getTodayPeru(),
+    fecha_de_inicio_de_traslado: getTodayPeru(),
 
     // Cliente/Destinatario
     cliente_tipo_de_documento: 6, // RUC por defecto
@@ -513,8 +505,8 @@ function GuiaRemisionContent() {
       operacion: "generar_guia",
       serie: tipoGRE === 7 ? "TTT1" : "V001",
       numero: formData.numero + 1,
-      fecha_de_emision: getFechaLocal(),
-      fecha_de_inicio_de_traslado: getFechaLocal(),
+      fecha_de_emision: getTodayPeru(),
+      fecha_de_inicio_de_traslado: getTodayPeru(),
       cliente_tipo_de_documento: 6,
       cliente_numero_de_documento: "",
       cliente_denominacion: "",
