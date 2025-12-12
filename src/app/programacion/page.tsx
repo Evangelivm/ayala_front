@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Upload, Trash2, Save, Plus, X, MapPin, Folder, GitBranch, FileText, Download, CheckSquare } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
 import {
   programacionApi,
   type ProgramacionData,
@@ -786,54 +787,6 @@ export default function ProgramacionPage() {
     );
   };
 
-  // Función para formatear fecha sin problemas de timezone
-  const formatearFecha = (fecha: string | null): string => {
-    if (!fecha) return "-";
-
-    try {
-      // Extraer año, mes, día del string sin usar Date()
-      // Esto evita conversiones de timezone
-      const fechaStr = fecha.split("T")[0]; // "2025-01-18"
-      const [year, month, day] = fechaStr.split("-");
-
-      // Crear fecha en timezone local
-      const fechaLocal = new Date(
-        parseInt(year),
-        parseInt(month) - 1, // Los meses en JS van de 0-11
-        parseInt(day)
-      );
-
-      return fechaLocal.toLocaleDateString("es-ES");
-    } catch (error) {
-      return fecha;
-    }
-  };
-
-  // Función para formatear hora a HH:MM
-  const formatearHora = (horaCompleta: string | null): string => {
-    if (!horaCompleta) return "-";
-
-    try {
-      // Si viene como ISO date (1970-01-01T08:00), extraer solo la hora
-      if (horaCompleta.includes("T")) {
-        const horaParte = horaCompleta.split("T")[1];
-        const partes = horaParte.split(":");
-        if (partes.length >= 2) {
-          return `${partes[0]}:${partes[1]}`;
-        }
-      }
-
-      // Si viene como "HH:MM:SS", extraer solo HH:MM
-      const partes = horaCompleta.split(":");
-      if (partes.length >= 2) {
-        return `${partes[0]}:${partes[1]}`;
-      }
-      return horaCompleta;
-    } catch (error) {
-      return horaCompleta;
-    }
-  };
-
   // Funciones para manejo de selección de PDFs
   const handleSelectPdf = (id: number, hasEnlace: boolean) => {
     if (!hasEnlace) return;
@@ -1338,7 +1291,7 @@ export default function ProgramacionPage() {
                           </TableCell>
                           <TableCell className="font-medium">{item.id}</TableCell>
                           <TableCell>
-                            {formatearFecha(item.fecha)}
+                            {formatDatePeru(item.fecha)}
                           </TableCell>
                           <TableCell className="min-w-24">
                             <div
@@ -1410,7 +1363,7 @@ export default function ProgramacionPage() {
                           </TableCell>
                           <TableCell>
                             <span className="font-mono text-sm font-medium text-blue-700">
-                              {formatearHora(item.hora_partida)}
+                              {formatTimePeru(item.hora_partida)}
                             </span>
                           </TableCell>
                           <TableCell className="min-w-32">
