@@ -461,7 +461,7 @@ export default function ProgramacionPage() {
         }
 
         return {
-          fecha: new Date(row.fecha),
+          fecha: row.fecha, // Enviar como string para evitar conversión de zona horaria
           unidad: row.unidad_id,
           proveedor: row.proveedor_id,
           programacion: row.programacion,
@@ -528,7 +528,7 @@ export default function ProgramacionPage() {
       }
 
       const dataToSend = [{
-        fecha: new Date(row.fecha),
+        fecha: row.fecha, // Enviar como string para evitar conversión de zona horaria
         unidad: row.unidad_id,
         proveedor: row.proveedor_id,
         programacion: row.programacion,

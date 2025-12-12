@@ -7,7 +7,8 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 /**
- * Formatea una fecha a timezone de Perú (America/Lima)
+ * Formatea una fecha SIN conversión de timezone
+ * Útil para campos DATE de la base de datos que no tienen hora
  * @param date - Fecha ISO string o Date object del backend
  * @returns Fecha en formato local (dd/mm/yyyy)
  */
@@ -15,9 +16,14 @@ export const formatDatePeru = (date: string | Date | null): string => {
   if (!date) return "-";
 
   try {
-    // Convertir a timezone de Perú
-    const peruDate = dayjs(date).tz('America/Lima');
-    return peruDate.format('DD/MM/YYYY');
+    // Parsear la fecha sin conversión de timezone
+    // Si viene como "2025-12-12" o "2025-12-12T00:00:00Z", extraer solo la fecha
+    const dateStr = typeof date === 'string' ? date : date.toISOString();
+    const datePart = dateStr.split('T')[0]; // Obtener solo la parte de la fecha YYYY-MM-DD
+
+    // Parsear sin timezone
+    const [year, month, day] = datePart.split('-');
+    return `${day}/${month}/${year}`;
   } catch (error) {
     return "-";
   }

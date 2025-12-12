@@ -1998,7 +1998,7 @@ export const informeConsumoCombustibleApi = {
 
 // ============ PROGRAMACIÓN API ============
 export interface ProgramacionData {
-  fecha: Date;
+  fecha: Date | string;
   unidad: number; // ID del camión
   proveedor: string; // Código de empresa
   programacion: string;
