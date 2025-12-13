@@ -19,6 +19,7 @@ import {
   type ProgramacionTecnicaData,
 } from "@/lib/connections";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 export default function ProgTecnicaPage() {
   const router = useRouter();
@@ -33,7 +34,19 @@ export default function ProgTecnicaPage() {
         programacionApi.getAllTecnica(),
         programacionApi.getIdentificadoresConGuia(),
       ]);
-      setData(tecnicaData);
+
+      // Eliminar duplicados por ID (por si acaso)
+      const idsVistos = new Set();
+      const dataSinDuplicados = tecnicaData.filter((item) => {
+        if (idsVistos.has(item.id)) {
+          console.warn(`Duplicado encontrado en datos iniciales: ID ${item.id}`);
+          return false;
+        }
+        idsVistos.add(item.id);
+        return true;
+      });
+
+      setData(dataSinDuplicados);
       setIdentificadoresConGuia(idsConGuia);
     } catch (error) {
       toast.error("Error al cargar los datos");
@@ -45,60 +58,54 @@ export default function ProgTecnicaPage() {
 
   useEffect(() => {
     fetchData();
+  }, []);
 
-    // Polling ligero: consultar cada 10 segundos si hay registros recién completados
-    const interval = setInterval(async () => {
+  // 📡 WebSocket: Escuchar cuando una programación técnica se completa (reemplaza polling)
+  useWebSocket<{ id: number; identificador_unico: string }>(
+    'progTecnicaCompletada',
+    async (event) => {
+      if (!event) return;
+
+      console.log('📡 Prog-técnica completada vía WebSocket:', event.identificador_unico);
+
       try {
-        // Consultar datos completos de registros completados en los últimos 15 segundos
-        const registrosRecientes = await programacionApi.getRecienCompletados(15);
+        // Obtener el registro actualizado desde el endpoint de recién completados
+        const registrosRecientes = await programacionApi.getRecienCompletados(5);
+        const registroActualizado = registrosRecientes.find(r => r.id === event.id);
 
-        if (registrosRecientes.length > 0) {
-          // Actualizar solo los registros que cambiaron en lugar de recargar toda la tabla
+        if (registroActualizado) {
+          // Actualizar la tabla con el registro completado
           setData((prevData) => {
-            // Crear un mapa con los IDs de los registros recientes para búsqueda rápida
-            const registrosMap = new Map(
-              registrosRecientes.map((reg) => [reg.id, reg])
-            );
+            const index = prevData.findIndex((item) => item.id === event.id);
+            if (index !== -1) {
+              // Actualizar registro existente
+              const newData = [...prevData];
+              newData[index] = registroActualizado;
+              return newData;
+            } else {
+              // Agregar nuevo registro al inicio
+              return [registroActualizado, ...prevData];
+            }
+          });
 
-            // Actualizar los registros existentes o agregarlos si son nuevos
-            const dataActualizada = prevData.map((item) => {
-              const registroActualizado = registrosMap.get(item.id);
-              if (registroActualizado) {
-                // Eliminar del mapa para saber cuáles son nuevos después
-                registrosMap.delete(item.id);
-                return registroActualizado;
+          // Actualizar lista de identificadores con guía
+          if (event.identificador_unico) {
+            setIdentificadoresConGuia((prev) => {
+              if (!prev.includes(event.identificador_unico)) {
+                return [...prev, event.identificador_unico];
               }
-              return item;
+              return prev;
             });
+          }
 
-            // Agregar registros nuevos que no existían en la tabla
-            const registrosNuevos = Array.from(registrosMap.values());
-
-            return [...registrosNuevos, ...dataActualizada];
-          });
-
-          // Actualizar también la lista de identificadores con guía
-          const nuevosIdentificadores = registrosRecientes
-            .map((reg) => reg.identificador_unico)
-            .filter((id): id is string => id !== null);
-
-          setIdentificadoresConGuia((prev) => {
-            const set = new Set([...prev, ...nuevosIdentificadores]);
-            return Array.from(set);
-          });
-
-          toast.success(
-            `${registrosRecientes.length} guía${registrosRecientes.length > 1 ? 's' : ''} procesada${registrosRecientes.length > 1 ? 's' : ''}`
-          );
+          // Mostrar notificación
+          toast.success(`Guía completada: ${event.identificador_unico}`);
         }
       } catch (error) {
-        // Silenciar errores de polling para no molestar al usuario
-        console.error("Error en polling:", error);
+        console.error('Error actualizando registro completado:', error);
       }
-    }, 10000); // Cada 10 segundos
-
-    return () => clearInterval(interval);
-  }, []);
+    }
+  );
 
   const handleGenerarGuia = (id: number) => {
     router.push(`/guia-remision?id=${id}`);

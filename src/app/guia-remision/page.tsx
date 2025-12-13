@@ -55,6 +55,7 @@ import { CamionDialog } from "@/components/camion-dialog";
 import { EmpresaDialog } from "@/components/empresa-dialog";
 import { ubigeosLima } from "@/lib/ubigeos-lima";
 import { getTodayPeru } from "@/lib/date-utils";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 interface ItemGRE {
   unidad_de_medida: string;
@@ -662,6 +663,23 @@ function GuiaRemisionContent() {
       serie: tipoGRE === 7 ? "TTT1" : "V001",
     }));
   }, [tipoGRE]);
+
+  // Escuchar el siguiente número de guía disponible por WebSocket
+  useWebSocket<{ numero: number }>(
+    'siguienteNumeroGuiaRemision',
+    (data) => {
+      // Actualizar el número cuando se reciba un evento válido
+      if (data && data.numero) {
+        console.log('📡 Siguiente número de guía recibido vía WebSocket:', data.numero);
+        setFormData((prev) => ({
+          ...prev,
+          numero: data.numero,
+        }));
+        // Marcar que ya no estamos cargando
+        setLoadingNumber(false);
+      }
+    }
+  );
 
   // Memoized callbacks for name changes
   const handleProyectoNameChange = useCallback((name: string) => {
