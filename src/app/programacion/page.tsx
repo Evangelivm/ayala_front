@@ -194,7 +194,10 @@ export default function ProgramacionPage() {
             // Agregar registros nuevos que no existían en la tabla
             const registrosNuevos = Array.from(registrosMap.values());
 
-            return [...registrosNuevos, ...dataActualizada];
+            // Combinar y deduplicar por ID para evitar duplicados
+            const combined = [...registrosNuevos, ...dataActualizada];
+            const uniqueMap = new Map(combined.map((item) => [item.id, item]));
+            return Array.from(uniqueMap.values());
           });
 
           // Actualizar también la lista de identificadores con guía
@@ -487,6 +490,10 @@ export default function ProgramacionPage() {
       // Limpiar datos después de enviar exitosamente
       clearManualData();
 
+      // Actualizar la pestaña de Registros con los nuevos datos
+      console.log('📊 Actualizando pestaña de Registros...');
+      await fetchDataTecnica();
+
       toast.success("¡Información subida exitosamente!");
     } catch (error) {
       toast.error("Error al guardar los datos");
@@ -551,6 +558,10 @@ export default function ProgramacionPage() {
       // Eliminar solo este registro de la lista
       await deleteManualRowDB(rowId);
       setManualRows(manualRows.filter((r) => r.id !== rowId));
+
+      // Actualizar la pestaña de Registros con los nuevos datos
+      console.log('📊 Actualizando pestaña de Registros...');
+      await fetchDataTecnica();
 
     } catch (error) {
       toast.error("Error al guardar el registro");
@@ -743,6 +754,10 @@ export default function ProgramacionPage() {
 
       handleDiscard();
 
+      // Actualizar la pestaña de Registros con los nuevos datos
+      console.log('📊 Actualizando pestaña de Registros...');
+      await fetchDataTecnica();
+
       toast.success("¡Información subida exitosamente!");
     } catch (error) {
       toast.error("Error al guardar los datos");
@@ -760,7 +775,12 @@ export default function ProgramacionPage() {
         programacionApi.getAllTecnica(),
         programacionApi.getIdentificadoresConGuia(),
       ]);
-      setDataTecnica(tecnicaData);
+
+      // Deduplicar por ID para evitar duplicados
+      const uniqueMap = new Map(tecnicaData.map((item) => [item.id, item]));
+      const uniqueData = Array.from(uniqueMap.values());
+
+      setDataTecnica(uniqueData);
       setIdentificadoresConGuia(idsConGuia);
     } catch (error) {
       toast.error("Error al cargar los datos técnicos");

@@ -35,7 +35,27 @@ interface EnlacesModalProps {
 }
 
 export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
-  if (!factura) return null;
+  if (!factura) {
+    console.log("⚠️ EnlacesModal: No hay factura para mostrar");
+    return null;
+  }
+
+  console.log("📄 EnlacesModal renderizando con factura:", {
+    id: factura.id,
+    numero_factura: factura.numero_factura,
+    proveedor: factura.proveedor,
+    total: factura.total,
+    enlaces: {
+      pdf: factura.enlace_pdf,
+      xml: factura.enlace_xml,
+      cdr: factura.enlace_cdr,
+    },
+    sunat: {
+      aceptada: factura.aceptada_por_sunat,
+      description: factura.sunat_description,
+      note: factura.sunat_note,
+    }
+  });
 
   const hasAnyEnlace = factura.enlace_pdf || factura.enlace_xml || factura.enlace_cdr;
 
@@ -44,10 +64,10 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="text-xl">
-            Detalles de Factura {factura.numero_factura}
+            Detalles de Factura {factura.numero_factura || "N/A"}
           </DialogTitle>
           <DialogDescription>
-            Proveedor: {factura.proveedor} | Total: S/ {factura.total.toFixed(2)}
+            Proveedor: {factura.proveedor || "Sin proveedor"} | Total: S/ {Number(factura.total || 0).toFixed(2)}
           </DialogDescription>
         </DialogHeader>
 

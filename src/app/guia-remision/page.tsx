@@ -48,6 +48,7 @@ import {
   guiasRemisionApi,
   programacionApi,
   type GuiaRemisionData,
+  type ProgramacionTecnicaDetalleData,
 } from "@/lib/connections";
 import { toast } from "sonner";
 import { UbigeoDialog } from "@/components/ubigeo-dialog";
@@ -579,9 +580,14 @@ function GuiaRemisionContent() {
 
       try {
         setLoading(true);
-        const data = await programacionApi.getTecnicaById(
+        const data: ProgramacionTecnicaDetalleData | null = await programacionApi.getTecnicaById(
           parseInt(programacionId)
         );
+
+        if (!data) {
+          toast.error("No se encontraron datos de programación técnica");
+          return;
+        }
 
         // Guardar el identificador único
         setIdentificadorUnico(data.identificador_unico || "");

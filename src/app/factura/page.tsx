@@ -55,6 +55,49 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useWebSocket } from "@/lib/useWebSocket";
+
+// Extended types for factura data with all fields
+interface FacturaItem {
+  codigo_item?: string;
+  descripcion_item: string;
+  cantidad: number;
+  unidad_medida: string;
+  precio_unitario: number;
+  subtotal: number;
+}
+
+interface FacturaCompletaData extends FacturaData {
+  empresa_nro_documento?: string;
+  empresa_razon_social?: string;
+  empresa_direccion?: string;
+  proveedores?: {
+    nombre_proveedor: string;
+    ruc: string;
+    retencion?: string;
+  };
+  fondo_garantia?: boolean;
+  fondo_garantia_valor?: string;
+  orden_compra?: boolean;
+  orden_compra_valor?: string;
+  tipo_cambio?: number;
+  fecha_servicio?: string;
+  centro_costo_nivel1_codigo?: string;
+  centro_costo_nivel2_codigo?: string;
+  placa_vehiculo?: string;
+  unidad_id?: number;
+  porcentaje_igv?: number;
+  aplicar_detraccion?: boolean;
+  detraccion_porcentaje?: number;
+  detraccion_total?: number;
+  factura_item?: FacturaItem[];
+  items?: FacturaItem[];
+  total_gravada?: number;
+  total_igv?: number;
+  observaciones?: string;
+  id_proyecto?: number;
+  id_subproyecto?: number;
+}
 
 export default function FacturaPage() {
   const [isNuevaFacturaModalOpen, setIsNuevaFacturaModalOpen] = useState(false);
@@ -161,7 +204,40 @@ export default function FacturaPage() {
     };
   }, []);
 
-  // Polling automático para facturas en PROCESANDO
+  // WebSocket: Escuchar actualizaciones de facturas en tiempo real
+  useWebSocket<{
+    id_factura: number;
+    estado: string;
+    enlace_pdf?: string;
+    enlace_xml?: string;
+    enlace_cdr?: string;
+  }>('facturaUpdated', (data) => {
+    if (data) {
+      console.log('📡 Evento facturaUpdated recibido:', data);
+
+      // Actualizar la factura en el estado local
+      setFacturas((prevFacturas) =>
+        prevFacturas.map((factura) =>
+          factura.id === data.id_factura
+            ? {
+                ...factura,
+                estado: data.estado,
+                enlace_pdf: data.enlace_pdf || factura.enlace_pdf,
+                enlace_xml: data.enlace_xml || factura.enlace_xml,
+                enlace_cdr: data.enlace_cdr || factura.enlace_cdr,
+              }
+            : factura
+        )
+      );
+
+      // Mostrar notificación
+      if (data.estado === 'COMPLETADO') {
+        toast.success(`Factura ${data.id_factura} procesada exitosamente`);
+      }
+    }
+  });
+
+  // Polling automático para facturas en PROCESANDO (como respaldo)
   useEffect(() => {
     // Solo hacer polling si hay facturas en PROCESANDO
     const facturasEnProcesamiento = facturas.filter(
@@ -172,11 +248,11 @@ export default function FacturaPage() {
       return; // No hay nada que hacer
     }
 
-    // Configurar intervalo de 10 segundos
+    // Configurar intervalo de 30 segundos (aumentado porque WebSocket es primario)
     const intervalId = setInterval(() => {
-      console.log(`Polling automático: ${facturasEnProcesamiento.length} facturas en PROCESANDO`);
+      console.log(`Polling automático (respaldo): ${facturasEnProcesamiento.length} facturas en PROCESANDO`);
       loadFacturas(); // Recargar todas las facturas
-    }, 10000); // 10 segundos
+    }, 30000); // 30 segundos
 
     // Cleanup al desmontar o cuando cambien las facturas
     return () => {
@@ -191,20 +267,20 @@ export default function FacturaPage() {
       // Transformar datos al formato esperado por la tabla
       const facturasTransformadas = data.map((factura) => ({
         id: factura.id_factura,
-        numero_factura: `${factura.serie}-${factura.numero}`,
+        numero_factura: `${factura.serie}-${String(factura.numero).padStart(8, "0")}`,
         fecha_factura: factura.fecha_emision,
-        proveedor: factura.proveedores?.nombre_proveedor || factura.cliente_denominacion,
-        subtotal: factura.total / 1.18, // Calcular subtotal sin IGV
-        igv: factura.total - (factura.total / 1.18),
-        total: factura.total,
+        proveedor: factura.proveedores?.nombre_proveedor || factura.cliente_denominacion || "Sin proveedor",
+        subtotal: Number((factura.total / 1.18).toFixed(2)), // Calcular subtotal sin IGV
+        igv: Number((factura.total - (factura.total / 1.18)).toFixed(2)),
+        total: Number(factura.total),
         estado: factura.estado_factura || "SIN PROCESAR",
         // Datos adicionales para funcionalidades avanzadas
-        enlace_pdf: factura.enlace_del_pdf,
-        enlace_xml: factura.enlace_del_xml,
-        enlace_cdr: factura.enlace_del_cdr,
-        aceptada_por_sunat: factura.aceptada_por_sunat,
-        sunat_description: factura.sunat_description,
-        sunat_note: factura.sunat_note,
+        enlace_pdf: factura.enlace_del_pdf || null,
+        enlace_xml: factura.enlace_del_xml || null,
+        enlace_cdr: factura.enlace_del_cdr || null,
+        aceptada_por_sunat: factura.aceptada_por_sunat ?? null,
+        sunat_description: factura.sunat_description || null,
+        sunat_note: factura.sunat_note || null,
       }));
 
       setFacturas(facturasTransformadas);
@@ -494,18 +570,242 @@ export default function FacturaPage() {
         return;
       }
 
-      // Preparar datos para enviar al backend
-      const numero_factura = `${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`;
+      // Asegurar que la serie tenga el formato correcto para SUNAT
+      if (!nuevaFacturaData.serie || nuevaFacturaData.serie.length < 4) {
+        // Autocompletar con 0001 si está vacía o incompleta
+        setNuevaFacturaData(prev => ({ ...prev, serie: "0001" }));
+        nuevaFacturaData.serie = "0001";
+      }
 
-      console.log("Datos de factura para enviar:", nuevaFacturaData);
+      console.log("🔍 Validando serie:", nuevaFacturaData.serie);
 
-      toast.success("Factura guardada exitosamente (modo mock)", {
-        description: `Número de factura: ${numero_factura}`,
+      // Validación flexible: acepta formatos como 0001, F001, E001, B001, etc.
+      if (!nuevaFacturaData.serie.match(/^[A-Z0-9]{4}$/)) {
+        toast.error(`La serie "${nuevaFacturaData.serie}" no es válida. Debe tener 4 caracteres (ej: 0001, F001, E001)`);
+        return;
+      }
+
+      // Validar que la fecha de emisión sea hoy (requisito de SUNAT)
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const fechaEmision = new Date(nuevaFacturaData.fechaEmision);
+      fechaEmision.setHours(0, 0, 0, 0);
+
+      if (fechaEmision.getTime() !== hoy.getTime()) {
+        toast.warning("La fecha de emisión debe ser HOY según SUNAT. Se ajustará automáticamente.", {
+          duration: 4000,
+        });
+        // Ajustar la fecha a hoy
+        nuevaFacturaData.fechaEmision = hoy;
+      }
+
+      // Obtener datos del proveedor seleccionado
+      const proveedorSeleccionado = proveedores.find(
+        (p) => p.id_proveedor === nuevaFacturaData.id_proveedor
+      );
+
+      if (!proveedorSeleccionado) {
+        toast.error("Error: Proveedor no encontrado");
+        return;
+      }
+
+      // Transformar datos del frontend al formato del backend
+      const dataParaBackend = {
+        // Datos principales de la factura
+        id_proveedor: nuevaFacturaData.id_proveedor,
+        operacion: "generar_comprobante",
+        tipo_de_comprobante: 1, // 1 = Factura
+        serie: nuevaFacturaData.serie,
+        numero: parseInt(nuevaFacturaData.nroDoc),
+        sunat_transaction: 1,
+
+        // Cliente (usar datos del proveedor)
+        cliente_tipo_documento: 6, // 6 = RUC
+        cliente_numero_documento: proveedorSeleccionado.ruc || "",
+        cliente_denominacion: proveedorSeleccionado.nombre_proveedor || "",
+        cliente_direccion: proveedorSeleccionado.direccion || "",
+        cliente_email: proveedorSeleccionado.email || null,
+        cliente_email_1: null,
+        cliente_email_2: null,
+
+        // Fechas (enviar en formato YYYY-MM-DD con hora de Perú para evitar problemas de zona horaria)
+        fecha_emision: (() => {
+          const fecha = new Date(nuevaFacturaData.fechaEmision);
+          const year = fecha.getFullYear();
+          const month = String(fecha.getMonth() + 1).padStart(2, '0');
+          const day = String(fecha.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })(),
+        fecha_vencimiento: null,
+        fecha_servicio: (() => {
+          const fecha = new Date(nuevaFacturaData.fechaServicio);
+          const year = fecha.getFullYear();
+          const month = String(fecha.getMonth() + 1).padStart(2, '0');
+          const day = String(fecha.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })(),
+
+        // Moneda y totales
+        moneda: nuevaFacturaData.moneda === "SOLES" ? 1 : 2,
+        tipo_cambio: nuevaFacturaData.tipoCambio || null,
+        porcentaje_igv: nuevaFacturaData.igvPorcentaje,
+        descuento_global: null,
+        total_descuento: null,
+        total_anticipo: null,
+        total_gravada: nuevaFacturaData.subtotal,
+        total_inafecta: null,
+        total_exonerada: null,
+        total_igv: nuevaFacturaData.igv,
+        total_gratuita: null,
+        total_otros_cargos: null,
+        total_isc: null,
+        total: nuevaFacturaData.total,
+
+        // Detracción
+        aplicar_detraccion: nuevaFacturaData.aplicarDetraccion,
+        detraccion_tipo: nuevaFacturaData.aplicarDetraccion ? 27 : null,
+        detraccion_porcentaje: nuevaFacturaData.aplicarDetraccion
+          ? nuevaFacturaData.detraccion.porcentaje
+          : null,
+        detraccion_total: nuevaFacturaData.aplicarDetraccion
+          ? nuevaFacturaData.detraccion.monto
+          : null,
+        medio_pago_detraccion: null,
+
+        // Ubicaciones (para transporte)
+        ubigeo_origen: null,
+        direccion_origen: null,
+        ubigeo_destino: null,
+        direccion_destino: null,
+        detalle_viaje: null,
+
+        // Percepción y Retención
+        percepcion_tipo: null,
+        percepcion_base_imponible: null,
+        total_percepcion: null,
+        total_incluido_percepcion: null,
+        retencion_tipo: null,
+        retencion_base_imponible: null,
+        total_retencion: null,
+
+        // Fondo de garantía y O/C
+        fondo_garantia: nuevaFacturaData.fondoGarantia,
+        fondo_garantia_valor: nuevaFacturaData.fondoGarantia
+          ? nuevaFacturaData.fondoGarantiaValor
+          : null,
+        orden_compra: nuevaFacturaData.ordenCompra,
+        orden_compra_valor: nuevaFacturaData.ordenCompra
+          ? nuevaFacturaData.ordenCompraValor
+          : null,
+        placa_vehiculo: nuevaFacturaData.unidad || null,
+        orden_compra_servicio: null,
+
+        // Centro de costos
+        centro_costo_nivel1_codigo: nuevaFacturaData.centroCostoNivel1Codigo || null,
+        centro_costo_nivel2_codigo: nuevaFacturaData.centroCostoNivel2Codigo || null,
+        centro_costo_nivel3_codigo: null,
+
+        // Unidad
+        unidad: nuevaFacturaData.unidad || null,
+        unidad_id: nuevaFacturaData.unidad_id || null,
+
+        // Observaciones
+        observaciones: nuevaFacturaData.observacion || null,
+
+        // Configuración de envío
+        enviar_automaticamente_sunat: true,
+        enviar_automaticamente_cliente: false,
+        formato_pdf: "A4",
+
+        // Transformar items del frontend al backend
+        items: nuevaFacturaData.items.map((item) => {
+          // Calcular valores con y sin IGV usando el porcentaje configurado
+          const igvPorcentajeDecimal = nuevaFacturaData.igvPorcentaje / 100;
+          const factorIgv = 1 + igvPorcentajeDecimal;
+
+          const precioConIgv = item.precio_unitario;
+          const valorSinIgv = precioConIgv / factorIgv;
+          const cantidad = item.cantidad_solicitada;
+          const subtotal = valorSinIgv * cantidad;
+          const igvItem = subtotal * igvPorcentajeDecimal;
+          const totalItem = subtotal + igvItem;
+
+          return {
+            codigo_item: item.codigo_item,
+            codigo_producto_sunat: null,
+            descripcion_item: item.descripcion_item,
+            unidad_medida: item.unidadMed,
+            cantidad: cantidad,
+            valor_unitario: Number(valorSinIgv.toFixed(2)),
+            precio_unitario: Number(precioConIgv.toFixed(2)),
+            descuento: 0,
+            subtotal: Number(subtotal.toFixed(2)),
+            tipo_de_igv: 1, // 1 = Gravado - Operación Onerosa
+            igv: Number(igvItem.toFixed(2)),
+            tipo_de_isc: null,
+            isc: null,
+            total: Number(totalItem.toFixed(2)),
+            anticipo_regularizacion: false,
+            anticipo_documento_serie: null,
+            anticipo_documento_numero: null,
+          };
+        }),
+      };
+
+      // Recalcular totales sumando los valores de las líneas
+      const totalGravadaCalculado = dataParaBackend.items.reduce(
+        (sum, item) => sum + item.subtotal,
+        0
+      );
+      const totalIgvCalculado = dataParaBackend.items.reduce(
+        (sum, item) => sum + item.igv,
+        0
+      );
+      const totalCalculado = dataParaBackend.items.reduce(
+        (sum, item) => sum + item.total,
+        0
+      );
+
+      // Actualizar los totales en dataParaBackend
+      dataParaBackend.total_gravada = Number(totalGravadaCalculado.toFixed(2));
+      dataParaBackend.total_igv = Number(totalIgvCalculado.toFixed(2));
+      dataParaBackend.total = Number(totalCalculado.toFixed(2));
+
+      // Recalcular detracción si aplica
+      if (dataParaBackend.aplicar_detraccion) {
+        const detraccionMonto =
+          totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100);
+        dataParaBackend.detraccion_total = Number(detraccionMonto.toFixed(2));
+      }
+
+      console.log("📤 Enviando datos al backend:", dataParaBackend);
+      console.log("📊 Totales recalculados:", {
+        total_gravada: dataParaBackend.total_gravada,
+        total_igv: dataParaBackend.total_igv,
+        total: dataParaBackend.total,
       });
+
+      // Enviar al backend - detectar si es creación o edición
+      if (facturaEditandoId) {
+        // Modo edición - actualizar factura existente
+        const result = await facturaApi.update(facturaEditandoId, dataParaBackend);
+        toast.success("Factura actualizada exitosamente", {
+          description: `Número: ${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`,
+        });
+      } else {
+        // Modo creación - crear nueva factura
+        const result = await facturaApi.create(dataParaBackend);
+        toast.success("Factura creada exitosamente", {
+          description: `Número: ${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`,
+        });
+      }
 
       // Cerrar el modal y limpiar el formulario
       setIsNuevaFacturaModalOpen(false);
       handleNuevaFacturaCancel();
+
+      // Recargar la lista de facturas
+      await loadFacturas();
     } catch (error) {
       console.error("Error al guardar factura:", error);
       toast.error("Error al guardar la factura", {
@@ -531,6 +831,79 @@ export default function FacturaPage() {
     } catch (error) {
       console.error("Error al eliminar factura:", error);
       toast.error("Error al eliminar la factura");
+    }
+  };
+
+  const handleEditFactura = async (id: number) => {
+    try {
+      // Obtener los detalles de la factura desde la API
+      const facturaCompleta: FacturaCompletaData = await facturaApi.getById(id) as FacturaCompletaData;
+
+      console.log('Factura completa cargada:', facturaCompleta);
+      console.log('Items en factura_item:', facturaCompleta.factura_item?.length || 0);
+      console.log('Items en items:', facturaCompleta.items?.length || 0);
+
+      // Cargar datos necesarios para el formulario
+      await Promise.all([
+        loadCentrosProyecto(),
+        loadFases(),
+        loadRubros(),
+        fetchProveedores(),
+      ]);
+
+      // Transformar los datos de la factura a la estructura del formulario
+      setNuevaFacturaData({
+        id_proveedor: facturaCompleta.id_proveedor || 0,
+        nroCliente: facturaCompleta.cliente_numero_documento || "",
+        razonSocial: facturaCompleta.cliente_denominacion || "",
+        retencionProveedor: facturaCompleta.proveedores?.retencion || "",
+        fondoGarantia: Boolean(facturaCompleta.fondo_garantia),
+        fondoGarantiaValor: facturaCompleta.fondo_garantia_valor || "",
+        ordenCompra: Boolean(facturaCompleta.orden_compra),
+        ordenCompraValor: facturaCompleta.orden_compra_valor || "",
+        serie: facturaCompleta.serie || "0001",
+        nroDoc: String(facturaCompleta.numero || ""),
+        fechaEmision: new Date(facturaCompleta.fecha_emision || new Date()),
+        moneda: facturaCompleta.moneda === 1 ? "SOLES" : "DOLARES",
+        tipoCambio: Number(facturaCompleta.tipo_cambio) || 0,
+        fechaServicio: new Date(facturaCompleta.fecha_servicio || new Date()),
+        estado: facturaCompleta.estado_factura || "PENDIENTE",
+        centroCostoNivel1Codigo: facturaCompleta.centro_costo_nivel1_codigo || "",
+        centroCostoNivel2Codigo: facturaCompleta.centro_costo_nivel2_codigo || "",
+        unidad: facturaCompleta.placa_vehiculo || "",
+        unidad_id: facturaCompleta.unidad_id || 0,
+        igvPorcentaje: Number(facturaCompleta.porcentaje_igv) || 18,
+        aplicarDetraccion: Boolean(facturaCompleta.aplicar_detraccion),
+        detraccion: {
+          porcentaje: Number(facturaCompleta.detraccion_porcentaje) || 3,
+          monto: Number(facturaCompleta.detraccion_total) || 0,
+        },
+        items: (facturaCompleta.factura_item || facturaCompleta.items || []).map((item: FacturaItem) => ({
+          codigo_item: item.codigo_item || "",
+          descripcion_item: item.descripcion_item || "",
+          cantidad_solicitada: Number(item.cantidad) || 0,
+          unidadMed: item.unidad_medida || "UNIDAD",
+          precio_unitario: Number(item.precio_unitario) || 0,
+          subtotal: Number(item.subtotal) || 0,
+        })),
+        subtotal: Number(facturaCompleta.total_gravada) || 0,
+        igv: Number(facturaCompleta.total_igv) || 0,
+        total: Number(facturaCompleta.total) || 0,
+        netoAPagar: (Number(facturaCompleta.total) || 0) - (Number(facturaCompleta.detraccion_total) || 0),
+        observacion: facturaCompleta.observaciones || "",
+      });
+
+      // Establecer el ID de la factura que se está editando
+      setFacturaEditandoId(id);
+
+      // Abrir el modal
+      setIsNuevaFacturaModalOpen(true);
+
+      const itemsCount = (facturaCompleta.factura_item || facturaCompleta.items || []).length;
+      toast.success(`Factura cargada con ${itemsCount} item(s)`);
+    } catch (error) {
+      console.error("Error al cargar factura para editar:", error);
+      toast.error("Error al cargar la factura para editar");
     }
   };
 
@@ -578,12 +951,26 @@ export default function FacturaPage() {
   };
 
   const handleVerDetalles = (id: number) => {
-    const factura = facturas.find((f) => f.id === id);
-    if (!factura) return;
+    try {
+      console.log("📋 Ver detalles de factura ID:", id);
 
-    // Abrir modal de enlaces y detalles SUNAT
-    setSelectedFacturaForModal(factura);
-    setIsEnlacesModalOpen(true);
+      const factura = facturas.find((f) => f.id === id);
+
+      if (!factura) {
+        console.error("❌ Factura no encontrada con ID:", id);
+        toast.error("Factura no encontrada");
+        return;
+      }
+
+      console.log("✅ Factura encontrada:", factura);
+
+      // Abrir modal de enlaces y detalles SUNAT
+      setSelectedFacturaForModal(factura);
+      setIsEnlacesModalOpen(true);
+    } catch (error) {
+      console.error("❌ Error al abrir modal de detalles:", error);
+      toast.error("Error al mostrar los detalles de la factura");
+    }
   };
 
   // Función para limpiar filtros
@@ -872,9 +1259,10 @@ export default function FacturaPage() {
                                 </button>
                               )}
 
-                              {/* Botón Editar - Solo para facturas sin procesar */}
-                              {factura.estado === "SIN PROCESAR" && (
+                              {/* Botón Editar - Para facturas sin procesar, pendientes o falladas */}
+                              {(factura.estado === "SIN PROCESAR" || factura.estado === "PENDIENTE" || factura.estado === "FALLADO") && (
                                 <button
+                                  onClick={() => handleEditFactura(factura.id)}
                                   className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
                                   title="Editar"
                                 >
@@ -1135,9 +1523,17 @@ export default function FacturaPage() {
                       <Input
                         id="serie"
                         value={nuevaFacturaData.serie}
-                        onChange={(e) =>
-                          handleNuevaFacturaInputChange("serie", e.target.value)
-                        }
+                        onChange={(e) => {
+                          handleNuevaFacturaInputChange("serie", e.target.value.toUpperCase());
+                        }}
+                        onBlur={(e) => {
+                          // Asegurar formato correcto al perder el foco
+                          if (!nuevaFacturaData.serie || nuevaFacturaData.serie.length < 4) {
+                            handleNuevaFacturaInputChange("serie", "0001");
+                          }
+                        }}
+                        placeholder="0001"
+                        maxLength={4}
                         className="h-8 text-xs w-16"
                       />
                       <Input
@@ -1524,7 +1920,7 @@ export default function FacturaPage() {
                   className="px-6 h-9 bg-orange-500 hover:bg-orange-600"
                   onClick={handleNuevaFacturaSave}
                 >
-                  Guardar
+                  {facturaEditandoId ? "Actualizar" : "Guardar"}
                 </Button>
               </div>
             </DialogContent>

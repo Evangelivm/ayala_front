@@ -2929,7 +2929,7 @@ export default function OrdenCompraPage() {
                         </Label>
                         <Input className="h-8 text-xs bg-gray-100" disabled />
                       </div>
-                      <div className="col-span-2">
+                      <div className="col-span-2 hidden">
                         <Label
                           htmlFor="estado"
                           className="text-xs font-semibold"

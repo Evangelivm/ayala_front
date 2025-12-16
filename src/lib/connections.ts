@@ -2059,6 +2059,24 @@ export interface ProgramacionTecnicaData {
   enlace_del_cdr: string | null;
 }
 
+// Extended type for getTecnicaById response
+export interface ProgramacionTecnicaDetalleData extends ProgramacionTecnicaData {
+  punto_partida_ubigeo: string | null;
+  punto_partida_direccion: string | null;
+  punto_llegada_ubigeo: string | null;
+  punto_llegada_direccion: string | null;
+  camion_placa: string | null;
+  camion_dni: string | null;
+  camion_nombre_chofer: string | null;
+  camion_apellido_chofer: string | null;
+  camion_numero_licencia: string | null;
+  empresa_razon_social: string | null;
+  empresa_nro_documento: string | null;
+  empresa_direccion: string | null;
+  id_proyecto: number | null;
+  id_subproyecto: number | null;
+}
+
 export interface ProgramacionResponse {
   message: string;
   totalRecords: number;
@@ -2121,39 +2139,13 @@ export const programacionApi = {
   },
 
   // Obtener programación técnica por ID
-  getTecnicaById: async (id: number): Promise<{
-    id: number;
-    identificador_unico: string | null;
-    guia_numero_documento: string | null;
-    guia_destinatario_denominacion: string | null;
-    guia_destinatario_direccion: string | null;
-    guia_traslado_peso_bruto: string | null;
-    guia_traslado_vehiculo_placa: string | null;
-    guia_conductor_dni_numero: string | null;
-    guia_conductor_nombres: string | null;
-    guia_conductor_apellidos: string | null;
-    guia_conductor_num_licencia: string | null;
-    punto_partida_ubigeo: string | null;
-    punto_partida_direccion: string | null;
-    punto_llegada_ubigeo: string | null;
-    punto_llegada_direccion: string | null;
-    camion_placa: string | null;
-    camion_dni: string | null;
-    camion_nombre_chofer: string | null;
-    camion_apellido_chofer: string | null;
-    camion_numero_licencia: string | null;
-    empresa_razon_social: string | null;
-    empresa_nro_documento: string | null;
-    empresa_direccion: string | null;
-    id_proyecto: number | null;
-    id_subproyecto: number | null;
-  }> => {
+  getTecnicaById: async (id: number): Promise<ProgramacionTecnicaDetalleData | null> => {
     try {
       const response = await api.get(`/programacion/tecnica/${id}`);
       return response.data;
     } catch (error) {
-      console.error("Programación Técnica API error:", error);
-      throw new Error("Programación técnica no encontrada");
+      console.error("Programación Técnica getById API error:", error);
+      return null;
     }
   },
 

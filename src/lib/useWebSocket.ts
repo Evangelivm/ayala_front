@@ -17,17 +17,47 @@ let socketInstance: Socket | null = null;
 function getSocketInstance(): Socket {
   if (!socketInstance) {
     socketInstance = io(SOCKET_URL, {
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'], // Fallback a polling si websocket falla
       autoConnect: true,
+      reconnection: true, // Reconexión automática habilitada
+      reconnectionAttempts: Infinity, // Intentos infinitos de reconexión
+      reconnectionDelay: 1000, // Delay inicial: 1 segundo
+      reconnectionDelayMax: 5000, // Delay máximo: 5 segundos
+      timeout: 20000, // Timeout de conexión: 20 segundos
     });
 
     // Logs de conexión (solo se ejecutan una vez)
     socketInstance.on('connect', () => {
-      console.log('WebSocket conectado:', socketInstance?.id);
+      console.log('✅ WebSocket conectado:', socketInstance?.id);
     });
 
-    socketInstance.on('disconnect', () => {
-      console.log('WebSocket desconectado');
+    socketInstance.on('disconnect', (reason) => {
+      console.log('❌ WebSocket desconectado. Razón:', reason);
+      if (reason === 'io server disconnect') {
+        // El servidor forzó la desconexión, reconectar manualmente
+        socketInstance?.connect();
+      }
+    });
+
+    socketInstance.on('connect_error', (error) => {
+      console.error('⚠️ Error de conexión WebSocket:', error.message);
+      // NO desconectar, dejar que socket.io maneje la reconexión automática
+    });
+
+    socketInstance.on('reconnect', (attemptNumber) => {
+      console.log(`🔄 WebSocket reconectado después de ${attemptNumber} intento(s)`);
+    });
+
+    socketInstance.on('reconnect_attempt', (attemptNumber) => {
+      console.log(`🔄 Intentando reconectar WebSocket (intento ${attemptNumber})...`);
+    });
+
+    socketInstance.on('reconnect_error', (error) => {
+      console.error('⚠️ Error en reconexión:', error.message);
+    });
+
+    socketInstance.on('reconnect_failed', () => {
+      console.error('❌ Reconexión fallida después de todos los intentos');
     });
   }
 

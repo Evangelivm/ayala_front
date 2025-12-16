@@ -66,14 +66,15 @@ export default function ProgTecnicaPage() {
     async (event) => {
       if (!event) return;
 
-      console.log('📡 Prog-técnica completada vía WebSocket:', event.identificador_unico);
+      console.log('📡 Prog-técnica completada vía WebSocket:', event.identificador_unico, 'ID:', event.id);
 
       try {
-        // Obtener el registro actualizado desde el endpoint de recién completados
-        const registrosRecientes = await programacionApi.getRecienCompletados(5);
-        const registroActualizado = registrosRecientes.find(r => r.id === event.id);
+        // Obtener el registro actualizado directamente por ID (más confiable)
+        const registroActualizado = await programacionApi.getTecnicaById(event.id);
 
         if (registroActualizado) {
+          console.log('✅ Registro actualizado encontrado:', registroActualizado.id);
+
           // Actualizar la tabla con el registro completado
           setData((prevData) => {
             const index = prevData.findIndex((item) => item.id === event.id);
@@ -81,9 +82,11 @@ export default function ProgTecnicaPage() {
               // Actualizar registro existente
               const newData = [...prevData];
               newData[index] = registroActualizado;
+              console.log('🔄 Registro actualizado en la tabla:', event.id);
               return newData;
             } else {
               // Agregar nuevo registro al inicio
+              console.log('➕ Nuevo registro agregado a la tabla:', event.id);
               return [registroActualizado, ...prevData];
             }
           });
@@ -100,9 +103,11 @@ export default function ProgTecnicaPage() {
 
           // Mostrar notificación
           toast.success(`Guía completada: ${event.identificador_unico}`);
+        } else {
+          console.warn('⚠️ Registro no encontrado con ID:', event.id);
         }
       } catch (error) {
-        console.error('Error actualizando registro completado:', error);
+        console.error('❌ Error actualizando registro completado:', error);
       }
     }
   );
