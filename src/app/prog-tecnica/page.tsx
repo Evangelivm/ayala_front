@@ -96,9 +96,10 @@ export default function ProgTecnicaPage() {
 
               // Actualizar lista de identificadores con guía
               if (completado.identificador_unico) {
+                const identificador = completado.identificador_unico;
                 setIdentificadoresConGuia((prev) => {
-                  if (!prev.includes(completado.identificador_unico)) {
-                    return [...prev, completado.identificador_unico];
+                  if (!prev.includes(identificador)) {
+                    return [...prev, identificador];
                   }
                   return prev;
                 });
