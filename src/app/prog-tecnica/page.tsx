@@ -19,7 +19,6 @@ import {
   type ProgramacionTecnicaData,
 } from "@/lib/connections";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
-import { useWebSocket } from "@/lib/useWebSocket";
 
 export default function ProgTecnicaPage() {
   const router = useRouter();
@@ -60,57 +59,63 @@ export default function ProgTecnicaPage() {
     fetchData();
   }, []);
 
-  // 📡 WebSocket: Escuchar cuando una programación técnica se completa (reemplaza polling)
-  useWebSocket<{ id: number; identificador_unico: string }>(
-    'progTecnicaCompletada',
-    async (event) => {
-      if (!event) return;
-
-      console.log('📡 Prog-técnica completada vía WebSocket:', event.identificador_unico, 'ID:', event.id);
-
+  // 🔄 Polling cada 10 segundos para verificar registros recién completados
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
       try {
-        // Obtener el registro actualizado directamente por ID (más confiable)
-        const registroActualizado = await programacionApi.getTecnicaById(event.id);
+        // Obtener registros completados en los últimos 30 segundos
+        const recienCompletados = await programacionApi.getRecienCompletados(30);
 
-        if (registroActualizado) {
-          console.log('✅ Registro actualizado encontrado:', registroActualizado.id);
+        if (recienCompletados.length > 0) {
+          console.log(`✅ Encontrados ${recienCompletados.length} registros recién completados`);
 
-          // Actualizar la tabla con el registro completado
+          // Actualizar los registros en la tabla
           setData((prevData) => {
-            const index = prevData.findIndex((item) => item.id === event.id);
-            if (index !== -1) {
-              // Actualizar registro existente
-              const newData = [...prevData];
-              newData[index] = registroActualizado;
-              console.log('🔄 Registro actualizado en la tabla:', event.id);
-              return newData;
-            } else {
-              // Agregar nuevo registro al inicio
-              console.log('➕ Nuevo registro agregado a la tabla:', event.id);
-              return [registroActualizado, ...prevData];
-            }
-          });
+            const newData = [...prevData];
+            let updated = false;
 
-          // Actualizar lista de identificadores con guía
-          if (event.identificador_unico) {
-            setIdentificadoresConGuia((prev) => {
-              if (!prev.includes(event.identificador_unico)) {
-                return [...prev, event.identificador_unico];
+            recienCompletados.forEach((completado) => {
+              const index = newData.findIndex((item) => item.id === completado.id);
+              if (index !== -1) {
+                // Actualizar registro existente
+                newData[index] = completado;
+                updated = true;
+                console.log(`🔄 Registro ${completado.id} actualizado con archivos completos`);
+
+                // Mostrar notificación
+                toast.success(`Guía completada: ${completado.identificador_unico}`);
+              } else {
+                // Agregar nuevo registro al inicio
+                newData.unshift(completado);
+                updated = true;
+                console.log(`➕ Nuevo registro ${completado.id} agregado`);
+
+                // Mostrar notificación
+                toast.success(`Nueva guía completada: ${completado.identificador_unico}`);
               }
-              return prev;
-            });
-          }
 
-          // Mostrar notificación
-          toast.success(`Guía completada: ${event.identificador_unico}`);
-        } else {
-          console.warn('⚠️ Registro no encontrado con ID:', event.id);
+              // Actualizar lista de identificadores con guía
+              if (completado.identificador_unico) {
+                setIdentificadoresConGuia((prev) => {
+                  if (!prev.includes(completado.identificador_unico)) {
+                    return [...prev, completado.identificador_unico];
+                  }
+                  return prev;
+                });
+              }
+            });
+
+            return updated ? newData : prevData;
+          });
         }
       } catch (error) {
-        console.error('❌ Error actualizando registro completado:', error);
+        console.error('Error en polling de registros completados:', error);
       }
-    }
-  );
+    }, 10000); // Cada 10 segundos
+
+    // Limpiar intervalo al desmontar
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleGenerarGuia = (id: number) => {
     router.push(`/guia-remision?id=${id}`);
