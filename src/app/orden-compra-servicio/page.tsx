@@ -91,6 +91,7 @@ export default function OrdenCompraPage() {
   const [camiones, setCamiones] = useState<CamionData[]>([]);
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
   const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
+  const [fechaFiltro, setFechaFiltro] = useState<Date | undefined>(undefined);
 
   // Estados para subida de archivos (Cotización y Factura)
   const [isUploadCotizacionDialogOpen, setIsUploadCotizacionDialogOpen] = useState(false);
@@ -180,6 +181,7 @@ export default function OrdenCompraPage() {
     }
     debounceTimerRef.current = setTimeout(fn, delay);
   }, []);
+
 
   // Cargar camiones y órdenes al montar el componente
   useEffect(() => {
@@ -1295,6 +1297,27 @@ export default function OrdenCompraPage() {
     }
   };
 
+  // Filtrar órdenes por fecha
+  const ordenesFiltradas = useMemo(() => {
+    if (!fechaFiltro) return ordenesCompra;
+
+    const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
+    return ordenesCompra.filter((orden) => {
+      const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
+      return fechaOrden === fechaFiltroStr;
+    });
+  }, [ordenesCompra, fechaFiltro]);
+
+  const ordenesServicioFiltradas = useMemo(() => {
+    if (!fechaFiltro) return ordenesServicio;
+
+    const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
+    return ordenesServicio.filter((orden) => {
+      const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
+      return fechaOrden === fechaFiltroStr;
+    });
+  }, [ordenesServicio, fechaFiltro]);
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min p-6">
@@ -1347,6 +1370,49 @@ export default function OrdenCompraPage() {
             </Dialog>
           </div>
 
+          {/* Filtro de fecha */}
+          <div className="mb-4 flex items-center gap-4">
+            <Label htmlFor="fecha-filtro" className="text-sm font-medium">
+              Filtrar por Fecha:
+            </Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="fecha-filtro"
+                  variant="outline"
+                  className="w-[240px] justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {fechaFiltro ? (
+                    format(fechaFiltro, "PPP", { locale: es })
+                  ) : (
+                    <span>Seleccionar fecha</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={fechaFiltro}
+                  onSelect={setFechaFiltro}
+                  locale={es}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            {fechaFiltro && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFechaFiltro(undefined)}
+                className="h-8 px-2"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Limpiar filtro
+              </Button>
+            )}
+          </div>
+
           {/* Tabs para Órdenes de Compra y Servicio */}
           <Tabs defaultValue="compra" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -1360,7 +1426,7 @@ export default function OrdenCompraPage() {
                   <CardTitle>Órdenes de Compra Registradas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="border rounded-lg">
+                  <div className="border rounded-lg overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-blue-100">
@@ -1430,7 +1496,7 @@ export default function OrdenCompraPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {ordenesCompra.length === 0 ? (
+                        {ordenesFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
                               colSpan={20}
@@ -1439,13 +1505,16 @@ export default function OrdenCompraPage() {
                               <div className="flex flex-col items-center gap-2">
                                 <ClipboardList className="h-8 w-8 opacity-50" />
                                 <p className="text-sm">
-                                  No hay órdenes de compra registradas
+                                  {fechaFiltro
+                                    ? "No hay órdenes de compra para la fecha seleccionada"
+                                    : "No hay órdenes de compra registradas"
+                                  }
                                 </p>
                               </div>
                             </TableCell>
                           </TableRow>
                         ) : (
-                          ordenesCompra.map((orden) => (
+                          ordenesFiltradas.map((orden) => (
                             <TableRow
                               key={orden.id_orden_compra}
                               className="hover:bg-gray-50"
@@ -1695,7 +1764,7 @@ export default function OrdenCompraPage() {
                   <CardTitle>Órdenes de Servicio Registradas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="border rounded-lg">
+                  <div className="border rounded-lg overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-green-100">
@@ -1765,7 +1834,7 @@ export default function OrdenCompraPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {ordenesServicio.length === 0 ? (
+                        {ordenesServicioFiltradas.length === 0 ? (
                           <TableRow>
                             <TableCell
                               colSpan={20}
@@ -1774,13 +1843,16 @@ export default function OrdenCompraPage() {
                               <div className="flex flex-col items-center gap-2">
                                 <ClipboardList className="h-8 w-8 opacity-50" />
                                 <p className="text-sm">
-                                  No hay órdenes de servicio registradas
+                                  {fechaFiltro
+                                    ? "No hay órdenes de servicio para la fecha seleccionada"
+                                    : "No hay órdenes de servicio registradas"
+                                  }
                                 </p>
                               </div>
                             </TableCell>
                           </TableRow>
                         ) : (
-                          ordenesServicio.map((orden) => (
+                          ordenesServicioFiltradas.map((orden) => (
                             <TableRow
                               key={orden.id_orden_servicio}
                               className="hover:bg-gray-50"
