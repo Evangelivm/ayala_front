@@ -45,6 +45,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink, Edit, Upload } from "lucide-react";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { DetraccionSelectDialog } from "@/components/detraccion-select-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -1426,334 +1428,351 @@ export default function OrdenCompraPage() {
                   <CardTitle>Órdenes de Compra Registradas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="border rounded-lg overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-blue-100">
-                          <TableHead className="text-xs font-bold text-center">
-                            Número Orden
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Fecha Orden
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Moneda
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Subtotal
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            IGV
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Total
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Estado
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Retención
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Valor Retención
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Tiene Anticipo
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Procede Pago
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Admin.
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Jefe
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Contab.
-                          </TableHead>
-                          <TableHead className="text-xs font-bold">
-                            Proveedor
-                          </TableHead>
-                          <TableHead className="text-xs font-bold">
-                            Observaciones
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            PDF
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Operación
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Cotización
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Factura
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Acciones
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ordenesFiltradas.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={20}
-                              className="text-center py-8 text-gray-400"
-                            >
-                              <div className="flex flex-col items-center gap-2">
-                                <ClipboardList className="h-8 w-8 opacity-50" />
-                                <p className="text-sm">
-                                  {fechaFiltro
-                                    ? "No hay órdenes de compra para la fecha seleccionada"
-                                    : "No hay órdenes de compra registradas"
-                                  }
-                                </p>
+                  {ordenesFiltradas.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <div className="flex flex-col items-center gap-2">
+                        <ClipboardList className="h-8 w-8 opacity-50" />
+                        <p className="text-sm">
+                          {fechaFiltro
+                            ? "No hay órdenes de compra para la fecha seleccionada"
+                            : "No hay órdenes de compra registradas"
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Accordion type="single" collapsible className="space-y-2">
+                      {ordenesFiltradas.map((orden) => (
+                        <AccordionItem
+                          key={orden.id_orden_compra}
+                          value={`orden-${orden.id_orden_compra}`}
+                          className="border rounded-lg overflow-hidden"
+                        >
+                          <AccordionTrigger className="hover:no-underline px-4 py-3">
+                            <div className="flex items-center justify-between w-full gap-4 pr-4">
+                              {/* Información principal - visible cuando está cerrado */}
+                              <div className="flex items-center gap-4 flex-wrap flex-1">
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Número</span>
+                                  <span className="text-sm font-mono font-bold text-blue-600">
+                                    {orden.numero_orden}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Fecha</span>
+                                  <span className="text-sm font-medium">
+                                    {format(new Date(orden.fecha_orden), "dd/MM/yyyy", { locale: es })}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start flex-1 min-w-[200px]">
+                                  <span className="text-xs text-gray-500 font-medium">Proveedor</span>
+                                  <span className="text-sm font-medium truncate max-w-full">
+                                    {orden.nombre_proveedor || <span className="text-gray-400 italic">Sin proveedor</span>}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Total</span>
+                                  <span className="text-sm font-bold font-mono text-green-700">
+                                    {orden.moneda === "SOLES" ? "S/." : "$"} {Number(orden.total).toFixed(2)}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Estado</span>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.estado === "PENDIENTE"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : orden.estado === "APROBADA"
+                                          ? "bg-green-100 text-green-800"
+                                          : orden.estado === "COMPLETADA"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.estado}
+                                  </span>
+                                </div>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          ordenesFiltradas.map((orden) => (
-                            <TableRow
-                              key={orden.id_orden_compra}
-                              className="hover:bg-gray-50"
-                            >
-                              <TableCell className="text-xs text-center font-mono">
-                                {orden.numero_orden}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {format(new Date(orden.fecha_orden), "dd/MM/yyyy", {
-                                  locale: es,
-                                })}
-                              </TableCell>
-                              <TableCell className="text-xs text-center font-semibold">
-                                {orden.moneda}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.subtotal}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.igv}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-bold font-mono">
-                                {orden.total}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <span
-                                  className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                    orden.estado === "PENDIENTE"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : orden.estado === "APROBADA"
-                                        ? "bg-green-100 text-green-800"
-                                        : orden.estado === "COMPLETADA"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : "bg-gray-100 text-gray-800"
-                                  }`}
-                                >
-                                  {orden.estado}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.retencion ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                    {orden.retencion}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 italic">-</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.valor_retencion ? Number(orden.valor_retencion).toFixed(2) : "0.00"}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.tiene_anticipo === "SI" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    SÍ
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                                    NO
-                                  </span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.procede_pago || "-"}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.auto_administrador === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.auto_administrador === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.jefe_proyecto === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.jefe_proyecto === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.auto_contabilidad === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.auto_contabilidad === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                {orden.nombre_proveedor || (
-                                  <span className="text-gray-400 italic">Sin proveedor</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                {orden.observaciones ? (
-                                  orden.observaciones
-                                ) : (
-                                  <span className="text-gray-400 italic">Sin observaciones</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <a
-                                  href={orden.id_orden_compra ? urlHelpers.getOrdenCompraPdfUrl(orden.id_orden_compra) : '#'}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                                  title="Ver PDF"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </a>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.url ? (
-                                  <a
-                                    href={orden.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                                    title="Ver archivo en Dropbox"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </a>
-                                ) : (
-                                  <button
-                                    disabled
-                                    className="inline-flex items-center justify-center w-8 h-8 text-red-400 bg-red-50 rounded cursor-not-allowed opacity-50"
-                                    title="No hay archivo subido"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  {/* Botón para ver cotización */}
-                                  {orden.url_cotizacion ? (
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="px-4 pb-4">
+                            <div className="space-y-3 pt-2">
+                              {/* Primera Fila: Información Financiera + Autorizaciones */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {/* Información Financiera */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">
+                                    Información Financiera
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Moneda</p>
+                                      <p className="text-sm font-semibold">{orden.moneda}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Subtotal</p>
+                                      <p className="text-sm font-mono">{orden.subtotal}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">IGV</p>
+                                      <p className="text-sm font-mono">{orden.igv}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Total</p>
+                                      <p className="text-sm font-bold font-mono">{orden.total}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Autorizaciones */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">
+                                    Autorizaciones
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Admin.</p>
+                                      {orden.auto_administrador === true ? (
+                                        <Badge className="bg-green-100 text-green-800 text-xs">
+                                          APROBADO
+                                        </Badge>
+                                      ) : orden.auto_administrador === false ? (
+                                        <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                                          PENDIENTE
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Jefe Proy.</p>
+                                      {orden.jefe_proyecto === true ? (
+                                        <Badge className="bg-green-100 text-green-800 text-xs">
+                                          APROBADO
+                                        </Badge>
+                                      ) : orden.jefe_proyecto === false ? (
+                                        <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                                          PENDIENTE
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Contab.</p>
+                                      {orden.auto_contabilidad === true ? (
+                                        <Badge className="bg-green-100 text-green-800 text-xs">
+                                          APROBADO
+                                        </Badge>
+                                      ) : orden.auto_contabilidad === false ? (
+                                        <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                                          PENDIENTE
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Proc. Pago</p>
+                                      <p className="text-sm">{orden.procede_pago || "-"}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Segunda Fila: Retención/Anticipo + Documentos */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {/* Retención y Anticipo */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">
+                                    Retención y Anticipo
+                                  </h4>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Retención</p>
+                                      {orden.retencion ? (
+                                        <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                          {orden.retencion}
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Valor Ret.</p>
+                                      <p className="text-sm font-mono">
+                                        {orden.valor_retencion
+                                          ? Number(orden.valor_retencion).toFixed(2)
+                                          : "0.00"}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Anticipo</p>
+                                      {orden.tiene_anticipo === "SI" ? (
+                                        <Badge className="bg-green-100 text-green-800 text-xs">
+                                          SÍ
+                                        </Badge>
+                                      ) : (
+                                        <Badge className="bg-red-100 text-red-800 text-xs">
+                                          NO
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Documentos */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">
+                                    Documentos
+                                  </h4>
+                                  <div className="flex flex-wrap gap-2">
                                     <a
-                                      href={orden.url_cotizacion}
+                                      href={
+                                        orden.id_orden_compra
+                                          ? urlHelpers.getOrdenCompraPdfUrl(orden.id_orden_compra)
+                                          : "#"
+                                      }
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-flex items-center justify-center w-8 h-8 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
-                                      title="Ver cotización en Dropbox"
+                                      className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
                                     >
-                                      <ExternalLink className="h-4 w-4" />
+                                      <FileText className="h-3 w-3" />
+                                      PDF
                                     </a>
-                                  ) : (
-                                    <button
-                                      disabled
-                                      className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
-                                      title="No hay cotización subida"
-                                    >
-                                      <ExternalLink className="h-4 w-4" />
-                                    </button>
-                                  )}
-                                  {/* Botón para subir cotización */}
-                                  <button
-                                    onClick={() => orden.id_orden_compra && handleOpenUploadCotizacionDialog(orden.id_orden_compra, "compra")}
-                                    className="inline-flex items-center justify-center w-8 h-8 text-white bg-purple-600 hover:bg-purple-700 rounded transition-colors"
-                                    title="Subir cotización"
-                                    disabled={!orden.id_orden_compra}
-                                  >
-                                    <Upload className="h-4 w-4" />
-                                  </button>
+                                    {orden.url ? (
+                                      <a
+                                        href={orden.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                        Operación
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-400 rounded text-xs cursor-not-allowed">
+                                        <ExternalLink className="h-3 w-3" />
+                                        Operación
+                                      </span>
+                                    )}
+                                    {orden.url_cotizacion ? (
+                                      <a
+                                        href={orden.url_cotizacion}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-200"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                        Cotización
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-400 rounded text-xs cursor-not-allowed">
+                                        <ExternalLink className="h-3 w-3" />
+                                        Cotización
+                                      </span>
+                                    )}
+                                    {orden.url_factura ? (
+                                      <a
+                                        href={orden.url_factura}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-200"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                        Factura
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-400 rounded text-xs cursor-not-allowed">
+                                        <ExternalLink className="h-3 w-3" />
+                                        Factura
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  {/* Botón para ver factura */}
-                                  {orden.url_factura ? (
-                                    <a
-                                      href={orden.url_factura}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
-                                      title="Ver factura en Dropbox"
-                                    >
-                                      <ExternalLink className="h-4 w-4" />
-                                    </a>
-                                  ) : (
-                                    <button
-                                      disabled
-                                      className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
-                                      title="No hay factura subida"
-                                    >
-                                      <ExternalLink className="h-4 w-4" />
-                                    </button>
-                                  )}
-                                  {/* Botón para subir factura */}
-                                  <button
-                                    onClick={() => orden.id_orden_compra && handleOpenUploadFacturaDialog(orden.id_orden_compra, "compra")}
-                                    className="inline-flex items-center justify-center w-8 h-8 text-white bg-orange-600 hover:bg-orange-700 rounded transition-colors"
-                                    title="Subir factura"
-                                    disabled={!orden.id_orden_compra}
-                                  >
-                                    <Upload className="h-4 w-4" />
-                                  </button>
+                              </div>
+
+                              {/* Observaciones */}
+                              {orden.observaciones && (
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-1">
+                                    Observaciones
+                                  </h4>
+                                  <p className="text-sm text-gray-700">{orden.observaciones}</p>
                                 </div>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <button
-                                    onClick={() => handleEditOrdenCompra(orden)}
-                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
-                                    title="Editar"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => orden.id_orden_compra && handleDeleteOrdenCompra(orden.id_orden_compra)}
-                                    className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-red-600"
-                                    title={orden.auto_administrador === true || orden.jefe_proyecto === true || orden.auto_contabilidad === true ? "No se puede eliminar: tiene aprobaciones" : "Eliminar"}
-                                    disabled={!orden.id_orden_compra || orden.auto_administrador === true || orden.jefe_proyecto === true || orden.auto_contabilidad === true}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                              )}
+
+                              {/* Acciones */}
+                              <div className="flex gap-2 pt-2 border-t">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEditOrdenCompra(orden)}
+                                  className="flex items-center gap-1"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                  Editar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() =>
+                                    orden.id_orden_compra &&
+                                    handleDeleteOrdenCompra(orden.id_orden_compra)
+                                  }
+                                  disabled={
+                                    !orden.id_orden_compra ||
+                                    orden.auto_administrador === true ||
+                                    orden.jefe_proyecto === true ||
+                                    orden.auto_contabilidad === true
+                                  }
+                                  className="flex items-center gap-1"
+                                  title={
+                                    orden.auto_administrador === true ||
+                                    orden.jefe_proyecto === true ||
+                                    orden.auto_contabilidad === true
+                                      ? "No se puede eliminar: tiene aprobaciones"
+                                      : "Eliminar"
+                                  }
+                                >
+                                  <X className="h-3 w-3" />
+                                  Eliminar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    orden.id_orden_compra &&
+                                    handleOpenUploadCotizacionDialog(orden.id_orden_compra, "compra")
+                                  }
+                                  disabled={!orden.id_orden_compra}
+                                  className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700"
+                                >
+                                  <Upload className="h-3 w-3" />
+                                  Subir Cotización
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    orden.id_orden_compra &&
+                                    handleOpenUploadFacturaDialog(orden.id_orden_compra, "compra")
+                                  }
+                                  disabled={!orden.id_orden_compra}
+                                  className="flex items-center gap-1 bg-orange-600 hover:bg-orange-700"
+                                >
+                                  <Upload className="h-3 w-3" />
+                                  Subir Factura
+                                </Button>
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1764,334 +1783,351 @@ export default function OrdenCompraPage() {
                   <CardTitle>Órdenes de Servicio Registradas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="border rounded-lg overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-green-100">
-                          <TableHead className="text-xs font-bold text-center">
-                            Número Orden
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Fecha Orden
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Moneda
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Subtotal
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            IGV
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Total
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Estado
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Detracción
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Valor Detracción
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Tiene Anticipo
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Procede Pago
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Admin.
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Jefe
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Contab.
-                          </TableHead>
-                          <TableHead className="text-xs font-bold">
-                            Proveedor
-                          </TableHead>
-                          <TableHead className="text-xs font-bold">
-                            Observaciones
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            PDF
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Operación
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Cotización
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Factura
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Acciones
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ordenesServicioFiltradas.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={20}
-                              className="text-center py-8 text-gray-400"
-                            >
-                              <div className="flex flex-col items-center gap-2">
-                                <ClipboardList className="h-8 w-8 opacity-50" />
-                                <p className="text-sm">
-                                  {fechaFiltro
-                                    ? "No hay órdenes de servicio para la fecha seleccionada"
-                                    : "No hay órdenes de servicio registradas"
-                                  }
-                                </p>
+                  {ordenesServicioFiltradas.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <div className="flex flex-col items-center gap-2">
+                        <ClipboardList className="h-8 w-8 opacity-50" />
+                        <p className="text-sm">
+                          {fechaFiltro
+                            ? "No hay órdenes de servicio para la fecha seleccionada"
+                            : "No hay órdenes de servicio registradas"
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Accordion type="single" collapsible className="space-y-2">
+                      {ordenesServicioFiltradas.map((orden) => (
+                        <AccordionItem
+                          key={orden.id_orden_servicio}
+                          value={`orden-${orden.id_orden_servicio}`}
+                          className="border rounded-lg overflow-hidden"
+                        >
+                          <AccordionTrigger className="hover:no-underline px-4 py-3">
+                            <div className="flex items-center justify-between w-full gap-4 pr-4">
+                              {/* Información principal - visible cuando está cerrado */}
+                              <div className="flex items-center gap-4 flex-wrap flex-1">
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Número</span>
+                                  <span className="text-sm font-mono font-bold text-green-600">
+                                    {orden.numero_orden}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Fecha</span>
+                                  <span className="text-sm font-medium">
+                                    {format(new Date(orden.fecha_orden), "dd/MM/yyyy", { locale: es })}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start flex-1 min-w-[200px]">
+                                  <span className="text-xs text-gray-500 font-medium">Proveedor</span>
+                                  <span className="text-sm font-medium truncate max-w-full">
+                                    {orden.nombre_proveedor || <span className="text-gray-400 italic">Sin proveedor</span>}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Total</span>
+                                  <span className="text-sm font-bold font-mono text-green-700">
+                                    {orden.moneda === "SOLES" ? "S/." : "$"} {Number(orden.total).toFixed(2)}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Estado</span>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.estado === "PENDIENTE"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : orden.estado === "APROBADA"
+                                          ? "bg-green-100 text-green-800"
+                                          : orden.estado === "COMPLETADA"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.estado}
+                                  </span>
+                                </div>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          ordenesServicioFiltradas.map((orden) => (
-                            <TableRow
-                              key={orden.id_orden_servicio}
-                              className="hover:bg-gray-50"
-                            >
-                              <TableCell className="text-xs text-center font-mono">
-                                {orden.numero_orden}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {format(new Date(orden.fecha_orden), "dd/MM/yyyy", {
-                                  locale: es,
-                                })}
-                              </TableCell>
-                              <TableCell className="text-xs text-center font-semibold">
-                                {orden.moneda}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.subtotal}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.igv}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-bold font-mono">
-                                {orden.total}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <span
-                                  className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                    orden.estado === "PENDIENTE"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : orden.estado === "APROBADA"
-                                        ? "bg-green-100 text-green-800"
-                                        : orden.estado === "COMPLETADA"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : "bg-gray-100 text-gray-800"
-                                  }`}
-                                >
-                                  {orden.estado}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.detraccion ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
-                                    {orden.detraccion}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 italic">-</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.valor_detraccion ? Number(orden.valor_detraccion).toFixed(2) : "0.00"}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.tiene_anticipo === "SI" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    SÍ
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                                    NO
-                                  </span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.procede_pago || "-"}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.auto_administrador === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.auto_administrador === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.jefe_proyecto === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.jefe_proyecto === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.auto_contabilidad === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.auto_contabilidad === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                {orden.nombre_proveedor || (
-                                  <span className="text-gray-400 italic">Sin proveedor</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                {orden.observaciones ? (
-                                  orden.observaciones
-                                ) : (
-                                  <span className="text-gray-400 italic">Sin observaciones</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <a
-                                  href={orden.id_orden_servicio ? urlHelpers.getOrdenServicioPdfUrl(orden.id_orden_servicio) : '#'}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                                  title="Ver PDF"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </a>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.url ? (
-                                  <a
-                                    href={orden.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                                    title="Ver archivo en Dropbox"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </a>
-                                ) : (
-                                  <button
-                                    disabled
-                                    className="inline-flex items-center justify-center w-8 h-8 text-red-400 bg-red-50 rounded cursor-not-allowed opacity-50"
-                                    title="No hay archivo subido"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  {/* Botón para ver cotización */}
-                                  {orden.url_cotizacion ? (
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="px-4 pb-4">
+                            <div className="space-y-3 pt-2">
+                              {/* Primera Fila: Información Financiera + Autorizaciones */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {/* Información Financiera */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">
+                                    Información Financiera
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Moneda</p>
+                                      <p className="text-sm font-semibold">{orden.moneda}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Subtotal</p>
+                                      <p className="text-sm font-mono">{orden.subtotal}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">IGV</p>
+                                      <p className="text-sm font-mono">{orden.igv}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Total</p>
+                                      <p className="text-sm font-bold font-mono">{orden.total}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Autorizaciones */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">
+                                    Autorizaciones
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Admin.</p>
+                                      {orden.auto_administrador === true ? (
+                                        <Badge className="bg-green-100 text-green-800 text-xs">
+                                          APROBADO
+                                        </Badge>
+                                      ) : orden.auto_administrador === false ? (
+                                        <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                                          PENDIENTE
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Jefe Proy.</p>
+                                      {orden.jefe_proyecto === true ? (
+                                        <Badge className="bg-green-100 text-green-800 text-xs">
+                                          APROBADO
+                                        </Badge>
+                                      ) : orden.jefe_proyecto === false ? (
+                                        <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                                          PENDIENTE
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Contab.</p>
+                                      {orden.auto_contabilidad === true ? (
+                                        <Badge className="bg-green-100 text-green-800 text-xs">
+                                          APROBADO
+                                        </Badge>
+                                      ) : orden.auto_contabilidad === false ? (
+                                        <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                                          PENDIENTE
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Proc. Pago</p>
+                                      <p className="text-sm">{orden.procede_pago || "-"}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Segunda Fila: Detracción/Anticipo + Documentos */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {/* Detracción y Anticipo */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">
+                                    Detracción y Anticipo
+                                  </h4>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Detracción</p>
+                                      {orden.detraccion ? (
+                                        <Badge className="bg-purple-100 text-purple-800 text-xs">
+                                          {orden.detraccion}
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Valor Detr.</p>
+                                      <p className="text-sm font-mono">
+                                        {orden.valor_detraccion
+                                          ? Number(orden.valor_detraccion).toFixed(2)
+                                          : "0.00"}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Anticipo</p>
+                                      {orden.tiene_anticipo === "SI" ? (
+                                        <Badge className="bg-green-100 text-green-800 text-xs">
+                                          SÍ
+                                        </Badge>
+                                      ) : (
+                                        <Badge className="bg-red-100 text-red-800 text-xs">
+                                          NO
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Documentos */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">
+                                    Documentos
+                                  </h4>
+                                  <div className="flex flex-wrap gap-2">
                                     <a
-                                      href={orden.url_cotizacion}
+                                      href={
+                                        orden.id_orden_servicio
+                                          ? urlHelpers.getOrdenServicioPdfUrl(orden.id_orden_servicio)
+                                          : "#"
+                                      }
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-flex items-center justify-center w-8 h-8 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
-                                      title="Ver cotización en Dropbox"
+                                      className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
                                     >
-                                      <ExternalLink className="h-4 w-4" />
+                                      <FileText className="h-3 w-3" />
+                                      PDF
                                     </a>
-                                  ) : (
-                                    <button
-                                      disabled
-                                      className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
-                                      title="No hay cotización subida"
-                                    >
-                                      <ExternalLink className="h-4 w-4" />
-                                    </button>
-                                  )}
-                                  {/* Botón para subir cotización */}
-                                  <button
-                                    onClick={() => orden.id_orden_servicio && handleOpenUploadCotizacionDialog(orden.id_orden_servicio, "servicio")}
-                                    className="inline-flex items-center justify-center w-8 h-8 text-white bg-purple-600 hover:bg-purple-700 rounded transition-colors"
-                                    title="Subir cotización"
-                                    disabled={!orden.id_orden_servicio}
-                                  >
-                                    <Upload className="h-4 w-4" />
-                                  </button>
+                                    {orden.url ? (
+                                      <a
+                                        href={orden.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                        Operación
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-400 rounded text-xs cursor-not-allowed">
+                                        <ExternalLink className="h-3 w-3" />
+                                        Operación
+                                      </span>
+                                    )}
+                                    {orden.url_cotizacion ? (
+                                      <a
+                                        href={orden.url_cotizacion}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-200"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                        Cotización
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-400 rounded text-xs cursor-not-allowed">
+                                        <ExternalLink className="h-3 w-3" />
+                                        Cotización
+                                      </span>
+                                    )}
+                                    {orden.url_factura ? (
+                                      <a
+                                        href={orden.url_factura}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-200"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                        Factura
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-400 rounded text-xs cursor-not-allowed">
+                                        <ExternalLink className="h-3 w-3" />
+                                        Factura
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  {/* Botón para ver factura */}
-                                  {orden.url_factura ? (
-                                    <a
-                                      href={orden.url_factura}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
-                                      title="Ver factura en Dropbox"
-                                    >
-                                      <ExternalLink className="h-4 w-4" />
-                                    </a>
-                                  ) : (
-                                    <button
-                                      disabled
-                                      className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
-                                      title="No hay factura subida"
-                                    >
-                                      <ExternalLink className="h-4 w-4" />
-                                    </button>
-                                  )}
-                                  {/* Botón para subir factura */}
-                                  <button
-                                    onClick={() => orden.id_orden_servicio && handleOpenUploadFacturaDialog(orden.id_orden_servicio, "servicio")}
-                                    className="inline-flex items-center justify-center w-8 h-8 text-white bg-orange-600 hover:bg-orange-700 rounded transition-colors"
-                                    title="Subir factura"
-                                    disabled={!orden.id_orden_servicio}
-                                  >
-                                    <Upload className="h-4 w-4" />
-                                  </button>
+                              </div>
+
+                              {/* Observaciones */}
+                              {orden.observaciones && (
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-1">
+                                    Observaciones
+                                  </h4>
+                                  <p className="text-sm text-gray-700">{orden.observaciones}</p>
                                 </div>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <button
-                                    onClick={() => handleEditOrdenServicio(orden)}
-                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
-                                    title="Editar"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => orden.id_orden_servicio && handleDeleteOrdenServicio(orden.id_orden_servicio)}
-                                    className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-red-600"
-                                    title={orden.auto_administrador === true || orden.jefe_proyecto === true || orden.auto_contabilidad === true ? "No se puede eliminar: tiene aprobaciones" : "Eliminar"}
-                                    disabled={!orden.id_orden_servicio || orden.auto_administrador === true || orden.jefe_proyecto === true || orden.auto_contabilidad === true}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                              )}
+
+                              {/* Acciones */}
+                              <div className="flex gap-2 pt-2 border-t">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEditOrdenServicio(orden)}
+                                  className="flex items-center gap-1"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                  Editar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() =>
+                                    orden.id_orden_servicio &&
+                                    handleDeleteOrdenServicio(orden.id_orden_servicio)
+                                  }
+                                  disabled={
+                                    !orden.id_orden_servicio ||
+                                    orden.auto_administrador === true ||
+                                    orden.jefe_proyecto === true ||
+                                    orden.auto_contabilidad === true
+                                  }
+                                  className="flex items-center gap-1"
+                                  title={
+                                    orden.auto_administrador === true ||
+                                    orden.jefe_proyecto === true ||
+                                    orden.auto_contabilidad === true
+                                      ? "No se puede eliminar: tiene aprobaciones"
+                                      : "Eliminar"
+                                  }
+                                >
+                                  <X className="h-3 w-3" />
+                                  Eliminar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    orden.id_orden_servicio &&
+                                    handleOpenUploadCotizacionDialog(orden.id_orden_servicio, "servicio")
+                                  }
+                                  disabled={!orden.id_orden_servicio}
+                                  className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700"
+                                >
+                                  <Upload className="h-3 w-3" />
+                                  Subir Cotización
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    orden.id_orden_servicio &&
+                                    handleOpenUploadFacturaDialog(orden.id_orden_servicio, "servicio")
+                                  }
+                                  disabled={!orden.id_orden_servicio}
+                                  className="flex items-center gap-1 bg-orange-600 hover:bg-orange-700"
+                                >
+                                  <Upload className="h-3 w-3" />
+                                  Subir Factura
+                                </Button>
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

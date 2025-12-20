@@ -2057,6 +2057,7 @@ export interface ProgramacionTecnicaData {
   enlace_del_pdf: string | null;
   enlace_del_xml: string | null;
   enlace_del_cdr: string | null;
+  estado_gre: string | null;
 }
 
 // Extended type for getTecnicaById response
@@ -2224,6 +2225,23 @@ export const programacionApi = {
     } catch (error) {
       console.error("Combinar PDFs API error:", error);
       throw new Error("Error al combinar los PDFs");
+    }
+  },
+
+  // Recuperar archivos de una guía que ya existe en SUNAT
+  recuperarArchivosGuia: async (idGuia: number): Promise<{ success: boolean; message: string; data?: Pick<ProgramacionTecnicaData, 'estado_gre' | 'enlace_del_pdf' | 'enlace_del_xml' | 'enlace_del_cdr'> }> => {
+    try {
+      const response = await api.post(`/gre/manual-consulta/${idGuia}`);
+      return response.data;
+    } catch (error) {
+      console.error("Recuperar Archivos Guía API error:", error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          throw new Error(axiosError.response.data.message);
+        }
+      }
+      throw new Error("Error al recuperar archivos de la guía");
     }
   },
 };

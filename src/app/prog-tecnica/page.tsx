@@ -122,6 +122,42 @@ export default function ProgTecnicaPage() {
     router.push(`/guia-remision?id=${id}`);
   };
 
+  const handleRecuperarArchivos = async (item: ProgramacionTecnicaData) => {
+    try {
+      toast.info("Consultando archivos en SUNAT...");
+
+      const result = await programacionApi.recuperarArchivosGuia(item.id);
+
+      if (result.success && result.data) {
+        toast.success(result.message);
+
+        // Extraer los datos para que TypeScript los reconozca
+        const updatedData = result.data;
+
+        // Actualizar el registro en la tabla con los nuevos enlaces
+        setData((prevData) =>
+          prevData.map((record) =>
+            record.id === item.id
+              ? {
+                  ...record,
+                  enlace_del_pdf: updatedData.enlace_del_pdf,
+                  enlace_del_xml: updatedData.enlace_del_xml,
+                  enlace_del_cdr: updatedData.enlace_del_cdr,
+                  estado_gre: updatedData.estado_gre
+                }
+              : record
+          )
+        );
+      } else {
+        toast.warning(result.message);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Error al recuperar archivos";
+      toast.error(errorMessage);
+      console.error("Error recuperando archivos:", error);
+    }
+  };
+
   // Función para verificar si tiene los archivos generados
   const hasArchivosGenerados = (item: ProgramacionTecnicaData): boolean => {
     return !!(
@@ -361,15 +397,28 @@ export default function ProgTecnicaPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleGenerarGuia(item.id)}
-                            className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300"
-                          >
-                            <FileText className="h-4 w-4 mr-2" />
-                            Generar Guía
-                          </Button>
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleGenerarGuia(item.id)}
+                              className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300"
+                            >
+                              <FileText className="h-4 w-4 mr-2" />
+                              Generar Guía
+                            </Button>
+                            {hasGuiaEnProceso(item) && !hasArchivosGenerados(item) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRecuperarArchivos(item)}
+                                className="bg-white hover:bg-orange-50 text-orange-700 border-orange-300"
+                              >
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Recuperar Archivos
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

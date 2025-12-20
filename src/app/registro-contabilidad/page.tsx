@@ -20,9 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, FileText, CheckCircle, Search, Filter, ExternalLink } from "lucide-react";
+import { ClipboardList, FileText, CheckCircle, Search, Filter, ExternalLink, CalendarIcon, X } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -42,6 +48,7 @@ export default function RegistroContabilidadPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
   const [filtroContabilidad, setFiltroContabilidad] = useState<string>("TODOS");
+  const [fechaFiltro, setFechaFiltro] = useState<Date | undefined>(undefined);
 
   // Funciones para cargar órdenes
   const loadOrdenesCompra = useCallback(async () => {
@@ -141,9 +148,16 @@ export default function RegistroContabilidadPage() {
         (filtroContabilidad === "APROBADO" && orden.auto_contabilidad === true) ||
         (filtroContabilidad === "PENDIENTE" && (orden.auto_contabilidad === false || !orden.auto_contabilidad));
 
-      return matchSearch && matchEstado && matchContabilidad;
+      // Filtro por fecha
+      const matchFecha = !fechaFiltro || (() => {
+        const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
+        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
+        return fechaOrden === fechaFiltroStr;
+      })();
+
+      return matchSearch && matchEstado && matchContabilidad && matchFecha;
     });
-  }, [ordenesCompra, searchQuery, filtroEstado, filtroContabilidad]);
+  }, [ordenesCompra, searchQuery, filtroEstado, filtroContabilidad, fechaFiltro]);
 
   // Función para filtrar órdenes de servicio
   const ordenesServicioFiltradas = useMemo(() => {
@@ -162,9 +176,16 @@ export default function RegistroContabilidadPage() {
         (filtroContabilidad === "APROBADO" && orden.auto_contabilidad === true) ||
         (filtroContabilidad === "PENDIENTE" && (orden.auto_contabilidad === false || !orden.auto_contabilidad));
 
-      return matchSearch && matchEstado && matchContabilidad;
+      // Filtro por fecha
+      const matchFecha = !fechaFiltro || (() => {
+        const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
+        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
+        return fechaOrden === fechaFiltroStr;
+      })();
+
+      return matchSearch && matchEstado && matchContabilidad && matchFecha;
     });
-  }, [ordenesServicio, searchQuery, filtroEstado, filtroContabilidad]);
+  }, [ordenesServicio, searchQuery, filtroEstado, filtroContabilidad, fechaFiltro]);
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -236,6 +257,49 @@ export default function RegistroContabilidadPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Filtro por Fecha */}
+              <div className="mt-4 flex items-center gap-2">
+                <Label htmlFor="fecha-filtro" className="text-sm font-medium">
+                  Filtrar por Fecha:
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="fecha-filtro"
+                      variant="outline"
+                      className="w-[240px] justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {fechaFiltro ? (
+                        format(fechaFiltro, "PPP", { locale: es })
+                      ) : (
+                        <span>Seleccionar fecha</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={fechaFiltro}
+                      onSelect={setFechaFiltro}
+                      locale={es}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {fechaFiltro && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFechaFiltro(undefined)}
+                    className="h-8 px-2"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Limpiar filtro
+                  </Button>
+                )}
               </div>
 
               {/* Indicador de resultados */}

@@ -20,9 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, FileText, CheckCircle, Search, Filter, ExternalLink } from "lucide-react";
+import { ClipboardList, FileText, CheckCircle, Search, Filter, ExternalLink, CalendarIcon, X } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -42,6 +48,7 @@ export default function RegistroFinanzasPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
   const [filtroAdministracion, setFiltroAdministracion] = useState<string>("TODOS");
+  const [fechaFiltro, setFechaFiltro] = useState<Date | undefined>(undefined);
 
   // Cargar órdenes al montar el componente
   useEffect(() => {
@@ -140,9 +147,16 @@ export default function RegistroFinanzasPage() {
         (filtroAdministracion === "APROBADO" && orden.auto_administrador === true) ||
         (filtroAdministracion === "PENDIENTE" && (orden.auto_administrador === false || !orden.auto_administrador));
 
-      return matchSearch && matchEstado && matchAdministracion;
+      // Filtro por fecha
+      const matchFecha = !fechaFiltro || (() => {
+        const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
+        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
+        return fechaOrden === fechaFiltroStr;
+      })();
+
+      return matchSearch && matchEstado && matchAdministracion && matchFecha;
     });
-  }, [ordenesCompra, searchQuery, filtroEstado, filtroAdministracion]);
+  }, [ordenesCompra, searchQuery, filtroEstado, filtroAdministracion, fechaFiltro]);
 
   // Función para filtrar órdenes de servicio
   const ordenesServicioFiltradas = useMemo(() => {
@@ -161,9 +175,16 @@ export default function RegistroFinanzasPage() {
         (filtroAdministracion === "APROBADO" && orden.auto_administrador === true) ||
         (filtroAdministracion === "PENDIENTE" && (orden.auto_administrador === false || !orden.auto_administrador));
 
-      return matchSearch && matchEstado && matchAdministracion;
+      // Filtro por fecha
+      const matchFecha = !fechaFiltro || (() => {
+        const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
+        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
+        return fechaOrden === fechaFiltroStr;
+      })();
+
+      return matchSearch && matchEstado && matchAdministracion && matchFecha;
     });
-  }, [ordenesServicio, searchQuery, filtroEstado, filtroAdministracion]);
+  }, [ordenesServicio, searchQuery, filtroEstado, filtroAdministracion, fechaFiltro]);
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -235,6 +256,49 @@ export default function RegistroFinanzasPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Filtro por Fecha */}
+              <div className="mt-4 flex items-center gap-2">
+                <Label htmlFor="fecha-filtro" className="text-sm font-medium">
+                  Filtrar por Fecha:
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="fecha-filtro"
+                      variant="outline"
+                      className="w-[240px] justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {fechaFiltro ? (
+                        format(fechaFiltro, "PPP", { locale: es })
+                      ) : (
+                        <span>Seleccionar fecha</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={fechaFiltro}
+                      onSelect={setFechaFiltro}
+                      locale={es}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {fechaFiltro && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFechaFiltro(undefined)}
+                    className="h-8 px-2"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Limpiar filtro
+                  </Button>
+                )}
               </div>
 
               {/* Indicador de resultados */}
