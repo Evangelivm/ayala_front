@@ -29,15 +29,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { useWebSocket } from "@/lib/useWebSocket";
 
 export default function RegistroFinanzasPage() {
@@ -326,290 +324,286 @@ export default function RegistroFinanzasPage() {
                   <CardTitle>Órdenes de Compra - Autorizaciones - Finanzas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="border rounded-lg">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-blue-100">
-                          <TableHead className="text-xs font-bold text-center">
-                            Número Orden
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Fecha Orden
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Moneda
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Subtotal
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            IGV
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Total
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Estado
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Retención
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Valor Retención
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Tiene Anticipo
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Procede Pago
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Admin.
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Jefe
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Contab.
-                          </TableHead>
-                          <TableHead className="text-xs font-bold">
-                            Proveedor
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            PDF
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Operación
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Cotización
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Factura
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Acción
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ordenesFiltradas.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={19}
-                              className="text-center py-8 text-gray-400"
-                            >
-                              <div className="flex flex-col items-center gap-2">
-                                <ClipboardList className="h-8 w-8 opacity-50" />
-                                <p className="text-sm">
-                                  {ordenesCompra.length === 0
-                                    ? "No hay órdenes de compra registradas"
-                                    : "No se encontraron órdenes de compra con los filtros seleccionados"}
-                                </p>
+                  {ordenesFiltradas.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400">
+                      <div className="flex flex-col items-center gap-2">
+                        <ClipboardList className="h-12 w-12 opacity-50" />
+                        <p className="text-sm">
+                          {ordenesCompra.length === 0
+                            ? "No hay órdenes de compra registradas"
+                            : "No se encontraron órdenes de compra con los filtros seleccionados"}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Accordion type="single" collapsible className="w-full space-y-2">
+                      {ordenesFiltradas.map((orden) => (
+                        <AccordionItem
+                          key={orden.id_orden_compra}
+                          value={`item-${orden.id_orden_compra}`}
+                          className="border rounded-lg bg-white shadow-sm"
+                        >
+                          <AccordionTrigger className="hover:no-underline px-4 py-3">
+                            <div className="flex items-center justify-between w-full gap-4 pr-4">
+                              {/* Información principal - visible cuando está cerrado */}
+                              <div className="flex items-center gap-4 flex-wrap flex-1">
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Número</span>
+                                  <span className="text-sm font-mono font-bold text-blue-600">
+                                    {orden.numero_orden}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Fecha</span>
+                                  <span className="text-sm font-medium">
+                                    {format(new Date(orden.fecha_orden), "dd/MM/yyyy", { locale: es })}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start flex-1 min-w-[200px]">
+                                  <span className="text-xs text-gray-500 font-medium">Proveedor</span>
+                                  <span className="text-sm font-medium truncate max-w-full">
+                                    {orden.nombre_proveedor || <span className="text-gray-400 italic">Sin proveedor</span>}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Total</span>
+                                  <span className="text-sm font-bold font-mono text-green-700">
+                                    {orden.moneda === "SOLES" ? "S/." : "$"} {Number(orden.total).toFixed(2)}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Estado</span>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.estado === "PENDIENTE"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : orden.estado === "APROBADA"
+                                          ? "bg-green-100 text-green-800"
+                                          : orden.estado === "COMPLETADA"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.estado}
+                                  </span>
+                                </div>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          ordenesFiltradas.map((orden) => (
-                            <TableRow
-                              key={orden.id_orden_compra}
-                              className="hover:bg-gray-50"
-                            >
-                              <TableCell className="text-xs text-center font-mono">
-                                {orden.numero_orden}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {format(new Date(orden.fecha_orden), "dd/MM/yyyy", {
-                                  locale: es,
-                                })}
-                              </TableCell>
-                              <TableCell className="text-xs text-center font-semibold">
-                                {orden.moneda}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.subtotal}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.igv}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-bold font-mono">
-                                {orden.total}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <span
-                                  className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                    orden.estado === "PENDIENTE"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : orden.estado === "APROBADA"
-                                        ? "bg-green-100 text-green-800"
-                                        : orden.estado === "COMPLETADA"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : "bg-gray-100 text-gray-800"
-                                  }`}
-                                >
-                                  {orden.estado}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.retencion ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                    {orden.retencion}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 italic">-</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.valor_retencion ? Number(orden.valor_retencion).toFixed(2) : "0.00"}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.tiene_anticipo === "SI" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    SÍ
-                                  </span>
-                                ) : orden.tiene_anticipo === "NO" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                                    NO
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.procede_pago === "TRANSFERIR" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                    TRANSFERIDO
-                                  </span>
-                                ) : orden.procede_pago === "PAGAR" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    PAGADO
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.auto_administrador === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.auto_administrador === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.jefe_proyecto === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.jefe_proyecto === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.auto_contabilidad === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.auto_contabilidad === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                {orden.nombre_proveedor || (
-                                  <span className="text-gray-400 italic">Sin proveedor</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <a
-                                  href={orden.id_orden_compra ? urlHelpers.getOrdenCompraPdfUrl(orden.id_orden_compra) : '#'}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                                  title="Ver PDF"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </a>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.url ? (
-                                  <a
-                                    href={orden.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                                    title="Ver archivo en Dropbox"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </a>
-                                ) : (
-                                  <button
-                                    disabled
-                                    className="inline-flex items-center justify-center w-8 h-8 text-red-400 bg-red-50 rounded cursor-not-allowed opacity-50"
-                                    title="No hay archivo subido"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.url_cotizacion ? (
-                                  <a
-                                    href={orden.url_cotizacion}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center w-8 h-8 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
-                                    title="Ver cotización en Dropbox"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </a>
-                                ) : (
-                                  <button
-                                    disabled
-                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
-                                    title="No hay cotización subida"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.url_factura ? (
-                                  <a
-                                    href={orden.url_factura}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
-                                    title="Ver factura en Dropbox"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </a>
-                                ) : (
-                                  <button
-                                    disabled
-                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
-                                    title="No hay factura subida"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
+                            </div>
+                          </AccordionTrigger>
+
+                          <AccordionContent className="px-4 pb-4">
+                            <div className="space-y-3 pt-2">
+                              {/* Primera Fila: Información Financiera + Autorizaciones */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {/* Información Financiera */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                    <FileText className="h-3.5 w-3.5" />
+                                    Información Financiera
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Moneda</span>
+                                      <span className="text-sm font-semibold">{orden.moneda}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Subtotal</span>
+                                      <span className="text-sm font-mono">{Number(orden.subtotal).toFixed(2)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">IGV</span>
+                                      <span className="text-sm font-mono">{Number(orden.igv).toFixed(2)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Total</span>
+                                      <span className="text-sm font-bold font-mono text-green-700">
+                                        {Number(orden.total).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Autorizaciones */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                    <CheckCircle className="h-3.5 w-3.5" />
+                                    Autorizaciones
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Admin.</span>
+                                      {orden.auto_administrador === true ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 inline-block">
+                                          APROBADO
+                                        </span>
+                                      ) : orden.auto_administrador === false ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 inline-block">
+                                          PENDIENTE
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Jefe Proy.</span>
+                                      {orden.jefe_proyecto === true ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 inline-block">
+                                          APROBADO
+                                        </span>
+                                      ) : orden.jefe_proyecto === false ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 inline-block">
+                                          PENDIENTE
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Contab.</span>
+                                      {orden.auto_contabilidad === true ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 inline-block">
+                                          APROBADO
+                                        </span>
+                                      ) : orden.auto_contabilidad === false ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 inline-block">
+                                          PENDIENTE
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Proc. Pago</span>
+                                      {orden.procede_pago === "TRANSFERIR" ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 inline-block">
+                                          TRANSF.
+                                        </span>
+                                      ) : orden.procede_pago === "PAGAR" ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 inline-block">
+                                          PAGADO
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm">-</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Segunda Fila: Retención y Anticipo + Documentos */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {/* Retención y Anticipo */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">Retención y Anticipo</h4>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Retención</span>
+                                      {orden.retencion ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 inline-block">
+                                          {orden.retencion}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 italic text-sm">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Valor</span>
+                                      <span className="text-sm font-mono">
+                                        {orden.valor_retencion ? Number(orden.valor_retencion).toFixed(2) : "0.00"}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Anticipo</span>
+                                      {orden.tiene_anticipo === "SI" ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 inline-block">
+                                          SÍ
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 inline-block">
+                                          NO
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Documentos */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">Documentos</h4>
+                                  <div className="flex flex-wrap gap-2">
+                                    <a
+                                      href={orden.id_orden_compra ? urlHelpers.getOrdenCompraPdfUrl(orden.id_orden_compra) : '#'}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors"
+                                    >
+                                      <FileText className="h-3.5 w-3.5" />
+                                      PDF
+                                    </a>
+
+                                    {orden.url ? (
+                                      <a
+                                        href={orden.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors"
+                                      >
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Operación
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Operación
+                                      </span>
+                                    )}
+
+                                    {orden.url_cotizacion ? (
+                                      <a
+                                        href={orden.url_cotizacion}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg transition-colors"
+                                      >
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Cotización
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Cotización
+                                      </span>
+                                    )}
+
+                                    {orden.url_factura ? (
+                                      <a
+                                        href={orden.url_factura}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg transition-colors"
+                                      >
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Factura
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Factura
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Sección de Acciones */}
+                              <div className="flex items-center gap-3 pt-2 border-t">
                                 <button
                                   onClick={() => orden.id_orden_compra && handlePagarOrdenCompra(orden.id_orden_compra)}
-                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Pagar"
                                   disabled={
                                     !orden.id_orden_compra ||
@@ -618,16 +612,16 @@ export default function RegistroFinanzasPage() {
                                     [orden.auto_administrador, orden.jefe_proyecto, orden.auto_contabilidad].filter(Boolean).length < 2
                                   }
                                 >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  <CheckCircle className="h-4 w-4" />
                                   Pagar
                                 </button>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -638,290 +632,286 @@ export default function RegistroFinanzasPage() {
                   <CardTitle>Órdenes de Servicio - Autorizaciones - Finanzas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="border rounded-lg">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-green-100">
-                          <TableHead className="text-xs font-bold text-center">
-                            Número Orden
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Fecha Orden
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Moneda
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Subtotal
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            IGV
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Total
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Estado
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Detracción
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-right">
-                            Valor Detracción
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Tiene Anticipo
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Procede Pago
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Admin.
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Jefe
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Auto Contab.
-                          </TableHead>
-                          <TableHead className="text-xs font-bold">
-                            Proveedor
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            PDF
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Operación
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Cotización
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Factura
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-center">
-                            Acción
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ordenesServicioFiltradas.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={19}
-                              className="text-center py-8 text-gray-400"
-                            >
-                              <div className="flex flex-col items-center gap-2">
-                                <ClipboardList className="h-8 w-8 opacity-50" />
-                                <p className="text-sm">
-                                  {ordenesServicio.length === 0
-                                    ? "No hay órdenes de servicio registradas"
-                                    : "No se encontraron órdenes de servicio con los filtros seleccionados"}
-                                </p>
+                  {ordenesServicioFiltradas.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400">
+                      <div className="flex flex-col items-center gap-2">
+                        <ClipboardList className="h-12 w-12 opacity-50" />
+                        <p className="text-sm">
+                          {ordenesServicio.length === 0
+                            ? "No hay órdenes de servicio registradas"
+                            : "No se encontraron órdenes de servicio con los filtros seleccionados"}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Accordion type="single" collapsible className="w-full space-y-2">
+                      {ordenesServicioFiltradas.map((orden) => (
+                        <AccordionItem
+                          key={orden.id_orden_servicio}
+                          value={`item-${orden.id_orden_servicio}`}
+                          className="border rounded-lg bg-white shadow-sm"
+                        >
+                          <AccordionTrigger className="hover:no-underline px-4 py-3">
+                            <div className="flex items-center justify-between w-full gap-4 pr-4">
+                              {/* Información principal - visible cuando está cerrado */}
+                              <div className="flex items-center gap-4 flex-wrap flex-1">
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Número</span>
+                                  <span className="text-sm font-mono font-bold text-green-600">
+                                    {orden.numero_orden}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Fecha</span>
+                                  <span className="text-sm font-medium">
+                                    {format(new Date(orden.fecha_orden), "dd/MM/yyyy", { locale: es })}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start flex-1 min-w-[200px]">
+                                  <span className="text-xs text-gray-500 font-medium">Proveedor</span>
+                                  <span className="text-sm font-medium truncate max-w-full">
+                                    {orden.nombre_proveedor || <span className="text-gray-400 italic">Sin proveedor</span>}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Total</span>
+                                  <span className="text-sm font-bold font-mono text-green-700">
+                                    {orden.moneda === "SOLES" ? "S/." : "$"} {Number(orden.total).toFixed(2)}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Estado</span>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.estado === "PENDIENTE"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : orden.estado === "APROBADA"
+                                          ? "bg-green-100 text-green-800"
+                                          : orden.estado === "COMPLETADA"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.estado}
+                                  </span>
+                                </div>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          ordenesServicioFiltradas.map((orden) => (
-                            <TableRow
-                              key={orden.id_orden_servicio}
-                              className="hover:bg-gray-50"
-                            >
-                              <TableCell className="text-xs text-center font-mono">
-                                {orden.numero_orden}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {format(new Date(orden.fecha_orden), "dd/MM/yyyy", {
-                                  locale: es,
-                                })}
-                              </TableCell>
-                              <TableCell className="text-xs text-center font-semibold">
-                                {orden.moneda}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.subtotal}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.igv}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-bold font-mono">
-                                {orden.total}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <span
-                                  className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                    orden.estado === "PENDIENTE"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : orden.estado === "APROBADA"
-                                        ? "bg-green-100 text-green-800"
-                                        : orden.estado === "COMPLETADA"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : "bg-gray-100 text-gray-800"
-                                  }`}
-                                >
-                                  {orden.estado}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.detraccion ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
-                                    {orden.detraccion}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 italic">-</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-mono">
-                                {orden.valor_detraccion ? Number(orden.valor_detraccion).toFixed(2) : "0.00"}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.tiene_anticipo === "SI" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    SÍ
-                                  </span>
-                                ) : orden.tiene_anticipo === "NO" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                                    NO
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.procede_pago === "TRANSFERIR" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                    TRANSFERIDO
-                                  </span>
-                                ) : orden.procede_pago === "PAGAR" ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    PAGADO
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.auto_administrador === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.auto_administrador === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.jefe_proyecto === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.jefe_proyecto === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.auto_contabilidad === true ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                    APROBADO
-                                  </span>
-                                ) : orden.auto_contabilidad === false ? (
-                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    PENDIENTE
-                                  </span>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                {orden.nombre_proveedor || (
-                                  <span className="text-gray-400 italic">Sin proveedor</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                <a
-                                  href={orden.id_orden_servicio ? urlHelpers.getOrdenServicioPdfUrl(orden.id_orden_servicio) : '#'}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                                  title="Ver PDF"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </a>
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.url ? (
-                                  <a
-                                    href={orden.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                                    title="Ver archivo en Dropbox"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </a>
-                                ) : (
-                                  <button
-                                    disabled
-                                    className="inline-flex items-center justify-center w-8 h-8 text-red-400 bg-red-50 rounded cursor-not-allowed opacity-50"
-                                    title="No hay archivo subido"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.url_cotizacion ? (
-                                  <a
-                                    href={orden.url_cotizacion}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center w-8 h-8 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
-                                    title="Ver cotización en Dropbox"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </a>
-                                ) : (
-                                  <button
-                                    disabled
-                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
-                                    title="No hay cotización subida"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
-                                {orden.url_factura ? (
-                                  <a
-                                    href={orden.url_factura}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
-                                    title="Ver factura en Dropbox"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </a>
-                                ) : (
-                                  <button
-                                    disabled
-                                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-gray-50 rounded cursor-not-allowed opacity-50"
-                                    title="No hay factura subida"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs text-center">
+                            </div>
+                          </AccordionTrigger>
+
+                          <AccordionContent className="px-4 pb-4">
+                            <div className="space-y-3 pt-2">
+                              {/* Primera Fila: Información Financiera + Autorizaciones */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {/* Información Financiera */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                    <FileText className="h-3.5 w-3.5" />
+                                    Información Financiera
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Moneda</span>
+                                      <span className="text-sm font-semibold">{orden.moneda}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Subtotal</span>
+                                      <span className="text-sm font-mono">{Number(orden.subtotal).toFixed(2)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">IGV</span>
+                                      <span className="text-sm font-mono">{Number(orden.igv).toFixed(2)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Total</span>
+                                      <span className="text-sm font-bold font-mono text-green-700">
+                                        {Number(orden.total).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Autorizaciones */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                    <CheckCircle className="h-3.5 w-3.5" />
+                                    Autorizaciones
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Admin.</span>
+                                      {orden.auto_administrador === true ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 inline-block">
+                                          APROBADO
+                                        </span>
+                                      ) : orden.auto_administrador === false ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 inline-block">
+                                          PENDIENTE
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Jefe Proy.</span>
+                                      {orden.jefe_proyecto === true ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 inline-block">
+                                          APROBADO
+                                        </span>
+                                      ) : orden.jefe_proyecto === false ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 inline-block">
+                                          PENDIENTE
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Contab.</span>
+                                      {orden.auto_contabilidad === true ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 inline-block">
+                                          APROBADO
+                                        </span>
+                                      ) : orden.auto_contabilidad === false ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 inline-block">
+                                          PENDIENTE
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Proc. Pago</span>
+                                      {orden.procede_pago === "TRANSFERIR" ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 inline-block">
+                                          TRANSF.
+                                        </span>
+                                      ) : orden.procede_pago === "PAGAR" ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 inline-block">
+                                          PAGADO
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-sm">-</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Segunda Fila: Detracción y Anticipo + Documentos */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {/* Detracción y Anticipo */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">Detracción y Anticipo</h4>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Detracción</span>
+                                      {orden.detraccion ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 inline-block">
+                                          {orden.detraccion}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 italic text-sm">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Valor</span>
+                                      <span className="text-sm font-mono">
+                                        {orden.valor_detraccion ? Number(orden.valor_detraccion).toFixed(2) : "0.00"}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Anticipo</span>
+                                      {orden.tiene_anticipo === "SI" ? (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 inline-block">
+                                          SÍ
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 inline-block">
+                                          NO
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Documentos */}
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">Documentos</h4>
+                                  <div className="flex flex-wrap gap-2">
+                                    <a
+                                      href={orden.id_orden_servicio ? urlHelpers.getOrdenServicioPdfUrl(orden.id_orden_servicio) : '#'}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors"
+                                    >
+                                      <FileText className="h-3.5 w-3.5" />
+                                      PDF
+                                    </a>
+
+                                    {orden.url ? (
+                                      <a
+                                        href={orden.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors"
+                                      >
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Operación
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Operación
+                                      </span>
+                                    )}
+
+                                    {orden.url_cotizacion ? (
+                                      <a
+                                        href={orden.url_cotizacion}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg transition-colors"
+                                      >
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Cotización
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Cotización
+                                      </span>
+                                    )}
+
+                                    {orden.url_factura ? (
+                                      <a
+                                        href={orden.url_factura}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg transition-colors"
+                                      >
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Factura
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        Factura
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Sección de Acciones */}
+                              <div className="flex items-center gap-3 pt-2 border-t">
                                 <button
                                   onClick={() => orden.id_orden_servicio && handlePagarOrdenServicio(orden.id_orden_servicio)}
-                                  className="inline-flex items-center justify-center px-3 h-8 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Pagar"
                                   disabled={
                                     !orden.id_orden_servicio ||
@@ -930,16 +920,16 @@ export default function RegistroFinanzasPage() {
                                     [orden.auto_administrador, orden.jefe_proyecto, orden.auto_contabilidad].filter(Boolean).length < 2
                                   }
                                 >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  <CheckCircle className="h-4 w-4" />
                                   Pagar
                                 </button>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
