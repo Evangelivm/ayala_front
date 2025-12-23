@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink, Edit, Upload } from "lucide-react";
+import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink, Edit, Upload, Search } from "lucide-react";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +94,7 @@ export default function OrdenCompraPage() {
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
   const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
   const [fechaFiltro, setFechaFiltro] = useState<Date | undefined>(undefined);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Estados para subida de archivos (Cotización y Factura)
   const [isUploadCotizacionDialogOpen, setIsUploadCotizacionDialogOpen] = useState(false);
@@ -717,15 +718,20 @@ export default function OrdenCompraPage() {
     const updatedItems = [...nuevaOrdenData.items];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
 
-    // Calcular subtotal automáticamente
-    if (field === "cantidad_solicitada" || field === "precio_unitario") {
-      const cantidad = Number(
-        field === "cantidad_solicitada" ? value : updatedItems[index].cantidad_solicitada
-      );
-      const precio = Number(
-        field === "precio_unitario" ? value : updatedItems[index].precio_unitario
-      );
+    // Si cambia la cantidad, recalcular subtotal basado en precio unitario
+    if (field === "cantidad_solicitada") {
+      const cantidad = Number(value);
+      const precio = Number(updatedItems[index].precio_unitario);
       updatedItems[index].subtotal = cantidad * precio;
+    }
+
+    // Si cambia el subtotal, recalcular precio unitario basado en cantidad
+    if (field === "subtotal") {
+      const subtotal = Number(value);
+      const cantidad = Number(updatedItems[index].cantidad_solicitada);
+      if (cantidad > 0) {
+        updatedItems[index].precio_unitario = subtotal / cantidad;
+      }
     }
 
     // Actualizar estado inmediatamente para UI responsiva
@@ -1299,26 +1305,56 @@ export default function OrdenCompraPage() {
     }
   };
 
-  // Filtrar órdenes por fecha
+  // Filtrar órdenes por fecha y búsqueda
   const ordenesFiltradas = useMemo(() => {
-    if (!fechaFiltro) return ordenesCompra;
+    let filtered = ordenesCompra;
 
-    const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
-    return ordenesCompra.filter((orden) => {
-      const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
-      return fechaOrden === fechaFiltroStr;
-    });
-  }, [ordenesCompra, fechaFiltro]);
+    // Filtrar por fecha
+    if (fechaFiltro) {
+      const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
+      filtered = filtered.filter((orden) => {
+        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
+        return fechaOrden === fechaFiltroStr;
+      });
+    }
+
+    // Filtrar por término de búsqueda
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter((orden) => {
+        const numero = orden.numero_orden?.toString().toLowerCase() || '';
+        const proveedor = orden.nombre_proveedor?.toLowerCase() || '';
+        return numero.includes(searchLower) || proveedor.includes(searchLower);
+      });
+    }
+
+    return filtered;
+  }, [ordenesCompra, fechaFiltro, searchTerm]);
 
   const ordenesServicioFiltradas = useMemo(() => {
-    if (!fechaFiltro) return ordenesServicio;
+    let filtered = ordenesServicio;
 
-    const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
-    return ordenesServicio.filter((orden) => {
-      const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
-      return fechaOrden === fechaFiltroStr;
-    });
-  }, [ordenesServicio, fechaFiltro]);
+    // Filtrar por fecha
+    if (fechaFiltro) {
+      const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
+      filtered = filtered.filter((orden) => {
+        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
+        return fechaOrden === fechaFiltroStr;
+      });
+    }
+
+    // Filtrar por término de búsqueda
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter((orden) => {
+        const numero = orden.numero_orden?.toString().toLowerCase() || '';
+        const proveedor = orden.nombre_proveedor?.toLowerCase() || '';
+        return numero.includes(searchLower) || proveedor.includes(searchLower);
+      });
+    }
+
+    return filtered;
+  }, [ordenesServicio, fechaFiltro, searchTerm]);
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -1372,47 +1408,77 @@ export default function OrdenCompraPage() {
             </Dialog>
           </div>
 
-          {/* Filtro de fecha */}
-          <div className="mb-4 flex items-center gap-4">
-            <Label htmlFor="fecha-filtro" className="text-sm font-medium">
-              Filtrar por Fecha:
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
+          {/* Filtros de fecha y búsqueda */}
+          <div className="mb-4 flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <Label htmlFor="fecha-filtro" className="text-sm font-medium">
+                Filtrar por Fecha:
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="fecha-filtro"
+                    variant="outline"
+                    className="w-[240px] justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {fechaFiltro ? (
+                      format(fechaFiltro, "PPP", { locale: es })
+                    ) : (
+                      <span>Seleccionar fecha</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={fechaFiltro}
+                    onSelect={setFechaFiltro}
+                    locale={es}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              {fechaFiltro && (
                 <Button
-                  id="fecha-filtro"
-                  variant="outline"
-                  className="w-[240px] justify-start text-left font-normal"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFechaFiltro(undefined)}
+                  className="h-8 px-2"
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {fechaFiltro ? (
-                    format(fechaFiltro, "PPP", { locale: es })
-                  ) : (
-                    <span>Seleccionar fecha</span>
-                  )}
+                  <X className="h-4 w-4 mr-1" />
+                  Limpiar filtro
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={fechaFiltro}
-                  onSelect={setFechaFiltro}
-                  locale={es}
-                  initialFocus
+              )}
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Label htmlFor="search-term" className="text-sm font-medium">
+                Buscar:
+              </Label>
+              <div className="relative w-[300px]">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search-term"
+                  type="text"
+                  placeholder="Buscar por código o nombre"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
                 />
-              </PopoverContent>
-            </Popover>
-            {fechaFiltro && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFechaFiltro(undefined)}
-                className="h-8 px-2"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Limpiar filtro
-              </Button>
-            )}
+              </div>
+              {searchTerm && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchTerm("")}
+                  className="h-8 px-2"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Limpiar
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Tabs para Órdenes de Compra y Servicio */}
@@ -1433,8 +1499,8 @@ export default function OrdenCompraPage() {
                       <div className="flex flex-col items-center gap-2">
                         <ClipboardList className="h-8 w-8 opacity-50" />
                         <p className="text-sm">
-                          {fechaFiltro
-                            ? "No hay órdenes de compra para la fecha seleccionada"
+                          {fechaFiltro || searchTerm
+                            ? "No hay órdenes de compra que coincidan con los filtros"
                             : "No hay órdenes de compra registradas"
                           }
                         </p>
@@ -1788,8 +1854,8 @@ export default function OrdenCompraPage() {
                       <div className="flex flex-col items-center gap-2">
                         <ClipboardList className="h-8 w-8 opacity-50" />
                         <p className="text-sm">
-                          {fechaFiltro
-                            ? "No hay órdenes de servicio para la fecha seleccionada"
+                          {fechaFiltro || searchTerm
+                            ? "No hay órdenes de servicio que coincidan con los filtros"
                             : "No hay órdenes de servicio registradas"
                           }
                         </p>
@@ -3282,14 +3348,17 @@ export default function OrdenCompraPage() {
                                     required
                                   />
                                 </TableCell>
+                                <TableCell className="text-right text-xs font-semibold bg-gray-100 p-2 font-mono">
+                                  {item.precio_unitario.toFixed(2)}
+                                </TableCell>
                                 <TableCell>
                                   <Input
                                     type="number"
-                                    value={item.precio_unitario}
+                                    value={item.subtotal}
                                     onChange={(e) =>
                                       handleItemChange(
                                         index,
-                                        "precio_unitario",
+                                        "subtotal",
                                         parseFloat(e.target.value) || 0
                                       )
                                     }
@@ -3298,9 +3367,6 @@ export default function OrdenCompraPage() {
                                     step="0.01"
                                     required
                                   />
-                                </TableCell>
-                                <TableCell className="text-right text-xs font-semibold bg-yellow-50 p-2 font-mono">
-                                  {item.subtotal.toFixed(2)}
                                 </TableCell>
                                 <TableCell>
                                   <Button
