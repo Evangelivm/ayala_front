@@ -38,6 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ClipboardList, Plus, Trash2, Edit, X, FileText, RefreshCw, RotateCw, Info } from "lucide-react";
 import { EstadoBadge } from "@/components/factura/EstadoBadge";
 import { EnlacesModal } from "@/components/factura/EnlacesModal";
+import { DetraccionSelectDialog } from "@/components/detraccion-select-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -167,6 +168,7 @@ export default function FacturaPage() {
     detraccion: {
       porcentaje: 3,
       monto: 0,
+      tipo_detraccion: "", // Código del tipo de detracción
     },
     items: [] as Array<{
       codigo_item: string;
@@ -181,6 +183,8 @@ export default function FacturaPage() {
     total: 0,
     netoAPagar: 0,
     observacion: "",
+    tipoVenta: "CONTADO", // CONTADO o CREDITO
+    plazoCredito: 0, // 7, 15, 30, 45, 60 días
   });
 
   // Hook de debounce para optimizar cálculos
@@ -422,7 +426,10 @@ export default function FacturaPage() {
     const detraccionMonto = nuevaFacturaData.aplicarDetraccion
       ? totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100)
       : 0;
-    const netoAPagarCalculado = totalCalculado - detraccionMonto;
+    const fondoGarantiaMonto = nuevaFacturaData.fondoGarantia
+      ? parseFloat(nuevaFacturaData.fondoGarantiaValor || "0")
+      : 0;
+    const netoAPagarCalculado = totalCalculado - detraccionMonto - fondoGarantiaMonto;
 
     setNuevaFacturaData((prev) => ({
       ...prev,
@@ -435,7 +442,7 @@ export default function FacturaPage() {
       },
       netoAPagar: netoAPagarCalculado,
     }));
-  }, [nuevaFacturaData.igvPorcentaje, nuevaFacturaData.aplicarDetraccion, nuevaFacturaData.detraccion.porcentaje]);
+  }, [nuevaFacturaData.igvPorcentaje, nuevaFacturaData.aplicarDetraccion, nuevaFacturaData.detraccion.porcentaje, nuevaFacturaData.fondoGarantia, nuevaFacturaData.fondoGarantiaValor]);
 
   // Optimizado con debouncing para evitar cálculos excesivos
   const handleItemChange = useCallback(
@@ -509,7 +516,7 @@ export default function FacturaPage() {
   };
 
   const handleNuevaFacturaInputChange = useCallback(
-    (field: string, value: string | Date | number | boolean | { porcentaje: number; monto: number }) => {
+    (field: string, value: string | Date | number | boolean | { porcentaje: number; monto: number; tipo_detraccion: string }) => {
       setNuevaFacturaData((prev) => ({ ...prev, [field]: value }));
     },
     []
@@ -541,6 +548,7 @@ export default function FacturaPage() {
       detraccion: {
         porcentaje: 3,
         monto: 0,
+        tipo_detraccion: "",
       },
       items: [],
       subtotal: 0,
@@ -548,8 +556,76 @@ export default function FacturaPage() {
       total: 0,
       netoAPagar: 0,
       observacion: "",
+      tipoVenta: "CONTADO",
+      plazoCredito: 0,
     });
     setFacturaEditandoId(null);
+  };
+
+  // Función para generar observaciones automáticas con formato de 3 columnas
+  const generarObservacionesAutomaticas = () => {
+    const cuentasPago = [
+      "BCP Soles: 191-2558490-0-42",
+      "BCP Dólares: 191-2558495-1-53",
+      "BBVA Soles: 0011-0266-0100038467-29"
+    ];
+
+    const infoCuotas = nuevaFacturaData.tipoVenta === "CONTADO"
+      ? "1 cuota al contado"
+      : `${Math.ceil(nuevaFacturaData.plazoCredito / 30)} cuota(s) - ${nuevaFacturaData.plazoCredito} días`;
+
+    const fechaVencimiento = nuevaFacturaData.tipoVenta === "CREDITO"
+      ? (() => {
+          const fecha = new Date(nuevaFacturaData.fechaEmision);
+          fecha.setDate(fecha.getDate() + nuevaFacturaData.plazoCredito);
+          return fecha.toLocaleDateString("es-PE");
+        })()
+      : "Inmediato";
+
+    // Generar texto formateado en 3 columnas
+    const col1Width = 35;
+    const col2Width = 35;
+    const col3Width = 35;
+
+    let observacion = "";
+    observacion += "CUENTA DE PAGO".padEnd(col1Width) + " | ";
+    observacion += "INFORMACIÓN DE CRÉDITO".padEnd(col2Width) + " | ";
+    observacion += "INFORMACIÓN DE DETRACCIÓN\n";
+    observacion += "=".repeat(col1Width) + "=|=";
+    observacion += "=".repeat(col2Width) + "=|=";
+    observacion += "=".repeat(col3Width) + "\n";
+
+    // Línea 1
+    observacion += cuentasPago[0].padEnd(col1Width) + " | ";
+    observacion += `Cuotas: ${infoCuotas}`.padEnd(col2Width) + " | ";
+    if (nuevaFacturaData.aplicarDetraccion) {
+      observacion += `Detracción: ${nuevaFacturaData.detraccion.porcentaje}%\n`;
+    } else {
+      observacion += `No aplica detracción\n`;
+    }
+
+    // Línea 2
+    observacion += cuentasPago[1].padEnd(col1Width) + " | ";
+    observacion += `Vencimiento: ${fechaVencimiento}`.padEnd(col2Width) + " | ";
+    if (nuevaFacturaData.aplicarDetraccion) {
+      observacion += `Monto: S/. ${nuevaFacturaData.detraccion.monto.toFixed(2)}\n`;
+    } else {
+      observacion += `\n`;
+    }
+
+    // Línea 3
+    observacion += cuentasPago[2].padEnd(col1Width) + " | ";
+    observacion += "".padEnd(col2Width) + " | ";
+    if (nuevaFacturaData.aplicarDetraccion && nuevaFacturaData.detraccion.tipo_detraccion) {
+      observacion += `Código: ${nuevaFacturaData.detraccion.tipo_detraccion}\n`;
+    } else {
+      observacion += `\n`;
+    }
+
+    setNuevaFacturaData((prev) => ({
+      ...prev,
+      observacion: observacion,
+    }));
   };
 
   const handleNuevaFacturaSave = async () => {
@@ -567,6 +643,20 @@ export default function FacturaPage() {
 
       if (nuevaFacturaData.items.length === 0) {
         toast.error("Debe agregar al menos un item a la factura");
+        return;
+      }
+
+      // Validar que los precios unitarios no excedan el límite de la BD (Decimal 12,10)
+      const itemsConPrecioAlto = nuevaFacturaData.items.filter(item => item.precio_unitario >= 100);
+      if (itemsConPrecioAlto.length > 0) {
+        const items = itemsConPrecioAlto.map(i => `"${i.descripcion_item}"`).join(", ");
+        toast.error(`Los siguientes items tienen precio unitario >= S/. 100.00: ${items}. El sistema no soporta precios tan altos en este campo. Por favor, ajuste los valores.`);
+        return;
+      }
+
+      // Validar tipo de venta a crédito
+      if (nuevaFacturaData.tipoVenta === "CREDITO" && nuevaFacturaData.plazoCredito === 0) {
+        toast.error("Debe seleccionar un plazo para venta a crédito");
         return;
       }
 
@@ -636,7 +726,14 @@ export default function FacturaPage() {
           const day = String(fecha.getDate()).padStart(2, '0');
           return `${year}-${month}-${day}`;
         })(),
-        fecha_vencimiento: null,
+        fecha_vencimiento: nuevaFacturaData.tipoVenta === "CREDITO" ? (() => {
+          const fecha = new Date(nuevaFacturaData.fechaEmision);
+          fecha.setDate(fecha.getDate() + nuevaFacturaData.plazoCredito);
+          const day = String(fecha.getDate()).padStart(2, '0');
+          const month = String(fecha.getMonth() + 1).padStart(2, '0');
+          const year = fecha.getFullYear();
+          return `${day}-${month}-${year}`; // Formato DD-MM-YYYY según NubeFact
+        })() : null,
         fecha_servicio: (() => {
           const fecha = new Date(nuevaFacturaData.fechaServicio);
           const year = fecha.getFullYear();
@@ -663,7 +760,9 @@ export default function FacturaPage() {
 
         // Detracción
         aplicar_detraccion: nuevaFacturaData.aplicarDetraccion,
-        detraccion_tipo: nuevaFacturaData.aplicarDetraccion ? 27 : null,
+        detraccion_tipo: nuevaFacturaData.aplicarDetraccion && nuevaFacturaData.detraccion.tipo_detraccion
+          ? parseInt(nuevaFacturaData.detraccion.tipo_detraccion)
+          : null,
         detraccion_porcentaje: nuevaFacturaData.aplicarDetraccion
           ? nuevaFacturaData.detraccion.porcentaje
           : null,
@@ -717,6 +816,13 @@ export default function FacturaPage() {
         enviar_automaticamente_cliente: false,
         formato_pdf: "A4",
 
+        // Venta al crédito (se llenará condicionalmente más adelante)
+        venta_al_credito: undefined as undefined | Array<{
+          cuota: number;
+          fecha_de_pago: string;
+          importe: number;
+        }>,
+
         // Transformar items del frontend al backend
         items: nuevaFacturaData.items.map((item) => {
           // Calcular valores con y sin IGV usando el porcentaje configurado
@@ -730,14 +836,22 @@ export default function FacturaPage() {
           const igvItem = subtotal * igvPorcentajeDecimal;
           const totalItem = subtotal + igvItem;
 
+          // Validación: Verificar si los valores exceden el límite de Decimal(12,10)
+          if (valorSinIgv >= 100 || precioConIgv >= 100) {
+            console.warn(`⚠️ ADVERTENCIA: Valor fuera de rango para item "${item.descripcion_item}"`);
+            console.warn(`   Valor unitario sin IGV: ${valorSinIgv}`);
+            console.warn(`   Precio unitario con IGV: ${precioConIgv}`);
+            console.warn(`   La BD solo permite valores menores a 100 para estos campos.`);
+          }
+
           return {
             codigo_item: item.codigo_item,
             codigo_producto_sunat: null,
             descripcion_item: item.descripcion_item,
             unidad_medida: item.unidadMed,
-            cantidad: cantidad,
-            valor_unitario: Number(valorSinIgv.toFixed(2)),
-            precio_unitario: Number(precioConIgv.toFixed(2)),
+            cantidad: Number(cantidad.toFixed(10)),
+            valor_unitario: Number(valorSinIgv.toFixed(10)),
+            precio_unitario: Number(precioConIgv.toFixed(10)),
             descuento: 0,
             subtotal: Number(subtotal.toFixed(2)),
             tipo_de_igv: 1, // 1 = Gravado - Operación Onerosa
@@ -776,6 +890,23 @@ export default function FacturaPage() {
         const detraccionMonto =
           totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100);
         dataParaBackend.detraccion_total = Number(detraccionMonto.toFixed(2));
+      }
+
+      // Agregar venta al crédito si aplica (según documentación de NubeFact)
+      if (nuevaFacturaData.tipoVenta === "CREDITO" && nuevaFacturaData.plazoCredito > 0) {
+        const fechaVencimiento = new Date(nuevaFacturaData.fechaEmision);
+        fechaVencimiento.setDate(fechaVencimiento.getDate() + nuevaFacturaData.plazoCredito);
+        const day = String(fechaVencimiento.getDate()).padStart(2, '0');
+        const month = String(fechaVencimiento.getMonth() + 1).padStart(2, '0');
+        const year = fechaVencimiento.getFullYear();
+
+        dataParaBackend.venta_al_credito = [
+          {
+            cuota: 1,
+            fecha_de_pago: `${day}-${month}-${year}`, // Formato DD-MM-YYYY
+            importe: Number(totalCalculado.toFixed(2))
+          }
+        ];
       }
 
       console.log("📤 Enviando datos al backend:", dataParaBackend);
@@ -877,6 +1008,7 @@ export default function FacturaPage() {
         detraccion: {
           porcentaje: Number(facturaCompleta.detraccion_porcentaje) || 3,
           monto: Number(facturaCompleta.detraccion_total) || 0,
+          tipo_detraccion: "", // Backend doesn't return this field, initialize as empty
         },
         items: (facturaCompleta.factura_item || facturaCompleta.items || []).map((item: FacturaItem) => ({
           codigo_item: item.codigo_item || "",
@@ -889,8 +1021,10 @@ export default function FacturaPage() {
         subtotal: Number(facturaCompleta.total_gravada) || 0,
         igv: Number(facturaCompleta.total_igv) || 0,
         total: Number(facturaCompleta.total) || 0,
-        netoAPagar: (Number(facturaCompleta.total) || 0) - (Number(facturaCompleta.detraccion_total) || 0),
+        netoAPagar: (Number(facturaCompleta.total) || 0) - (Number(facturaCompleta.detraccion_total) || 0) - (Number(facturaCompleta.fondo_garantia_valor) || 0),
         observacion: facturaCompleta.observaciones || "",
+        tipoVenta: "CONTADO", // Por defecto CONTADO al editar (backend no devuelve este campo aún)
+        plazoCredito: 0,
       });
 
       // Establecer el ID de la factura que se está editando
@@ -1355,7 +1489,7 @@ export default function FacturaPage() {
                             ...prev,
                             aplicarDetraccion: aplicar,
                             detraccion: aplicar
-                              ? { porcentaje: 3, monto: 0 }
+                              ? { porcentaje: 3, monto: 0, tipo_detraccion: prev.detraccion.tipo_detraccion }
                               : prev.detraccion,
                           };
                           // Recalcular totales con los nuevos datos
@@ -1369,7 +1503,10 @@ export default function FacturaPage() {
                           const detraccionMonto = newData.aplicarDetraccion
                             ? totalCalculado * (newData.detraccion.porcentaje / 100)
                             : 0;
-                          const netoAPagarCalculado = totalCalculado - detraccionMonto;
+                          const fondoGarantiaMonto = newData.fondoGarantia
+                            ? parseFloat(newData.fondoGarantiaValor || "0")
+                            : 0;
+                          const netoAPagarCalculado = totalCalculado - detraccionMonto - fondoGarantiaMonto;
 
                           return {
                             ...newData,
@@ -1448,6 +1585,57 @@ export default function FacturaPage() {
                     </Select>
                   </div>
 
+                  {/* Tipo de Venta */}
+                  <div className="col-span-2">
+                    <Label htmlFor="tipo-venta" className="text-xs font-semibold">
+                      Tipo de Venta:
+                    </Label>
+                    <Select
+                      value={nuevaFacturaData.tipoVenta}
+                      onValueChange={(value) => {
+                        handleNuevaFacturaInputChange("tipoVenta", value);
+                        // Si cambia a CONTADO, resetear el plazo
+                        if (value === "CONTADO") {
+                          handleNuevaFacturaInputChange("plazoCredito", 0);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CONTADO">Contado</SelectItem>
+                        <SelectItem value="CREDITO">Crédito</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Plazo de Crédito - Solo visible si es CREDITO */}
+                  {nuevaFacturaData.tipoVenta === "CREDITO" && (
+                    <div className="col-span-2">
+                      <Label htmlFor="plazo-credito" className="text-xs font-semibold">
+                        Plazo:
+                      </Label>
+                      <Select
+                        value={nuevaFacturaData.plazoCredito.toString()}
+                        onValueChange={(value) =>
+                          handleNuevaFacturaInputChange("plazoCredito", parseInt(value))
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Seleccione plazo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="7">7 días</SelectItem>
+                          <SelectItem value="15">15 días</SelectItem>
+                          <SelectItem value="30">30 días</SelectItem>
+                          <SelectItem value="45">45 días</SelectItem>
+                          <SelectItem value="60">60 días</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   {/* Segunda fila */}
                   <div className="col-span-6">
                     <Label className="text-xs font-semibold mb-2 block">Opciones</Label>
@@ -1458,12 +1646,14 @@ export default function FacturaPage() {
                             type="checkbox"
                             id="fondo-garantia"
                             checked={nuevaFacturaData.fondoGarantia}
-                            onChange={(e) =>
+                            onChange={(e) => {
                               handleNuevaFacturaInputChange(
                                 "fondoGarantia",
                                 e.target.checked
-                              )
-                            }
+                              );
+                              // Recalcular totales cuando se active/desactive
+                              setTimeout(() => calcularTotales(nuevaFacturaData.items), 0);
+                            }}
                             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                           />
                           <label
@@ -1476,9 +1666,34 @@ export default function FacturaPage() {
                         {nuevaFacturaData.fondoGarantia && (
                           <Input
                             value={nuevaFacturaData.fondoGarantiaValor}
-                            onChange={(e) =>
-                              handleNuevaFacturaInputChange("fondoGarantiaValor", e.target.value)
-                            }
+                            onChange={(e) => {
+                              const nuevoValor = e.target.value;
+                              // Recalcular totales inmediatamente con el nuevo valor
+                              const subtotalCalculado = nuevaFacturaData.items.reduce(
+                                (acc, item) => acc + (item.subtotal || 0),
+                                0
+                              );
+                              const igvCalculado = subtotalCalculado * (nuevaFacturaData.igvPorcentaje / 100);
+                              const totalCalculado = subtotalCalculado + igvCalculado;
+                              const detraccionMonto = nuevaFacturaData.aplicarDetraccion
+                                ? totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100)
+                                : 0;
+                              const fondoGarantiaMonto = parseFloat(nuevoValor || "0");
+                              const netoAPagarCalculado = totalCalculado - detraccionMonto - fondoGarantiaMonto;
+
+                              setNuevaFacturaData((prev) => ({
+                                ...prev,
+                                fondoGarantiaValor: nuevoValor,
+                                subtotal: subtotalCalculado,
+                                igv: igvCalculado,
+                                total: totalCalculado,
+                                detraccion: {
+                                  ...prev.detraccion,
+                                  monto: detraccionMonto,
+                                },
+                                netoAPagar: netoAPagarCalculado,
+                              }));
+                            }}
                             placeholder="Ingrese valor..."
                             className="h-8 text-xs"
                           />
@@ -1791,19 +2006,31 @@ export default function FacturaPage() {
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-8">
                     <div>
-                      <Label
-                        htmlFor="observacion-nueva"
-                        className="text-xs font-semibold"
-                      >
-                        Observación:
-                      </Label>
+                      <div className="flex items-center justify-between mb-1">
+                        <Label
+                          htmlFor="observacion-nueva"
+                          className="text-xs font-semibold"
+                        >
+                          Observación:
+                        </Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={generarObservacionesAutomaticas}
+                          className="h-7 text-xs"
+                        >
+                          <FileText className="w-3 h-3 mr-1" />
+                          Generar Info Automática
+                        </Button>
+                      </div>
                       <Textarea
                         id="observacion-nueva"
                         value={nuevaFacturaData.observacion}
                         onChange={(e) =>
                           handleNuevaFacturaInputChange("observacion", e.target.value)
                         }
-                        className="min-h-[180px] resize-none text-xs mt-1"
+                        className="min-h-[180px] resize-none text-xs font-mono"
                         placeholder="Observaciones adicionales..."
                       />
                     </div>
@@ -1830,11 +2057,34 @@ export default function FacturaPage() {
                           <Select
                             value={nuevaFacturaData.igvPorcentaje.toString()}
                             onValueChange={(value) => {
-                              handleNuevaFacturaInputChange(
-                                "igvPorcentaje",
-                                parseInt(value)
+                              const nuevoPorcentaje = parseInt(value);
+                              // Recalcular totales inmediatamente con el nuevo porcentaje de IGV
+                              const subtotalCalculado = nuevaFacturaData.items.reduce(
+                                (acc, item) => acc + (item.subtotal || 0),
+                                0
                               );
-                              calcularTotales(nuevaFacturaData.items);
+                              const igvCalculado = subtotalCalculado * (nuevoPorcentaje / 100);
+                              const totalCalculado = subtotalCalculado + igvCalculado;
+                              const detraccionMonto = nuevaFacturaData.aplicarDetraccion
+                                ? totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100)
+                                : 0;
+                              const fondoGarantiaMonto = nuevaFacturaData.fondoGarantia
+                                ? parseFloat(nuevaFacturaData.fondoGarantiaValor || "0")
+                                : 0;
+                              const netoAPagarCalculado = totalCalculado - detraccionMonto - fondoGarantiaMonto;
+
+                              setNuevaFacturaData((prev) => ({
+                                ...prev,
+                                igvPorcentaje: nuevoPorcentaje,
+                                subtotal: subtotalCalculado,
+                                igv: igvCalculado,
+                                total: totalCalculado,
+                                detraccion: {
+                                  ...prev.detraccion,
+                                  monto: detraccionMonto,
+                                },
+                                netoAPagar: netoAPagarCalculado,
+                              }));
                             }}
                           >
                             <SelectTrigger className="h-7 w-20 text-xs">
@@ -1870,27 +2120,52 @@ export default function FacturaPage() {
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-600">Porcentaje:</span>
-                            <Select
-                              value={nuevaFacturaData.detraccion.porcentaje.toString()}
-                              onValueChange={(value) => {
-                                handleNuevaFacturaInputChange("detraccion", {
-                                  ...nuevaFacturaData.detraccion,
-                                  porcentaje: parseInt(value),
-                                });
-                                calcularTotales(nuevaFacturaData.items);
+                          <div className="scale-95 origin-left">
+                            <DetraccionSelectDialog
+                              currentPorcentaje={nuevaFacturaData.detraccion.porcentaje}
+                              currentCodigo={nuevaFacturaData.detraccion.tipo_detraccion}
+                              onSelect={(porcentaje, codigo, descripcion) => {
+                                // Recalcular totales inmediatamente con el nuevo porcentaje
+                                const subtotalCalculado = nuevaFacturaData.items.reduce(
+                                  (acc, item) => acc + (item.subtotal || 0),
+                                  0
+                                );
+                                const igvCalculado = subtotalCalculado * (nuevaFacturaData.igvPorcentaje / 100);
+                                const totalCalculado = subtotalCalculado + igvCalculado;
+                                const detraccionMonto = totalCalculado * (porcentaje / 100);
+                                const fondoGarantiaMonto = nuevaFacturaData.fondoGarantia
+                                  ? parseFloat(nuevaFacturaData.fondoGarantiaValor || "0")
+                                  : 0;
+                                const netoAPagarCalculado = totalCalculado - detraccionMonto - fondoGarantiaMonto;
+
+                                setNuevaFacturaData((prev) => ({
+                                  ...prev,
+                                  subtotal: subtotalCalculado,
+                                  igv: igvCalculado,
+                                  total: totalCalculado,
+                                  detraccion: {
+                                    porcentaje: porcentaje,
+                                    monto: detraccionMonto,
+                                    tipo_detraccion: codigo,
+                                  },
+                                  netoAPagar: netoAPagarCalculado,
+                                }));
                               }}
-                            >
-                              <SelectTrigger className="h-7 w-20 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="0">0%</SelectItem>
-                                <SelectItem value="3">3%</SelectItem>
-                                <SelectItem value="8">8%</SelectItem>
-                              </SelectContent>
-                            </Select>
+                              buttonText="Seleccionar tipo de detracción"
+                              buttonClassName="h-7 text-xs bg-purple-50 hover:bg-purple-100 border-purple-300"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Fondo de Garantía - Solo se muestra si está activado */}
+                      {nuevaFacturaData.fondoGarantia && (
+                        <div className="border-t pt-2">
+                          <div className="flex justify-between items-start text-sm">
+                            <span className="font-semibold">Fondo de Garantía:</span>
+                            <span className="font-mono text-red-600">
+                              -{parseFloat(nuevaFacturaData.fondoGarantiaValor || "0").toFixed(2)}
+                            </span>
                           </div>
                         </div>
                       )}
