@@ -152,9 +152,25 @@ export default function ProgTecnicaPage() {
         toast.warning(result.message);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Error al recuperar archivos";
-      toast.error(errorMessage);
       console.error("Error recuperando archivos:", error);
+
+      let errorMessage = "Error al recuperar archivos";
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      // Mostrar mensaje de error apropiado
+      if (errorMessage.includes("NO EXISTE en Nubefact")) {
+        toast.error(
+          `⚠️ DOCUMENTO NO EXISTE: La guía no se encuentra en Nubefact. Debe generarla nuevamente.`,
+          { duration: 8000 }
+        );
+      } else if (errorMessage.includes("no ha sido generada")) {
+        toast.warning(errorMessage, { duration: 6000 });
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 

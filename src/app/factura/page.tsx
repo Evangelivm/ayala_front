@@ -109,6 +109,7 @@ export default function FacturaPage() {
   const [selectedFacturaForModal, setSelectedFacturaForModal] = useState<typeof facturas[0] | null>(null);
   const [selectedProveedor, setSelectedProveedor] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [replacingItemIndex, setReplacingItemIndex] = useState<number | null>(null); // Índice del item que se está reemplazando
   const [proveedores, setProveedores] = useState<ProveedorData[]>([]);
   const [items, setItems] = useState<ItemData[]>([]);
   const [itemSearchQuery, setItemSearchQuery] = useState("");
@@ -494,11 +495,26 @@ export default function FacturaPage() {
           precio_unitario: Number(item.precio_unitario) || 0,
           subtotal: Number(item.precio_unitario) || 0,
         };
-        setNuevaFacturaData((prev) => ({
-          ...prev,
-          items: [...prev.items, newItem],
-        }));
-        calcularTotales([...nuevaFacturaData.items, newItem]);
+
+        // Si estamos reemplazando un item existente
+        if (replacingItemIndex !== null) {
+          const updatedItems = [...nuevaFacturaData.items];
+          updatedItems[replacingItemIndex] = newItem;
+          setNuevaFacturaData((prev) => ({
+            ...prev,
+            items: updatedItems,
+          }));
+          calcularTotales(updatedItems);
+          setReplacingItemIndex(null); // Resetear índice de reemplazo
+        } else {
+          // Si estamos agregando un nuevo item
+          setNuevaFacturaData((prev) => ({
+            ...prev,
+            items: [...prev.items, newItem],
+          }));
+          calcularTotales([...nuevaFacturaData.items, newItem]);
+        }
+
         setIsItemsModalOpen(false);
         setSelectedItem(null);
       }
@@ -513,6 +529,11 @@ export default function FacturaPage() {
     const updatedItems = nuevaFacturaData.items.filter((_, i) => i !== index);
     setNuevaFacturaData((prev) => ({ ...prev, items: updatedItems }));
     calcularTotales(updatedItems);
+  };
+
+  const replaceItem = (index: number) => {
+    setReplacingItemIndex(index);
+    handleOpenItemsModal();
   };
 
   const handleNuevaFacturaInputChange = useCallback(
@@ -1970,14 +1991,26 @@ export default function FacturaPage() {
                               {item.subtotal.toFixed(2)}
                             </TableCell>
                             <TableCell>
-                              <Button
-                                onClick={() => removeItem(index)}
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  onClick={() => replaceItem(index)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                  title="Reemplazar item"
+                                >
+                                  <RefreshCw className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  onClick={() => removeItem(index)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                  title="Eliminar item"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}

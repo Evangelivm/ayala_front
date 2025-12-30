@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink, Edit, Upload, Search } from "lucide-react";
+import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink, Edit, Upload, Search, RefreshCw } from "lucide-react";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -82,6 +82,7 @@ export default function OrdenCompraPage() {
   const [selectedCentroCosto, setSelectedCentroCosto] = useState<string | null>(null);
   const [selectedProveedor, setSelectedProveedor] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [replacingItemIndex, setReplacingItemIndex] = useState<number | null>(null); // Índice del item que se está reemplazando
   const [proveedores, setProveedores] = useState<ProveedorData[]>([]);
   const [items, setItems] = useState<ItemData[]>([]);
   const [itemSearchQuery, setItemSearchQuery] = useState("");
@@ -765,11 +766,26 @@ export default function OrdenCompraPage() {
           precio_unitario: Number(item.precio_unitario) || 0,
           subtotal: Number(item.precio_unitario) || 0,
         };
-        setNuevaOrdenData((prev) => ({
-          ...prev,
-          items: [...prev.items, newItem],
-        }));
-        calcularTotales([...nuevaOrdenData.items, newItem]);
+
+        // Si estamos reemplazando un item existente
+        if (replacingItemIndex !== null) {
+          const updatedItems = [...nuevaOrdenData.items];
+          updatedItems[replacingItemIndex] = newItem;
+          setNuevaOrdenData((prev) => ({
+            ...prev,
+            items: updatedItems,
+          }));
+          calcularTotales(updatedItems);
+          setReplacingItemIndex(null); // Resetear índice de reemplazo
+        } else {
+          // Si estamos agregando un nuevo item
+          setNuevaOrdenData((prev) => ({
+            ...prev,
+            items: [...prev.items, newItem],
+          }));
+          calcularTotales([...nuevaOrdenData.items, newItem]);
+        }
+
         setIsItemsModalOpen(false);
         setSelectedItem(null);
       }
@@ -784,6 +800,11 @@ export default function OrdenCompraPage() {
     const updatedItems = nuevaOrdenData.items.filter((_, i) => i !== index);
     setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
     calcularTotales(updatedItems);
+  };
+
+  const replaceItem = (index: number) => {
+    setReplacingItemIndex(index);
+    handleOpenItemsModal();
   };
 
   const handleNuevaOrdenSave = async () => {
@@ -3369,14 +3390,26 @@ export default function OrdenCompraPage() {
                                   />
                                 </TableCell>
                                 <TableCell>
-                                  <Button
-                                    onClick={() => removeItem(index)}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      onClick={() => replaceItem(index)}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                      title="Reemplazar item"
+                                    >
+                                      <RefreshCw className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      onClick={() => removeItem(index)}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                      title="Eliminar item"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}

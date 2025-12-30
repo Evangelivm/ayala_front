@@ -2058,6 +2058,10 @@ export interface ProgramacionTecnicaData {
   enlace_del_xml: string | null;
   enlace_del_cdr: string | null;
   estado_gre: string | null;
+  // Campos de duplicación
+  duplicado_origen_id: number | null;
+  duplicado_fecha: string | null;
+  duplicado_lote_id: string | null;
 }
 
 // Extended type for getTecnicaById response
@@ -2242,6 +2246,99 @@ export const programacionApi = {
         }
       }
       throw new Error("Error al recuperar archivos de la guía");
+    }
+  },
+
+  // ============ PROGRAMACIÓN EXTENDIDA - DUPLICACIÓN MASIVA ============
+
+  // Obtener guías originales (no duplicadas) para programación extendida
+  getAllOriginales: async (): Promise<ProgramacionTecnicaData[]> => {
+    try {
+      const response = await api.get("/programacion/tecnica/originales");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Programación Técnica Originales API error:", error);
+      return [];
+    }
+  },
+
+  // Obtener guías duplicadas para programación extendida
+  getAllDuplicadas: async (): Promise<ProgramacionTecnicaData[]> => {
+    try {
+      const response = await api.get("/programacion/tecnica/duplicadas");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Programación Técnica Duplicadas API error:", error);
+      return [];
+    }
+  },
+
+  // Duplicar guía
+  duplicarGuia: async (
+    idGuiaOriginal: number,
+    cantidad: number,
+    modificaciones?: Partial<ProgramacionTecnicaData>[]
+  ): Promise<{
+    success: boolean;
+    message: string;
+    loteId: string;
+    duplicados: ProgramacionTecnicaData[]
+  }> => {
+    try {
+      const response = await api.post("/programacion/tecnica/duplicar", {
+        idGuiaOriginal,
+        cantidad,
+        modificaciones
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Duplicar Guía API error:", error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          throw new Error(axiosError.response.data.message);
+        }
+      }
+      throw new Error("Error al duplicar la guía");
+    }
+  },
+
+  // Enviar duplicados a Kafka en lotes
+  enviarDuplicadosKafka: async (
+    loteId: string,
+    idsGuias: number[]
+  ): Promise<{
+    success: boolean;
+    message: string;
+    procesados: number;
+    errores: Array<{ id: number; error: string }>;
+  }> => {
+    try {
+      const response = await api.post("/programacion/tecnica/enviar-kafka", {
+        loteId,
+        idsGuias
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Enviar Duplicados Kafka API error:", error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          throw new Error(axiosError.response.data.message);
+        }
+      }
+      throw new Error("Error al enviar duplicados a Kafka");
+    }
+  },
+
+  // Eliminar duplicados de un lote (antes de enviar)
+  eliminarDuplicados: async (loteId: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const response = await api.delete(`/programacion/tecnica/duplicados/${loteId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Eliminar Duplicados API error:", error);
+      throw new Error("Error al eliminar duplicados");
     }
   },
 };
