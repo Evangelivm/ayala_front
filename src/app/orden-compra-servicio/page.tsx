@@ -108,6 +108,11 @@ export default function OrdenCompraPage() {
   // Estado para bloquear el botón de guardar mientras se está guardando
   const [isSavingOrden, setIsSavingOrden] = useState(false);
 
+  // Estados para edición de número de factura
+  const [editingFacturaOrdenId, setEditingFacturaOrdenId] = useState<number | null>(null);
+  const [editingFacturaTipo, setEditingFacturaTipo] = useState<"compra" | "servicio" | null>(null);
+  const [nroFacturaEdit, setNroFacturaEdit] = useState("");
+
   // Estado para Nueva Orden
   const [nuevaOrdenData, setNuevaOrdenData] = useState({
     // Campos para el backend
@@ -135,7 +140,12 @@ export default function OrdenCompraPage() {
     retencion: {
       porcentaje: 3,
       monto: 0,
-      tipo_detraccion: "", // Código del tipo de detracción (solo para servicio)
+    },
+    aplicarDetraccion: false, // Si/No para aplicar detracción
+    detraccion: {
+      porcentaje: 3,
+      monto: 0,
+      tipo_detraccion: "", // Código del tipo de detracción
     },
     items: [] as Array<{
       codigo_item: string;
@@ -675,7 +685,7 @@ export default function OrdenCompraPage() {
   // Funciones para Nueva Orden (optimizada con useCallback)
   const handleNuevaOrdenInputChange = useCallback((
     field: string,
-    value: string | Date | number | boolean | { porcentaje: number; monto: number; tipo_detraccion: string }
+    value: string | Date | number | boolean | { porcentaje: number; monto: number; tipo_detraccion?: string }
   ) => {
     setNuevaOrdenData((prev) => ({ ...prev, [field]: value }));
 
@@ -686,16 +696,33 @@ export default function OrdenCompraPage() {
   }, []);
 
   // Función optimizada para calcular totales (memoizada) - DEBE estar antes de handleItemChange
-  const calcularTotales = useCallback((items: Array<{ subtotal: number }>, nuevoPorcentaje?: number) => {
+  const calcularTotales = useCallback((
+    items: Array<{ subtotal: number }>,
+    nuevoPorcentajeRetencion?: number,
+    nuevoPorcentajeDetraccion?: number
+  ) => {
     const subtotalCalculado = items.reduce((acc, item) => acc + (item.subtotal || 0), 0);
     const igvCalculado = subtotalCalculado * (nuevaOrdenData.igvPorcentaje / 100);
     const totalCalculado = subtotalCalculado + igvCalculado;
-    // Usar el nuevo porcentaje si se pasa como parámetro, sino usar el del estado
-    const porcentajeAUsar = nuevoPorcentaje !== undefined ? nuevoPorcentaje : nuevaOrdenData.retencion.porcentaje;
+
+    // Calcular retención
+    const porcentajeRetencionAUsar = nuevoPorcentajeRetencion !== undefined
+      ? nuevoPorcentajeRetencion
+      : nuevaOrdenData.retencion.porcentaje;
     const retencionMonto = nuevaOrdenData.aplicarRetencion
-      ? totalCalculado * (porcentajeAUsar / 100)
+      ? totalCalculado * (porcentajeRetencionAUsar / 100)
       : 0;
-    const netoAPagarCalculado = totalCalculado - retencionMonto;
+
+    // Calcular detracción
+    const porcentajeDetraccionAUsar = nuevoPorcentajeDetraccion !== undefined
+      ? nuevoPorcentajeDetraccion
+      : nuevaOrdenData.detraccion.porcentaje;
+    const detraccionMonto = nuevaOrdenData.aplicarDetraccion
+      ? totalCalculado * (porcentajeDetraccionAUsar / 100)
+      : 0;
+
+    // Neto a pagar resta tanto retención como detracción
+    const netoAPagarCalculado = totalCalculado - retencionMonto - detraccionMonto;
 
     setNuevaOrdenData((prev) => ({
       ...prev,
@@ -706,9 +733,19 @@ export default function OrdenCompraPage() {
         ...prev.retencion,
         monto: retencionMonto,
       },
+      detraccion: {
+        ...prev.detraccion,
+        monto: detraccionMonto,
+      },
       netoAPagar: netoAPagarCalculado,
     }));
-  }, [nuevaOrdenData.igvPorcentaje, nuevaOrdenData.aplicarRetencion, nuevaOrdenData.retencion.porcentaje]);
+  }, [
+    nuevaOrdenData.igvPorcentaje,
+    nuevaOrdenData.aplicarRetencion,
+    nuevaOrdenData.retencion.porcentaje,
+    nuevaOrdenData.aplicarDetraccion,
+    nuevaOrdenData.detraccion.porcentaje
+  ]);
 
   // Optimizado con debouncing para evitar cálculos excesivos
   const handleItemChange = useCallback((
@@ -884,23 +921,15 @@ export default function OrdenCompraPage() {
         centro_costo_nivel2: nuevaOrdenData.centroCostoNivel2Codigo,
         centro_costo_nivel3: nuevaOrdenData.centroCostoNivel3Codigo,
         unidad_id: nuevaOrdenData.unidad_id > 0 ? nuevaOrdenData.unidad_id : null,
-        // Para orden de compra: retencion, para orden de servicio: detraccion
-        ...(tipoOrden === "compra"
-          ? {
-              retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
-              porcentaje_valor_retencion: nuevaOrdenData.retencion.porcentaje.toString()
-            }
-          : {
-              detraccion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
-              porcentaje_valor_detraccion: nuevaOrdenData.retencion.porcentaje.toString(),
-              tipo_detraccion: nuevaOrdenData.retencion.tipo_detraccion // Código del tipo de detracción
-            }
-        ),
-        // Valor de retención o detracción según el tipo de orden
-        ...(tipoOrden === "compra"
-          ? { valor_retencion: nuevaOrdenData.retencion.monto }
-          : { valor_detraccion: nuevaOrdenData.retencion.monto }
-        ),
+        // Campos de retención (para ambos tipos de orden)
+        retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
+        porcentaje_valor_retencion: nuevaOrdenData.retencion.porcentaje.toString(),
+        valor_retencion: nuevaOrdenData.retencion.monto,
+        // Campos de detracción (para ambos tipos de orden)
+        detraccion: nuevaOrdenData.aplicarDetraccion ? "SI" : "NO",
+        porcentaje_valor_detraccion: nuevaOrdenData.detraccion.porcentaje.toString(),
+        tipo_detraccion: nuevaOrdenData.detraccion.tipo_detraccion,
+        valor_detraccion: nuevaOrdenData.detraccion.monto,
         almacen_central: nuevaOrdenData.almacenCentral ? "SI" : "NO",
         has_anticipo: nuevaOrdenData.anticipo ? 1 : 0,
         tiene_anticipo: nuevaOrdenData.anticipo ? "SI" : "NO",
@@ -998,6 +1027,11 @@ export default function OrdenCompraPage() {
       retencion: {
         porcentaje: 3,
         monto: 0,
+      },
+      aplicarDetraccion: false,
+      detraccion: {
+        porcentaje: 3,
+        monto: 0,
         tipo_detraccion: "",
       },
       items: [] as Array<{
@@ -1064,7 +1098,12 @@ export default function OrdenCompraPage() {
         retencion: {
           porcentaje: orden.porcentaje_valor_retencion ? Number(orden.porcentaje_valor_retencion) : 3,
           monto: Number(orden.valor_retencion) || 0,
-          tipo_detraccion: "", // No aplica para orden de compra
+        },
+        aplicarDetraccion: orden.detraccion === "SI",
+        detraccion: {
+          porcentaje: orden.porcentaje_valor_detraccion ? Number(orden.porcentaje_valor_detraccion) : 3,
+          monto: Number(orden.valor_detraccion) || 0,
+          tipo_detraccion: orden.tipo_detraccion || "",
         },
         items: (orden.items || []).map(item => ({
           codigo_item: item.codigo_item,
@@ -1132,11 +1171,16 @@ export default function OrdenCompraPage() {
         unidad: camionSeleccionado?.placa || "",
         unidad_id: orden.unidad_id || 0,
         igvPorcentaje: 18,
-        aplicarRetencion: orden.detraccion === "SI",
+        aplicarRetencion: orden.retencion === "SI",
         retencion: {
+          porcentaje: orden.porcentaje_valor_retencion ? Number(orden.porcentaje_valor_retencion) : 3,
+          monto: Number(orden.valor_retencion) || 0,
+        },
+        aplicarDetraccion: orden.detraccion === "SI",
+        detraccion: {
           porcentaje: orden.porcentaje_valor_detraccion ? Number(orden.porcentaje_valor_detraccion) : 3,
           monto: Number(orden.valor_detraccion) || 0,
-          tipo_detraccion: "", // Backend doesn't return this field, initialize as empty
+          tipo_detraccion: orden.tipo_detraccion || "",
         },
         items: (orden.items || []).map(item => ({
           codigo_item: item.codigo_item,
@@ -1203,6 +1247,37 @@ export default function OrdenCompraPage() {
       console.error("Error al eliminar orden de servicio:", error);
       toast.dismiss();
       toast.error("Error al eliminar la orden de servicio", {
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
+  // ===== HANDLER PARA ACTUALIZAR NÚMERO DE FACTURA =====
+  const handleUpdateNroFactura = async (ordenId: number, tipo: "compra" | "servicio", nroFactura: string) => {
+    try {
+      toast.loading("Actualizando número de factura...");
+
+      const api = tipo === "compra" ? ordenesCompraApi : ordenesServicioApi;
+      await api.actualizarNumeroFactura(ordenId, nroFactura);
+
+      toast.dismiss();
+      toast.success("Número de factura actualizado exitosamente");
+
+      // Recargar las órdenes
+      if (tipo === "compra") {
+        loadOrdenesCompra();
+      } else {
+        loadOrdenesServicio();
+      }
+
+      // Limpiar estados de edición
+      setEditingFacturaOrdenId(null);
+      setEditingFacturaTipo(null);
+      setNroFacturaEdit("");
+    } catch (error) {
+      console.error("Error al actualizar número de factura:", error);
+      toast.dismiss();
+      toast.error("Error al actualizar el número de factura", {
         description: error instanceof Error ? error.message : "Error desconocido",
       });
     }
@@ -1671,14 +1746,15 @@ export default function OrdenCompraPage() {
                                 </div>
                               </div>
 
-                              {/* Segunda Fila: Retención/Anticipo + Documentos */}
+                              {/* Segunda Fila: Retención/Detracción/Anticipo + Documentos */}
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                {/* Retención y Anticipo */}
+                                {/* Retención, Detracción y Anticipo */}
                                 <div className="bg-gray-50 rounded-lg p-3">
                                   <h4 className="text-xs font-bold text-gray-700 mb-2">
-                                    Retención y Anticipo
+                                    Retención, Detracción y Anticipo
                                   </h4>
-                                  <div className="grid grid-cols-3 gap-2">
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {/* Primera fila: Retención y Detracción */}
                                     <div>
                                       <p className="text-xs text-gray-500">Retención</p>
                                       {orden.retencion ? (
@@ -1697,6 +1773,26 @@ export default function OrdenCompraPage() {
                                           : "0.00"}
                                       </p>
                                     </div>
+                                    {/* Segunda fila: Detracción */}
+                                    <div>
+                                      <p className="text-xs text-gray-500">Detracción</p>
+                                      {orden.detraccion ? (
+                                        <Badge className="bg-purple-100 text-purple-800 text-xs">
+                                          {orden.detraccion}
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Valor Det.</p>
+                                      <p className="text-sm font-mono">
+                                        {orden.valor_detraccion
+                                          ? Number(orden.valor_detraccion).toFixed(2)
+                                          : "0.00"}
+                                      </p>
+                                    </div>
+                                    {/* Tercera fila: Anticipo */}
                                     <div>
                                       <p className="text-xs text-gray-500">Anticipo</p>
                                       {orden.tiene_anticipo === "SI" ? (
@@ -1779,6 +1875,47 @@ export default function OrdenCompraPage() {
                                         Factura
                                       </span>
                                     )}
+                                  </div>
+
+                                  {/* Campo de Número de Factura */}
+                                  <div className="mt-3 pt-3 border-t border-gray-200">
+                                    <label className="text-xs font-semibold text-gray-700 mb-1 block">
+                                      Número de Factura:
+                                    </label>
+                                    <div className="flex gap-2">
+                                      <Input
+                                        type="text"
+                                        placeholder="Ej: F001-00001234"
+                                        value={
+                                          editingFacturaOrdenId === orden.id_orden_compra && editingFacturaTipo === "compra"
+                                            ? nroFacturaEdit
+                                            : orden.nro_factura || ""
+                                        }
+                                        onChange={(e) => {
+                                          if (editingFacturaOrdenId === orden.id_orden_compra) {
+                                            setNroFacturaEdit(e.target.value);
+                                          }
+                                        }}
+                                        onFocus={() => {
+                                          setEditingFacturaOrdenId(orden.id_orden_compra || null);
+                                          setEditingFacturaTipo("compra");
+                                          setNroFacturaEdit(orden.nro_factura || "");
+                                        }}
+                                        className="h-8 text-xs flex-1"
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          if (orden.id_orden_compra) {
+                                            handleUpdateNroFactura(orden.id_orden_compra, "compra", nroFacturaEdit);
+                                          }
+                                        }}
+                                        disabled={editingFacturaOrdenId !== orden.id_orden_compra}
+                                        className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
+                                      >
+                                        Guardar
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -2026,14 +2163,34 @@ export default function OrdenCompraPage() {
                                 </div>
                               </div>
 
-                              {/* Segunda Fila: Detracción/Anticipo + Documentos */}
+                              {/* Segunda Fila: Retención/Detracción/Anticipo + Documentos */}
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                {/* Detracción y Anticipo */}
+                                {/* Retención, Detracción y Anticipo */}
                                 <div className="bg-gray-50 rounded-lg p-3">
                                   <h4 className="text-xs font-bold text-gray-700 mb-2">
-                                    Detracción y Anticipo
+                                    Retención, Detracción y Anticipo
                                   </h4>
-                                  <div className="grid grid-cols-3 gap-2">
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {/* Primera fila: Retención */}
+                                    <div>
+                                      <p className="text-xs text-gray-500">Retención</p>
+                                      {orden.retencion ? (
+                                        <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                          {orden.retencion}
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">-</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Valor Ret.</p>
+                                      <p className="text-sm font-mono">
+                                        {orden.valor_retencion
+                                          ? Number(orden.valor_retencion).toFixed(2)
+                                          : "0.00"}
+                                      </p>
+                                    </div>
+                                    {/* Segunda fila: Detracción */}
                                     <div>
                                       <p className="text-xs text-gray-500">Detracción</p>
                                       {orden.detraccion ? (
@@ -2045,13 +2202,14 @@ export default function OrdenCompraPage() {
                                       )}
                                     </div>
                                     <div>
-                                      <p className="text-xs text-gray-500">Valor Detr.</p>
+                                      <p className="text-xs text-gray-500">Valor Det.</p>
                                       <p className="text-sm font-mono">
                                         {orden.valor_detraccion
                                           ? Number(orden.valor_detraccion).toFixed(2)
                                           : "0.00"}
                                       </p>
                                     </div>
+                                    {/* Tercera fila: Anticipo */}
                                     <div>
                                       <p className="text-xs text-gray-500">Anticipo</p>
                                       {orden.tiene_anticipo === "SI" ? (
@@ -2134,6 +2292,47 @@ export default function OrdenCompraPage() {
                                         Factura
                                       </span>
                                     )}
+                                  </div>
+
+                                  {/* Campo de Número de Factura */}
+                                  <div className="mt-3 pt-3 border-t border-gray-200">
+                                    <label className="text-xs font-semibold text-gray-700 mb-1 block">
+                                      Número de Factura:
+                                    </label>
+                                    <div className="flex gap-2">
+                                      <Input
+                                        type="text"
+                                        placeholder="Ej: F001-00001234"
+                                        value={
+                                          editingFacturaOrdenId === orden.id_orden_servicio && editingFacturaTipo === "servicio"
+                                            ? nroFacturaEdit
+                                            : orden.nro_factura || ""
+                                        }
+                                        onChange={(e) => {
+                                          if (editingFacturaOrdenId === orden.id_orden_servicio) {
+                                            setNroFacturaEdit(e.target.value);
+                                          }
+                                        }}
+                                        onFocus={() => {
+                                          setEditingFacturaOrdenId(orden.id_orden_servicio || null);
+                                          setEditingFacturaTipo("servicio");
+                                          setNroFacturaEdit(orden.nro_factura || "");
+                                        }}
+                                        className="h-8 text-xs flex-1"
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          if (orden.id_orden_servicio) {
+                                            handleUpdateNroFactura(orden.id_orden_servicio, "servicio", nroFacturaEdit);
+                                          }
+                                        }}
+                                        disabled={editingFacturaOrdenId !== orden.id_orden_servicio}
+                                        className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
+                                      >
+                                        Guardar
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -2829,7 +3028,7 @@ export default function OrdenCompraPage() {
                           htmlFor="retencion"
                           className="text-xs font-semibold"
                         >
-                          {tipoOrden === "compra" ? "Retención:" : "Detracción:"}
+                          Retención:
                         </Label>
                         <Select
                           value={nuevaOrdenData.aplicarRetencion ? "SI" : "NO"}
@@ -2840,7 +3039,7 @@ export default function OrdenCompraPage() {
                                 ...prev,
                                 aplicarRetencion: aplicar,
                                 retencion: aplicar
-                                  ? { porcentaje: 3, monto: 0, tipo_detraccion: prev.retencion.tipo_detraccion }
+                                  ? { porcentaje: 3, monto: 0 }
                                   : prev.retencion,
                               };
                               // Recalcular totales con los nuevos datos
@@ -2850,7 +3049,10 @@ export default function OrdenCompraPage() {
                               const retencionMonto = newData.aplicarRetencion
                                 ? totalCalculado * (newData.retencion.porcentaje / 100)
                                 : 0;
-                              const netoAPagarCalculado = totalCalculado - retencionMonto;
+                              const detraccionMonto = newData.aplicarDetraccion
+                                ? totalCalculado * (newData.detraccion.porcentaje / 100)
+                                : 0;
+                              const netoAPagarCalculado = totalCalculado - retencionMonto - detraccionMonto;
 
                               return {
                                 ...newData,
@@ -2861,12 +3063,16 @@ export default function OrdenCompraPage() {
                                   ...newData.retencion,
                                   monto: retencionMonto,
                                 },
+                                detraccion: {
+                                  ...newData.detraccion,
+                                  monto: detraccionMonto,
+                                },
                                 netoAPagar: netoAPagarCalculado,
                               };
                             });
                           }}
                         >
-                          <SelectTrigger className={`h-8 text-xs ${nuevaOrdenData.total > 700 && !nuevaOrdenData.aplicarRetencion ? 'border-red-500 border-2' : ''}`}>
+                          <SelectTrigger className={`h-8 text-xs ${tipoOrden === "compra" && nuevaOrdenData.total > 700 && !nuevaOrdenData.aplicarRetencion ? 'border-red-500 border-2' : ''}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -2874,11 +3080,69 @@ export default function OrdenCompraPage() {
                             <SelectItem value="SI">SÍ</SelectItem>
                           </SelectContent>
                         </Select>
-                        {nuevaOrdenData.total > 700 && !nuevaOrdenData.aplicarRetencion && (
+                        {tipoOrden === "compra" && nuevaOrdenData.total > 700 && !nuevaOrdenData.aplicarRetencion && (
                           <div className="mt-1 text-xs text-red-700 bg-red-50 px-2 py-1 rounded border border-red-300 animate-pulse">
                             ⚠️ Verifique si es agente de retención
                           </div>
                         )}
+                      </div>
+                      <div className="col-span-2">
+                        <Label
+                          htmlFor="detraccion"
+                          className="text-xs font-semibold"
+                        >
+                          Detracción:
+                        </Label>
+                        <Select
+                          value={nuevaOrdenData.aplicarDetraccion ? "SI" : "NO"}
+                          onValueChange={(value) => {
+                            const aplicar = value === "SI";
+                            setNuevaOrdenData((prev) => {
+                              const newData = {
+                                ...prev,
+                                aplicarDetraccion: aplicar,
+                                detraccion: aplicar
+                                  ? { porcentaje: 3, monto: 0, tipo_detraccion: prev.detraccion.tipo_detraccion }
+                                  : prev.detraccion,
+                              };
+                              // Recalcular totales con los nuevos datos
+                              const subtotalCalculado = newData.items.reduce((acc, item) => acc + (item.subtotal || 0), 0);
+                              const igvCalculado = subtotalCalculado * (newData.igvPorcentaje / 100);
+                              const totalCalculado = subtotalCalculado + igvCalculado;
+                              const retencionMonto = newData.aplicarRetencion
+                                ? totalCalculado * (newData.retencion.porcentaje / 100)
+                                : 0;
+                              const detraccionMonto = newData.aplicarDetraccion
+                                ? totalCalculado * (newData.detraccion.porcentaje / 100)
+                                : 0;
+                              const netoAPagarCalculado = totalCalculado - retencionMonto - detraccionMonto;
+
+                              return {
+                                ...newData,
+                                subtotal: subtotalCalculado,
+                                igv: igvCalculado,
+                                total: totalCalculado,
+                                retencion: {
+                                  ...newData.retencion,
+                                  monto: retencionMonto,
+                                },
+                                detraccion: {
+                                  ...newData.detraccion,
+                                  monto: detraccionMonto,
+                                },
+                                netoAPagar: netoAPagarCalculado,
+                              };
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="NO">NO</SelectItem>
+                            <SelectItem value="SI">SÍ</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="col-span-2">
                         <Label
@@ -3519,62 +3783,68 @@ export default function OrdenCompraPage() {
                             </div>
                           )}
 
-                          {/* Retención/Detracción - Solo se muestra si está activada */}
+                          {/* Retención - Se muestra si está activada */}
                           {nuevaOrdenData.aplicarRetencion && (
                             <div className="border-t pt-2">
                               <div className="flex justify-between items-start text-sm mb-2">
-                                <span className="font-semibold">{tipoOrden === "compra" ? "Retención:" : "Detracción:"}</span>
+                                <span className="font-semibold">Retención:</span>
                                 <span className="font-mono text-red-600">
                                   -{nuevaOrdenData.retencion.monto.toFixed(2)}
                                 </span>
                               </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-600">Porcentaje:</span>
+                                <Select
+                                  value={nuevaOrdenData.retencion.porcentaje.toString()}
+                                  onValueChange={(value) => {
+                                    const nuevoPorcentaje = parseInt(value);
+                                    handleNuevaOrdenInputChange("retencion", {
+                                      ...nuevaOrdenData.retencion,
+                                      porcentaje: nuevoPorcentaje,
+                                    });
+                                    // Pasar el nuevo porcentaje directamente a calcularTotales
+                                    calcularTotales(nuevaOrdenData.items, nuevoPorcentaje, undefined);
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 w-20 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="0">0%</SelectItem>
+                                    <SelectItem value="3">3%</SelectItem>
+                                    <SelectItem value="8">8%</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          )}
 
-                              {/* Para orden de compra: Select simple */}
-                              {tipoOrden === "compra" ? (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-600">Porcentaje:</span>
-                                  <Select
-                                    value={nuevaOrdenData.retencion.porcentaje.toString()}
-                                    onValueChange={(value) => {
-                                      const nuevoPorcentaje = parseInt(value);
-                                      handleNuevaOrdenInputChange("retencion", {
-                                        ...nuevaOrdenData.retencion,
-                                        porcentaje: nuevoPorcentaje,
-                                      });
-                                      // Pasar el nuevo porcentaje directamente a calcularTotales
-                                      calcularTotales(nuevaOrdenData.items, nuevoPorcentaje);
-                                    }}
-                                  >
-                                    <SelectTrigger className="h-7 w-20 text-xs">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="0">0%</SelectItem>
-                                      <SelectItem value="3">3%</SelectItem>
-                                      <SelectItem value="8">8%</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              ) : (
-                                /* Para orden de servicio: Diálogo de selección */
-                                <div className="scale-95 origin-left">
-                                  <DetraccionSelectDialog
-                                    currentPorcentaje={nuevaOrdenData.retencion.porcentaje}
-                                    currentCodigo={nuevaOrdenData.retencion.tipo_detraccion}
-                                    onSelect={(porcentaje, codigo, descripcion) => {
-                                      handleNuevaOrdenInputChange("retencion", {
-                                        ...nuevaOrdenData.retencion,
-                                        porcentaje: porcentaje,
-                                        tipo_detraccion: codigo, // Guardar el código del tipo de detracción
-                                      });
-                                      // Pasar el nuevo porcentaje directamente a calcularTotales
-                                      calcularTotales(nuevaOrdenData.items, porcentaje);
-                                    }}
-                                    buttonText="Seleccionar tipo de detracción"
-                                    buttonClassName="h-7 text-xs bg-purple-50 hover:bg-purple-100 border-purple-300"
-                                  />
-                                </div>
-                              )}
+                          {/* Detracción - Se muestra si está activada */}
+                          {nuevaOrdenData.aplicarDetraccion && (
+                            <div className="border-t pt-2">
+                              <div className="flex justify-between items-start text-sm mb-2">
+                                <span className="font-semibold">Detracción:</span>
+                                <span className="font-mono text-red-600">
+                                  -{nuevaOrdenData.detraccion.monto.toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="scale-95 origin-left">
+                                <DetraccionSelectDialog
+                                  currentPorcentaje={nuevaOrdenData.detraccion.porcentaje}
+                                  currentCodigo={nuevaOrdenData.detraccion.tipo_detraccion}
+                                  onSelect={(porcentaje, codigo, descripcion) => {
+                                    handleNuevaOrdenInputChange("detraccion", {
+                                      ...nuevaOrdenData.detraccion,
+                                      porcentaje: porcentaje,
+                                      tipo_detraccion: codigo,
+                                    });
+                                    // Pasar el nuevo porcentaje directamente a calcularTotales
+                                    calcularTotales(nuevaOrdenData.items, undefined, porcentaje);
+                                  }}
+                                  buttonText="Seleccionar tipo de detracción"
+                                  buttonClassName="h-7 text-xs bg-purple-50 hover:bg-purple-100 border-purple-300"
+                                />
+                              </div>
                             </div>
                           )}
 

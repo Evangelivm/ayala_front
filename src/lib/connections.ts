@@ -3312,9 +3312,13 @@ export interface OrdenCompraData {
   ruc_proveedor?: string; // RUC del proveedor desde la relación
   retencion?: string; // Indica si aplica retención ("SI" o "NO")
   porcentaje_valor_retencion?: string; // Porcentaje de la retención (ej: "3", "10")
+  valor_retencion?: number | string; // Valor/monto de la retención
+  detraccion?: string; // Indica si aplica detracción ("SI" o "NO")
+  porcentaje_valor_detraccion?: string; // Porcentaje de la detracción (ej: "3", "10")
+  valor_detraccion?: number | string; // Valor/monto de la detracción
+  tipo_detraccion?: string; // Código del tipo de detracción
   almacen_central?: string; // Indica si es almacén central ("SI" o "NO")
   tipo_cambio?: number | string; // Tipo de cambio para la orden
-  valor_retencion?: number | string; // Valor/monto de la retención
   items: Array<{
     codigo_item: string;
     descripcion_item: string;
@@ -3329,6 +3333,7 @@ export interface OrdenCompraData {
   url?: string | null;
   url_cotizacion?: string | null;
   url_factura?: string | null;
+  nro_factura?: string | null; // Número de factura
 }
 
 // Helper para decodificar HTML entities en órdenes de compra
@@ -3487,6 +3492,16 @@ export const ordenesCompraApi = {
     }
   },
 
+  // Actualizar número de factura
+  actualizarNumeroFactura: async (id: number, nroFactura: string): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/numero-factura`, { nro_factura: nroFactura });
+    } catch (error) {
+      console.error("Error actualizando número de factura:", error);
+      throw error;
+    }
+  },
+
   // Subir archivo para orden de compra
   uploadFile: async (id: number, formData: FormData): Promise<{
     success: boolean;
@@ -3581,7 +3596,6 @@ export interface OrdenServicioData {
   centro_costo_nivel2?: string;
   centro_costo_nivel3?: string;
   unidad_id?: number | null;
-  retencion?: string;
   tiene_anticipo?: string | number;
   procede_pago?: string | number;
   auto_administrador?: boolean;
@@ -3590,11 +3604,15 @@ export interface OrdenServicioData {
   has_anticipo?: number;
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
   ruc_proveedor?: string; // RUC del proveedor desde la relación
+  retencion?: string; // Indica si aplica retención ("SI" o "NO")
+  porcentaje_valor_retencion?: string; // Porcentaje de la retención (ej: "3", "10")
+  valor_retencion?: number | string; // Valor/monto de la retención
   detraccion?: string; // Indica si aplica detracción ("SI" o "NO")
   porcentaje_valor_detraccion?: string; // Porcentaje de la detracción (ej: "3", "10")
+  valor_detraccion?: number | string; // Valor/monto de la detracción
+  tipo_detraccion?: string; // Código del tipo de detracción
   almacen_central?: string; // Indica si es almacén central ("SI" o "NO")
   tipo_cambio?: number | string; // Tipo de cambio para la orden
-  valor_detraccion?: number | string; // Valor/monto de la detracción
   items: Array<{
     codigo_item: string;
     descripcion_item: string;
@@ -3609,6 +3627,7 @@ export interface OrdenServicioData {
   url?: string | null;
   url_cotizacion?: string | null;
   url_factura?: string | null;
+  nro_factura?: string | null; // Número de factura
 }
 
 // Helper para decodificar HTML entities en órdenes de servicio
@@ -3763,6 +3782,16 @@ export const ordenesServicioApi = {
       await api.patch(`/ordenes-servicio/${id}/pagar`);
     } catch (error) {
       console.error("Error pagando orden de servicio:", error);
+      throw error;
+    }
+  },
+
+  // Actualizar número de factura
+  actualizarNumeroFactura: async (id: number, nroFactura: string): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/numero-factura`, { nro_factura: nroFactura });
+    } catch (error) {
+      console.error("Error actualizando número de factura:", error);
       throw error;
     }
   },
