@@ -35,7 +35,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Trash2, Edit, X, FileText, RefreshCw, RotateCw, Info } from "lucide-react";
+import {
+  ClipboardList,
+  Plus,
+  Trash2,
+  Edit,
+  X,
+  FileText,
+  RefreshCw,
+  RotateCw,
+  Info,
+} from "lucide-react";
 import { EstadoBadge } from "@/components/factura/EstadoBadge";
 import { EnlacesModal } from "@/components/factura/EnlacesModal";
 import { DetraccionSelectDialog } from "@/components/detraccion-select-dialog";
@@ -102,44 +112,61 @@ interface FacturaCompletaData extends FacturaData {
 
 export default function FacturaPage() {
   const [isNuevaFacturaModalOpen, setIsNuevaFacturaModalOpen] = useState(false);
-  const [facturaEditandoId, setFacturaEditandoId] = useState<number | null>(null);
+  const [facturaEditandoId, setFacturaEditandoId] = useState<number | null>(
+    null
+  );
   const [isProveedoresModalOpen, setIsProveedoresModalOpen] = useState(false);
   const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
   const [isEnlacesModalOpen, setIsEnlacesModalOpen] = useState(false);
-  const [selectedFacturaForModal, setSelectedFacturaForModal] = useState<typeof facturas[0] | null>(null);
-  const [selectedProveedor, setSelectedProveedor] = useState<number | null>(null);
+  const [selectedFacturaForModal, setSelectedFacturaForModal] = useState<
+    (typeof facturas)[0] | null
+  >(null);
+  const [selectedProveedor, setSelectedProveedor] = useState<number | null>(
+    null
+  );
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
-  const [replacingItemIndex, setReplacingItemIndex] = useState<number | null>(null); // Índice del item que se está reemplazando
+  const [replacingItemIndex, setReplacingItemIndex] = useState<number | null>(
+    null
+  ); // Índice del item que se está reemplazando
+  const [infoAutomaticaGenerada, setInfoAutomaticaGenerada] = useState(false); // Estado para rastrear si se generó la info automática
   const [proveedores, setProveedores] = useState<ProveedorData[]>([]);
   const [items, setItems] = useState<ItemData[]>([]);
   const [itemSearchQuery, setItemSearchQuery] = useState("");
   const [proveedorSearchQuery, setProveedorSearchQuery] = useState("");
-  const [centrosProyecto, setCentrosProyecto] = useState<CentroProyectoData[]>([]);
+  const [centrosProyecto, setCentrosProyecto] = useState<CentroProyectoData[]>(
+    []
+  );
   const [fases, setFases] = useState<FaseControlData[]>([]);
   const [rubros, setRubros] = useState<RubroData[]>([]);
-  const [facturas, setFacturas] = useState<Array<{
-    id: number;
-    numero_factura: string;
-    fecha_factura: string;
-    proveedor: string;
-    subtotal: number;
-    igv: number;
-    total: number;
-    estado: string;
-    // Campos adicionales
-    enlace_pdf?: string | null;
-    enlace_xml?: string | null;
-    enlace_cdr?: string | null;
-    aceptada_por_sunat?: boolean | null;
-    sunat_description?: string | null;
-    sunat_note?: string | null;
-  }>>([]);
+  const [facturas, setFacturas] = useState<
+    Array<{
+      id: number;
+      numero_factura: string;
+      fecha_factura: string;
+      proveedor: string;
+      subtotal: number;
+      igv: number;
+      total: number;
+      estado: string;
+      // Campos adicionales
+      enlace_pdf?: string | null;
+      enlace_xml?: string | null;
+      enlace_cdr?: string | null;
+      aceptada_por_sunat?: boolean | null;
+      sunat_description?: string | null;
+      sunat_note?: string | null;
+    }>
+  >([]);
 
   // Estados para filtros de tabla
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
   const [filtroProveedor, setFiltroProveedor] = useState<string>("");
-  const [filtroFechaDesde, setFiltroFechaDesde] = useState<Date | undefined>(undefined);
-  const [filtroFechaHasta, setFiltroFechaHasta] = useState<Date | undefined>(undefined);
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState<Date | undefined>(
+    undefined
+  );
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState<Date | undefined>(
+    undefined
+  );
 
   // Estado para Nueva Factura
   const [nuevaFacturaData, setNuevaFacturaData] = useState({
@@ -216,27 +243,41 @@ export default function FacturaPage() {
     enlace_pdf?: string;
     enlace_xml?: string;
     enlace_cdr?: string;
-  }>('facturaUpdated', (data) => {
+    aceptada_por_sunat?: boolean | null;
+  }>("facturaUpdated", (data) => {
     if (data) {
-      console.log('📡 Evento facturaUpdated recibido:', data);
+      console.log("📡 Evento facturaUpdated recibido:", data);
 
       // Actualizar la factura en el estado local
       setFacturas((prevFacturas) =>
-        prevFacturas.map((factura) =>
-          factura.id === data.id_factura
-            ? {
-                ...factura,
-                estado: data.estado,
-                enlace_pdf: data.enlace_pdf || factura.enlace_pdf,
-                enlace_xml: data.enlace_xml || factura.enlace_xml,
-                enlace_cdr: data.enlace_cdr || factura.enlace_cdr,
-              }
-            : factura
-        )
+        prevFacturas.map((factura) => {
+          if (factura.id === data.id_factura) {
+            // Determinar el estado real
+            let estadoReal = data.estado;
+            const nuevoPdf = data.enlace_pdf || factura.enlace_pdf;
+            const aceptada =
+              data.aceptada_por_sunat ?? factura.aceptada_por_sunat;
+
+            // Si tiene PDF y fue aceptada, mostrar como COMPLETADO
+            if (nuevoPdf && aceptada === true) {
+              estadoReal = "COMPLETADO";
+            }
+
+            return {
+              ...factura,
+              estado: estadoReal,
+              enlace_pdf: nuevoPdf,
+              enlace_xml: data.enlace_xml || factura.enlace_xml,
+              enlace_cdr: data.enlace_cdr || factura.enlace_cdr,
+              aceptada_por_sunat: aceptada,
+            };
+          }
+          return factura;
+        })
       );
 
       // Mostrar notificación
-      if (data.estado === 'COMPLETADO') {
+      if (data.estado === "COMPLETADO") {
         toast.success(`Factura ${data.id_factura} procesada exitosamente`);
       }
     }
@@ -255,7 +296,9 @@ export default function FacturaPage() {
 
     // Configurar intervalo de 30 segundos (aumentado porque WebSocket es primario)
     const intervalId = setInterval(() => {
-      console.log(`Polling automático (respaldo): ${facturasEnProcesamiento.length} facturas en PROCESANDO`);
+      console.log(
+        `Polling automático (respaldo): ${facturasEnProcesamiento.length} facturas en PROCESANDO`
+      );
       loadFacturas(); // Recargar todas las facturas
     }, 30000); // 30 segundos
 
@@ -270,23 +313,40 @@ export default function FacturaPage() {
       const data = await facturaApi.getAll();
 
       // Transformar datos al formato esperado por la tabla
-      const facturasTransformadas = data.map((factura) => ({
-        id: factura.id_factura,
-        numero_factura: `${factura.serie}-${String(factura.numero).padStart(8, "0")}`,
-        fecha_factura: factura.fecha_emision,
-        proveedor: factura.proveedores?.nombre_proveedor || factura.cliente_denominacion || "Sin proveedor",
-        subtotal: Number((factura.total / 1.18).toFixed(2)), // Calcular subtotal sin IGV
-        igv: Number((factura.total - (factura.total / 1.18)).toFixed(2)),
-        total: Number(factura.total),
-        estado: factura.estado_factura || "SIN PROCESAR",
-        // Datos adicionales para funcionalidades avanzadas
-        enlace_pdf: factura.enlace_del_pdf || null,
-        enlace_xml: factura.enlace_del_xml || null,
-        enlace_cdr: factura.enlace_del_cdr || null,
-        aceptada_por_sunat: factura.aceptada_por_sunat ?? null,
-        sunat_description: factura.sunat_description || null,
-        sunat_note: factura.sunat_note || null,
-      }));
+      const facturasTransformadas = data.map((factura) => {
+        // Determinar el estado real de la factura
+        let estadoReal = factura.estado_factura || "SIN PROCESAR";
+
+        // Si tiene enlace del PDF y fue aceptada por SUNAT, considerarla COMPLETADA
+        // independientemente del estado en la BD
+        if (factura.enlace_del_pdf && factura.aceptada_por_sunat === true) {
+          estadoReal = "COMPLETADO";
+        }
+
+        return {
+          id: factura.id_factura,
+          numero_factura: `${factura.serie}-${String(factura.numero).padStart(
+            8,
+            "0"
+          )}`,
+          fecha_factura: factura.fecha_emision,
+          proveedor:
+            factura.proveedores?.nombre_proveedor ||
+            factura.cliente_denominacion ||
+            "Sin proveedor",
+          subtotal: Number((factura.total / 1.18).toFixed(2)), // Calcular subtotal sin IGV
+          igv: Number((factura.total - factura.total / 1.18).toFixed(2)),
+          total: Number(factura.total),
+          estado: estadoReal,
+          // Datos adicionales para funcionalidades avanzadas
+          enlace_pdf: factura.enlace_del_pdf || null,
+          enlace_xml: factura.enlace_del_xml || null,
+          enlace_cdr: factura.enlace_del_cdr || null,
+          aceptada_por_sunat: factura.aceptada_por_sunat ?? null,
+          sunat_description: factura.sunat_description || null,
+          sunat_note: factura.sunat_note || null,
+        };
+      });
 
       setFacturas(facturasTransformadas);
     } catch (error) {
@@ -400,7 +460,9 @@ export default function FacturaPage() {
   // Handler para confirmar selección de proveedor
   const handleSelectProveedor = () => {
     if (selectedProveedor) {
-      const proveedor = proveedores.find((p) => p.id_proveedor === selectedProveedor);
+      const proveedor = proveedores.find(
+        (p) => p.id_proveedor === selectedProveedor
+      );
       if (proveedor) {
         setNuevaFacturaData((prev) => ({
           ...prev,
@@ -420,30 +482,44 @@ export default function FacturaPage() {
   };
 
   // Función optimizada para calcular totales (memoizada)
-  const calcularTotales = useCallback((items: Array<{ subtotal: number }>) => {
-    const subtotalCalculado = items.reduce((acc, item) => acc + (item.subtotal || 0), 0);
-    const igvCalculado = subtotalCalculado * (nuevaFacturaData.igvPorcentaje / 100);
-    const totalCalculado = subtotalCalculado + igvCalculado;
-    const detraccionMonto = nuevaFacturaData.aplicarDetraccion
-      ? totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100)
-      : 0;
-    const fondoGarantiaMonto = nuevaFacturaData.fondoGarantia
-      ? parseFloat(nuevaFacturaData.fondoGarantiaValor || "0")
-      : 0;
-    const netoAPagarCalculado = totalCalculado - detraccionMonto - fondoGarantiaMonto;
+  const calcularTotales = useCallback(
+    (items: Array<{ subtotal: number }>) => {
+      const subtotalCalculado = items.reduce(
+        (acc, item) => acc + (item.subtotal || 0),
+        0
+      );
+      const igvCalculado =
+        subtotalCalculado * (nuevaFacturaData.igvPorcentaje / 100);
+      const totalCalculado = subtotalCalculado + igvCalculado;
+      const detraccionMonto = nuevaFacturaData.aplicarDetraccion
+        ? totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100)
+        : 0;
+      const fondoGarantiaMonto = nuevaFacturaData.fondoGarantia
+        ? parseFloat(nuevaFacturaData.fondoGarantiaValor || "0")
+        : 0;
+      const netoAPagarCalculado =
+        totalCalculado - detraccionMonto - fondoGarantiaMonto;
 
-    setNuevaFacturaData((prev) => ({
-      ...prev,
-      subtotal: subtotalCalculado,
-      igv: igvCalculado,
-      total: totalCalculado,
-      detraccion: {
-        ...prev.detraccion,
-        monto: detraccionMonto,
-      },
-      netoAPagar: netoAPagarCalculado,
-    }));
-  }, [nuevaFacturaData.igvPorcentaje, nuevaFacturaData.aplicarDetraccion, nuevaFacturaData.detraccion.porcentaje, nuevaFacturaData.fondoGarantia, nuevaFacturaData.fondoGarantiaValor]);
+      setNuevaFacturaData((prev) => ({
+        ...prev,
+        subtotal: subtotalCalculado,
+        igv: igvCalculado,
+        total: totalCalculado,
+        detraccion: {
+          ...prev.detraccion,
+          monto: detraccionMonto,
+        },
+        netoAPagar: netoAPagarCalculado,
+      }));
+    },
+    [
+      nuevaFacturaData.igvPorcentaje,
+      nuevaFacturaData.aplicarDetraccion,
+      nuevaFacturaData.detraccion.porcentaje,
+      nuevaFacturaData.fondoGarantia,
+      nuevaFacturaData.fondoGarantiaValor,
+    ]
+  );
 
   // Optimizado con debouncing para evitar cálculos excesivos
   const handleItemChange = useCallback(
@@ -454,10 +530,14 @@ export default function FacturaPage() {
       // Calcular subtotal automáticamente
       if (field === "cantidad_solicitada" || field === "precio_unitario") {
         const cantidad = Number(
-          field === "cantidad_solicitada" ? value : updatedItems[index].cantidad_solicitada
+          field === "cantidad_solicitada"
+            ? value
+            : updatedItems[index].cantidad_solicitada
         );
         const precio = Number(
-          field === "precio_unitario" ? value : updatedItems[index].precio_unitario
+          field === "precio_unitario"
+            ? value
+            : updatedItems[index].precio_unitario
         );
         updatedItems[index].subtotal = cantidad * precio;
       }
@@ -537,7 +617,15 @@ export default function FacturaPage() {
   };
 
   const handleNuevaFacturaInputChange = useCallback(
-    (field: string, value: string | Date | number | boolean | { porcentaje: number; monto: number; tipo_detraccion: string }) => {
+    (
+      field: string,
+      value:
+        | string
+        | Date
+        | number
+        | boolean
+        | { porcentaje: number; monto: number; tipo_detraccion: string }
+    ) => {
       setNuevaFacturaData((prev) => ({ ...prev, [field]: value }));
     },
     []
@@ -581,72 +669,80 @@ export default function FacturaPage() {
       plazoCredito: 0,
     });
     setFacturaEditandoId(null);
+    setInfoAutomaticaGenerada(false);
   };
 
-  // Función para generar observaciones automáticas con formato de 3 columnas
+  // Función para generar observaciones automáticas con formato mejorado
   const generarObservacionesAutomaticas = () => {
     const cuentasPago = [
-      "BCP Soles: 191-2558490-0-42",
-      "BCP Dólares: 191-2558495-1-53",
-      "BBVA Soles: 0011-0266-0100038467-29"
+      "Cta. Cte. BCP Soles: 191-2551705-0-56",
+      "Cci. BCP Soles: 002-191-002551705096-56",
+      "Cta. Detracciones: 00-050-045072",
     ];
 
-    const infoCuotas = nuevaFacturaData.tipoVenta === "CONTADO"
-      ? "1 cuota al contado"
-      : `${Math.ceil(nuevaFacturaData.plazoCredito / 30)} cuota(s) - ${nuevaFacturaData.plazoCredito} días`;
+    const numCuotas =
+      nuevaFacturaData.tipoVenta === "CONTADO"
+        ? 1
+        : Math.ceil(nuevaFacturaData.plazoCredito / 30);
 
-    const fechaVencimiento = nuevaFacturaData.tipoVenta === "CREDITO"
-      ? (() => {
-          const fecha = new Date(nuevaFacturaData.fechaEmision);
-          fecha.setDate(fecha.getDate() + nuevaFacturaData.plazoCredito);
-          return fecha.toLocaleDateString("es-PE");
-        })()
-      : "Inmediato";
+    const fechaVencimiento =
+      nuevaFacturaData.tipoVenta === "CREDITO"
+        ? (() => {
+            const fecha = new Date(nuevaFacturaData.fechaEmision);
+            fecha.setDate(fecha.getDate() + nuevaFacturaData.plazoCredito);
+            return fecha.toLocaleDateString("es-PE");
+          })()
+        : "Inmediato";
 
-    // Generar texto formateado en 3 columnas
-    const col1Width = 35;
-    const col2Width = 35;
-    const col3Width = 35;
-
+    // Generar texto con formato en 3 columnas
     let observacion = "";
-    observacion += "CUENTA DE PAGO".padEnd(col1Width) + " | ";
-    observacion += "INFORMACIÓN DE CRÉDITO".padEnd(col2Width) + " | ";
-    observacion += "INFORMACIÓN DE DETRACCIÓN\n";
-    observacion += "=".repeat(col1Width) + "=|=";
-    observacion += "=".repeat(col2Width) + "=|=";
-    observacion += "=".repeat(col3Width) + "\n";
 
-    // Línea 1
-    observacion += cuentasPago[0].padEnd(col1Width) + " | ";
-    observacion += `Cuotas: ${infoCuotas}`.padEnd(col2Width) + " | ";
-    if (nuevaFacturaData.aplicarDetraccion) {
-      observacion += `Detracción: ${nuevaFacturaData.detraccion.porcentaje}%\n`;
-    } else {
-      observacion += `No aplica detracción\n`;
-    }
+    // NETO A PAGAR arriba
+    observacion += `Neto a pagar: S/ ${nuevaFacturaData.netoAPagar.toFixed(
+      2
+    )}\n`;
+    observacion += "\n";
 
-    // Línea 2
-    observacion += cuentasPago[1].padEnd(col1Width) + " | ";
-    observacion += `Vencimiento: ${fechaVencimiento}`.padEnd(col2Width) + " | ";
-    if (nuevaFacturaData.aplicarDetraccion) {
-      observacion += `Monto: S/. ${nuevaFacturaData.detraccion.monto.toFixed(2)}\n`;
-    } else {
-      observacion += `\n`;
-    }
+    // Encabezados de las 3 columnas
+    observacion +=
+      "Cuenta de pago".padEnd(65) +
+      "Información del crédito".padEnd(65) +
+      "Información de la detracción\n";
 
-    // Línea 3
-    observacion += cuentasPago[2].padEnd(col1Width) + " | ";
-    observacion += "".padEnd(col2Width) + " | ";
-    if (nuevaFacturaData.aplicarDetraccion && nuevaFacturaData.detraccion.tipo_detraccion) {
-      observacion += `Código: ${nuevaFacturaData.detraccion.tipo_detraccion}\n`;
-    } else {
-      observacion += `\n`;
-    }
+    // Línea 1: Primera cuenta | Monto neto | Bien o Servicio
+    const cuenta1 = cuentasPago[0].padEnd(52);
+    const montoNeto = `Monto neto: S/ ${nuevaFacturaData.netoAPagar.toFixed(
+      2
+    )}`.padEnd(65);
+    const bienServicio = nuevaFacturaData.aplicarDetraccion
+      ? `Bien o Servicio: ${
+          nuevaFacturaData.detraccion.tipo_detraccion || "---"
+        }`
+      : "No aplica detracción";
+    observacion += cuenta1 + montoNeto + bienServicio + "\n";
+
+    // Línea 2: Segunda cuenta | N° de cuotas | Porcentaje
+    const cuenta2 = cuentasPago[1].padEnd(48);
+    const noCuotas = `Nº de cuotas: ${numCuotas}`.padEnd(70);
+    const porcentaje = nuevaFacturaData.aplicarDetraccion
+      ? `Porcentaje %: ${nuevaFacturaData.detraccion.porcentaje.toFixed(2)}`
+      : "";
+    observacion += cuenta2 + noCuotas + porcentaje + "\n";
+
+    // Línea 3: Tercera cuenta | Fecha de Vencimiento | Monto detracción
+    const cuenta3 = cuentasPago[2].padEnd(55);
+    const vencimiento = `Fecha de Vencimiento: ${fechaVencimiento}`.padEnd(57);
+    const montoDetraccion = nuevaFacturaData.aplicarDetraccion
+      ? `Monto detracción S/: ${nuevaFacturaData.detraccion.monto.toFixed(2)}`
+      : "";
+    observacion += cuenta3 + vencimiento + montoDetraccion;
 
     setNuevaFacturaData((prev) => ({
       ...prev,
       observacion: observacion,
     }));
+    // Marcar que se ha generado la información automática
+    setInfoAutomaticaGenerada(true);
   };
 
   const handleNuevaFacturaSave = async () => {
@@ -667,24 +763,36 @@ export default function FacturaPage() {
         return;
       }
 
-      // Validar que los precios unitarios no excedan el límite de la BD (Decimal 12,10)
-      const itemsConPrecioAlto = nuevaFacturaData.items.filter(item => item.precio_unitario >= 100);
-      if (itemsConPrecioAlto.length > 0) {
-        const items = itemsConPrecioAlto.map(i => `"${i.descripcion_item}"`).join(", ");
-        toast.error(`Los siguientes items tienen precio unitario >= S/. 100.00: ${items}. El sistema no soporta precios tan altos en este campo. Por favor, ajuste los valores.`);
+      // Validar tipo de venta a crédito
+      if (
+        nuevaFacturaData.tipoVenta === "CREDITO" &&
+        nuevaFacturaData.plazoCredito === 0
+      ) {
+        toast.error("Debe seleccionar un plazo para venta a crédito");
         return;
       }
 
-      // Validar tipo de venta a crédito
-      if (nuevaFacturaData.tipoVenta === "CREDITO" && nuevaFacturaData.plazoCredito === 0) {
-        toast.error("Debe seleccionar un plazo para venta a crédito");
+      // Validar que si se seleccionó detracción, se haya seleccionado el tipo de detracción
+      if (
+        nuevaFacturaData.aplicarDetraccion &&
+        !nuevaFacturaData.detraccion.tipo_detraccion
+      ) {
+        toast.error("Debe seleccionar el tipo de detracción antes de guardar");
+        return;
+      }
+
+      // Validar que si se seleccionó detracción, se haya generado la información automática
+      if (nuevaFacturaData.aplicarDetraccion && !infoAutomaticaGenerada) {
+        toast.error(
+          "Debe presionar el botón 'Generar Info Automática' antes de guardar cuando se aplica detracción"
+        );
         return;
       }
 
       // Asegurar que la serie tenga el formato correcto para SUNAT
       if (!nuevaFacturaData.serie || nuevaFacturaData.serie.length < 4) {
         // Autocompletar con 0001 si está vacía o incompleta
-        setNuevaFacturaData(prev => ({ ...prev, serie: "0001" }));
+        setNuevaFacturaData((prev) => ({ ...prev, serie: "0001" }));
         nuevaFacturaData.serie = "0001";
       }
 
@@ -692,7 +800,9 @@ export default function FacturaPage() {
 
       // Validación flexible: acepta formatos como 0001, F001, E001, B001, etc.
       if (!nuevaFacturaData.serie.match(/^[A-Z0-9]{4}$/)) {
-        toast.error(`La serie "${nuevaFacturaData.serie}" no es válida. Debe tener 4 caracteres (ej: 0001, F001, E001)`);
+        toast.error(
+          `La serie "${nuevaFacturaData.serie}" no es válida. Debe tener 4 caracteres (ej: 0001, F001, E001)`
+        );
         return;
       }
 
@@ -703,9 +813,12 @@ export default function FacturaPage() {
       fechaEmision.setHours(0, 0, 0, 0);
 
       if (fechaEmision.getTime() !== hoy.getTime()) {
-        toast.warning("La fecha de emisión debe ser HOY según SUNAT. Se ajustará automáticamente.", {
-          duration: 4000,
-        });
+        toast.warning(
+          "La fecha de emisión debe ser HOY según SUNAT. Se ajustará automáticamente.",
+          {
+            duration: 4000,
+          }
+        );
         // Ajustar la fecha a hoy
         nuevaFacturaData.fechaEmision = hoy;
       }
@@ -743,23 +856,26 @@ export default function FacturaPage() {
         fecha_emision: (() => {
           const fecha = new Date(nuevaFacturaData.fechaEmision);
           const year = fecha.getFullYear();
-          const month = String(fecha.getMonth() + 1).padStart(2, '0');
-          const day = String(fecha.getDate()).padStart(2, '0');
+          const month = String(fecha.getMonth() + 1).padStart(2, "0");
+          const day = String(fecha.getDate()).padStart(2, "0");
           return `${year}-${month}-${day}`;
         })(),
-        fecha_vencimiento: nuevaFacturaData.tipoVenta === "CREDITO" ? (() => {
-          const fecha = new Date(nuevaFacturaData.fechaEmision);
-          fecha.setDate(fecha.getDate() + nuevaFacturaData.plazoCredito);
-          const day = String(fecha.getDate()).padStart(2, '0');
-          const month = String(fecha.getMonth() + 1).padStart(2, '0');
-          const year = fecha.getFullYear();
-          return `${day}-${month}-${year}`; // Formato DD-MM-YYYY según NubeFact
-        })() : null,
+        fecha_vencimiento:
+          nuevaFacturaData.tipoVenta === "CREDITO"
+            ? (() => {
+                const fecha = new Date(nuevaFacturaData.fechaEmision);
+                fecha.setDate(fecha.getDate() + nuevaFacturaData.plazoCredito);
+                const day = String(fecha.getDate()).padStart(2, "0");
+                const month = String(fecha.getMonth() + 1).padStart(2, "0");
+                const year = fecha.getFullYear();
+                return `${day}-${month}-${year}`; // Formato DD-MM-YYYY según NubeFact
+              })()
+            : null,
         fecha_servicio: (() => {
           const fecha = new Date(nuevaFacturaData.fechaServicio);
           const year = fecha.getFullYear();
-          const month = String(fecha.getMonth() + 1).padStart(2, '0');
-          const day = String(fecha.getDate()).padStart(2, '0');
+          const month = String(fecha.getMonth() + 1).padStart(2, "0");
+          const day = String(fecha.getDate()).padStart(2, "0");
           return `${year}-${month}-${day}`;
         })(),
 
@@ -781,9 +897,11 @@ export default function FacturaPage() {
 
         // Detracción
         aplicar_detraccion: nuevaFacturaData.aplicarDetraccion,
-        detraccion_tipo: nuevaFacturaData.aplicarDetraccion && nuevaFacturaData.detraccion.tipo_detraccion
-          ? parseInt(nuevaFacturaData.detraccion.tipo_detraccion)
-          : null,
+        detraccion_tipo:
+          nuevaFacturaData.aplicarDetraccion &&
+          nuevaFacturaData.detraccion.tipo_detraccion
+            ? parseInt(nuevaFacturaData.detraccion.tipo_detraccion)
+            : null,
         detraccion_porcentaje: nuevaFacturaData.aplicarDetraccion
           ? nuevaFacturaData.detraccion.porcentaje
           : null,
@@ -821,8 +939,10 @@ export default function FacturaPage() {
         orden_compra_servicio: null,
 
         // Centro de costos
-        centro_costo_nivel1_codigo: nuevaFacturaData.centroCostoNivel1Codigo || null,
-        centro_costo_nivel2_codigo: nuevaFacturaData.centroCostoNivel2Codigo || null,
+        centro_costo_nivel1_codigo:
+          nuevaFacturaData.centroCostoNivel1Codigo || null,
+        centro_costo_nivel2_codigo:
+          nuevaFacturaData.centroCostoNivel2Codigo || null,
         centro_costo_nivel3_codigo: null,
 
         // Unidad
@@ -837,13 +957,6 @@ export default function FacturaPage() {
         enviar_automaticamente_cliente: false,
         formato_pdf: "A4",
 
-        // Venta al crédito (se llenará condicionalmente más adelante)
-        venta_al_credito: undefined as undefined | Array<{
-          cuota: number;
-          fecha_de_pago: string;
-          importe: number;
-        }>,
-
         // Transformar items del frontend al backend
         items: nuevaFacturaData.items.map((item) => {
           // Calcular valores con y sin IGV usando el porcentaje configurado
@@ -856,14 +969,6 @@ export default function FacturaPage() {
           const subtotal = valorSinIgv * cantidad;
           const igvItem = subtotal * igvPorcentajeDecimal;
           const totalItem = subtotal + igvItem;
-
-          // Validación: Verificar si los valores exceden el límite de Decimal(12,10)
-          if (valorSinIgv >= 100 || precioConIgv >= 100) {
-            console.warn(`⚠️ ADVERTENCIA: Valor fuera de rango para item "${item.descripcion_item}"`);
-            console.warn(`   Valor unitario sin IGV: ${valorSinIgv}`);
-            console.warn(`   Precio unitario con IGV: ${precioConIgv}`);
-            console.warn(`   La BD solo permite valores menores a 100 para estos campos.`);
-          }
 
           return {
             codigo_item: item.codigo_item,
@@ -913,40 +1018,59 @@ export default function FacturaPage() {
         dataParaBackend.detraccion_total = Number(detraccionMonto.toFixed(2));
       }
 
-      // Agregar venta al crédito si aplica (según documentación de NubeFact)
-      if (nuevaFacturaData.tipoVenta === "CREDITO" && nuevaFacturaData.plazoCredito > 0) {
-        const fechaVencimiento = new Date(nuevaFacturaData.fechaEmision);
-        fechaVencimiento.setDate(fechaVencimiento.getDate() + nuevaFacturaData.plazoCredito);
-        const day = String(fechaVencimiento.getDate()).padStart(2, '0');
-        const month = String(fechaVencimiento.getMonth() + 1).padStart(2, '0');
-        const year = fechaVencimiento.getFullYear();
+      // Preparar datos finales incluyendo venta al crédito solo si aplica
+      const finalDataParaBackend = {
+        ...dataParaBackend,
+        // Agregar venta al crédito solo si aplica (según documentación de NubeFact)
+        ...(nuevaFacturaData.tipoVenta === "CREDITO" &&
+        nuevaFacturaData.plazoCredito > 0
+          ? {
+              venta_al_credito: (() => {
+                const fechaVencimiento = new Date(
+                  nuevaFacturaData.fechaEmision
+                );
+                fechaVencimiento.setDate(
+                  fechaVencimiento.getDate() + nuevaFacturaData.plazoCredito
+                );
+                const day = String(fechaVencimiento.getDate()).padStart(2, "0");
+                const month = String(fechaVencimiento.getMonth() + 1).padStart(
+                  2,
+                  "0"
+                );
+                const year = fechaVencimiento.getFullYear();
 
-        dataParaBackend.venta_al_credito = [
-          {
-            cuota: 1,
-            fecha_de_pago: `${day}-${month}-${year}`, // Formato DD-MM-YYYY
-            importe: Number(totalCalculado.toFixed(2))
-          }
-        ];
-      }
+                return [
+                  {
+                    cuota: 1,
+                    fecha_de_pago: `${day}-${month}-${year}`, // Formato DD-MM-YYYY
+                    importe: Number(totalCalculado.toFixed(2)),
+                  },
+                ];
+              })(),
+            }
+          : {}),
+      };
 
-      console.log("📤 Enviando datos al backend:", dataParaBackend);
+      console.log("📤 Enviando datos al backend:", finalDataParaBackend);
       console.log("📊 Totales recalculados:", {
-        total_gravada: dataParaBackend.total_gravada,
-        total_igv: dataParaBackend.total_igv,
-        total: dataParaBackend.total,
+        total_gravada: finalDataParaBackend.total_gravada,
+        total_igv: finalDataParaBackend.total_igv,
+        total: finalDataParaBackend.total,
       });
 
       // Enviar al backend - detectar si es creación o edición
       if (facturaEditandoId) {
         // Modo edición - actualizar factura existente
-        const result = await facturaApi.update(facturaEditandoId, dataParaBackend);
+        const result = await facturaApi.update(
+          facturaEditandoId,
+          finalDataParaBackend
+        );
         toast.success("Factura actualizada exitosamente", {
           description: `Número: ${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`,
         });
       } else {
         // Modo creación - crear nueva factura
-        const result = await facturaApi.create(dataParaBackend);
+        const result = await facturaApi.create(finalDataParaBackend);
         toast.success("Factura creada exitosamente", {
           description: `Número: ${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`,
         });
@@ -961,7 +1085,8 @@ export default function FacturaPage() {
     } catch (error) {
       console.error("Error al guardar factura:", error);
       toast.error("Error al guardar la factura", {
-        description: error instanceof Error ? error.message : "Error desconocido",
+        description:
+          error instanceof Error ? error.message : "Error desconocido",
       });
     }
   };
@@ -989,11 +1114,16 @@ export default function FacturaPage() {
   const handleEditFactura = async (id: number) => {
     try {
       // Obtener los detalles de la factura desde la API
-      const facturaCompleta: FacturaCompletaData = await facturaApi.getById(id) as FacturaCompletaData;
+      const facturaCompleta: FacturaCompletaData = (await facturaApi.getById(
+        id
+      )) as FacturaCompletaData;
 
-      console.log('Factura completa cargada:', facturaCompleta);
-      console.log('Items en factura_item:', facturaCompleta.factura_item?.length || 0);
-      console.log('Items en items:', facturaCompleta.items?.length || 0);
+      console.log("Factura completa cargada:", facturaCompleta);
+      console.log(
+        "Items en factura_item:",
+        facturaCompleta.factura_item?.length || 0
+      );
+      console.log("Items en items:", facturaCompleta.items?.length || 0);
 
       // Cargar datos necesarios para el formulario
       await Promise.all([
@@ -1020,8 +1150,10 @@ export default function FacturaPage() {
         tipoCambio: Number(facturaCompleta.tipo_cambio) || 0,
         fechaServicio: new Date(facturaCompleta.fecha_servicio || new Date()),
         estado: facturaCompleta.estado_factura || "PENDIENTE",
-        centroCostoNivel1Codigo: facturaCompleta.centro_costo_nivel1_codigo || "",
-        centroCostoNivel2Codigo: facturaCompleta.centro_costo_nivel2_codigo || "",
+        centroCostoNivel1Codigo:
+          facturaCompleta.centro_costo_nivel1_codigo || "",
+        centroCostoNivel2Codigo:
+          facturaCompleta.centro_costo_nivel2_codigo || "",
         unidad: facturaCompleta.placa_vehiculo || "",
         unidad_id: facturaCompleta.unidad_id || 0,
         igvPorcentaje: Number(facturaCompleta.porcentaje_igv) || 18,
@@ -1031,7 +1163,11 @@ export default function FacturaPage() {
           monto: Number(facturaCompleta.detraccion_total) || 0,
           tipo_detraccion: "", // Backend doesn't return this field, initialize as empty
         },
-        items: (facturaCompleta.factura_item || facturaCompleta.items || []).map((item: FacturaItem) => ({
+        items: (
+          facturaCompleta.factura_item ||
+          facturaCompleta.items ||
+          []
+        ).map((item: FacturaItem) => ({
           codigo_item: item.codigo_item || "",
           descripcion_item: item.descripcion_item || "",
           cantidad_solicitada: Number(item.cantidad) || 0,
@@ -1042,7 +1178,10 @@ export default function FacturaPage() {
         subtotal: Number(facturaCompleta.total_gravada) || 0,
         igv: Number(facturaCompleta.total_igv) || 0,
         total: Number(facturaCompleta.total) || 0,
-        netoAPagar: (Number(facturaCompleta.total) || 0) - (Number(facturaCompleta.detraccion_total) || 0) - (Number(facturaCompleta.fondo_garantia_valor) || 0),
+        netoAPagar:
+          (Number(facturaCompleta.total) || 0) -
+          (Number(facturaCompleta.detraccion_total) || 0) -
+          (Number(facturaCompleta.fondo_garantia_valor) || 0),
         observacion: facturaCompleta.observaciones || "",
         tipoVenta: "CONTADO", // Por defecto CONTADO al editar (backend no devuelve este campo aún)
         plazoCredito: 0,
@@ -1054,7 +1193,11 @@ export default function FacturaPage() {
       // Abrir el modal
       setIsNuevaFacturaModalOpen(true);
 
-      const itemsCount = (facturaCompleta.factura_item || facturaCompleta.items || []).length;
+      const itemsCount = (
+        facturaCompleta.factura_item ||
+        facturaCompleta.items ||
+        []
+      ).length;
       toast.success(`Factura cargada con ${itemsCount} item(s)`);
     } catch (error) {
       console.error("Error al cargar factura para editar:", error);
@@ -1144,7 +1287,10 @@ export default function FacturaPage() {
     }
 
     // Filtro por proveedor (búsqueda parcial)
-    if (filtroProveedor && !factura.proveedor.toLowerCase().includes(filtroProveedor.toLowerCase())) {
+    if (
+      filtroProveedor &&
+      !factura.proveedor.toLowerCase().includes(filtroProveedor.toLowerCase())
+    ) {
       return false;
     }
 
@@ -1187,8 +1333,9 @@ export default function FacturaPage() {
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
               <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
               <span className="text-sm text-blue-700">
-                Actualizando automáticamente cada 10 segundos...
-                ({facturas.filter((f) => f.estado === "PROCESANDO").length} facturas en proceso)
+                Actualizando automáticamente cada 10 segundos... (
+                {facturas.filter((f) => f.estado === "PROCESANDO").length}{" "}
+                facturas en proceso)
               </span>
             </div>
           )}
@@ -1219,13 +1366,18 @@ export default function FacturaPage() {
                   {/* Filtro por Estado */}
                   <div className="space-y-2">
                     <Label className="text-xs font-semibold">Estado</Label>
-                    <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+                    <Select
+                      value={filtroEstado}
+                      onValueChange={setFiltroEstado}
+                    >
                       <SelectTrigger className="h-9 text-xs">
                         <SelectValue placeholder="Todos los estados" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="TODOS">Todos los estados</SelectItem>
-                        <SelectItem value="SIN PROCESAR">Sin Procesar</SelectItem>
+                        <SelectItem value="SIN PROCESAR">
+                          Sin Procesar
+                        </SelectItem>
                         <SelectItem value="PENDIENTE">Pendiente</SelectItem>
                         <SelectItem value="PROCESANDO">Procesando</SelectItem>
                         <SelectItem value="COMPLETADO">Completado</SelectItem>
@@ -1256,9 +1408,13 @@ export default function FacturaPage() {
                         >
                           <CalendarIcon className="mr-2 h-3 w-3" />
                           {filtroFechaDesde ? (
-                            format(filtroFechaDesde, "dd/MM/yyyy", { locale: es })
+                            format(filtroFechaDesde, "dd/MM/yyyy", {
+                              locale: es,
+                            })
                           ) : (
-                            <span className="text-gray-400">Seleccionar fecha</span>
+                            <span className="text-gray-400">
+                              Seleccionar fecha
+                            </span>
                           )}
                         </Button>
                       </PopoverTrigger>
@@ -1284,9 +1440,13 @@ export default function FacturaPage() {
                         >
                           <CalendarIcon className="mr-2 h-3 w-3" />
                           {filtroFechaHasta ? (
-                            format(filtroFechaHasta, "dd/MM/yyyy", { locale: es })
+                            format(filtroFechaHasta, "dd/MM/yyyy", {
+                              locale: es,
+                            })
                           ) : (
-                            <span className="text-gray-400">Seleccionar fecha</span>
+                            <span className="text-gray-400">
+                              Seleccionar fecha
+                            </span>
                           )}
                         </Button>
                       </PopoverTrigger>
@@ -1314,7 +1474,8 @@ export default function FacturaPage() {
                     Limpiar Filtros
                   </Button>
                   <span className="text-xs text-gray-600">
-                    Mostrando {facturasFiltradas.length} de {facturas.length} facturas
+                    Mostrando {facturasFiltradas.length} de {facturas.length}{" "}
+                    facturas
                   </span>
                 </div>
               </div>
@@ -1329,11 +1490,21 @@ export default function FacturaPage() {
                       <TableHead className="text-xs font-bold text-center">
                         Fecha Factura
                       </TableHead>
-                      <TableHead className="text-xs font-bold">Proveedor</TableHead>
-                      <TableHead className="text-xs font-bold text-right">Subtotal</TableHead>
-                      <TableHead className="text-xs font-bold text-right">IGV</TableHead>
-                      <TableHead className="text-xs font-bold text-right">Total</TableHead>
-                      <TableHead className="text-xs font-bold text-center">Estado</TableHead>
+                      <TableHead className="text-xs font-bold">
+                        Proveedor
+                      </TableHead>
+                      <TableHead className="text-xs font-bold text-right">
+                        Subtotal
+                      </TableHead>
+                      <TableHead className="text-xs font-bold text-right">
+                        IGV
+                      </TableHead>
+                      <TableHead className="text-xs font-bold text-right">
+                        Total
+                      </TableHead>
+                      <TableHead className="text-xs font-bold text-center">
+                        Estado
+                      </TableHead>
                       <TableHead className="text-xs font-bold text-center">
                         Acciones
                       </TableHead>
@@ -1342,7 +1513,10 @@ export default function FacturaPage() {
                   <TableBody>
                     {facturasFiltradas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-gray-400">
+                        <TableCell
+                          colSpan={8}
+                          className="text-center py-8 text-gray-400"
+                        >
                           <div className="flex flex-col items-center gap-2">
                             <ClipboardList className="h-8 w-8 opacity-50" />
                             <p className="text-sm">
@@ -1360,11 +1534,17 @@ export default function FacturaPage() {
                             {factura.numero_factura}
                           </TableCell>
                           <TableCell className="text-xs text-center">
-                            {format(new Date(factura.fecha_factura), "dd/MM/yyyy", {
-                              locale: es,
-                            })}
+                            {format(
+                              new Date(factura.fecha_factura),
+                              "dd/MM/yyyy",
+                              {
+                                locale: es,
+                              }
+                            )}
                           </TableCell>
-                          <TableCell className="text-xs">{factura.proveedor}</TableCell>
+                          <TableCell className="text-xs">
+                            {factura.proveedor}
+                          </TableCell>
                           <TableCell className="text-xs text-right font-mono">
                             {factura.subtotal}
                           </TableCell>
@@ -1384,7 +1564,9 @@ export default function FacturaPage() {
                               {/* Botón Ver PDF - Solo si está disponible */}
                               {factura.enlace_pdf && (
                                 <button
-                                  onClick={() => window.open(factura.enlace_pdf!, "_blank")}
+                                  onClick={() =>
+                                    window.open(factura.enlace_pdf!, "_blank")
+                                  }
                                   className="inline-flex items-center justify-center w-8 h-8 text-green-600 hover:text-white hover:bg-green-600 rounded transition-colors"
                                   title="Ver PDF"
                                 >
@@ -1393,9 +1575,12 @@ export default function FacturaPage() {
                               )}
 
                               {/* Botón Verificar Estado - Para estados PENDIENTE y PROCESANDO */}
-                              {(factura.estado === "PENDIENTE" || factura.estado === "PROCESANDO") && (
+                              {(factura.estado === "PENDIENTE" ||
+                                factura.estado === "PROCESANDO") && (
                                 <button
-                                  onClick={() => handleVerificarEstado(factura.id)}
+                                  onClick={() =>
+                                    handleVerificarEstado(factura.id)
+                                  }
                                   className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
                                   title="Verificar Estado"
                                 >
@@ -1406,7 +1591,9 @@ export default function FacturaPage() {
                               {/* Botón Reintentar - Solo para facturas FALLADAS */}
                               {factura.estado === "FALLADO" && (
                                 <button
-                                  onClick={() => handleReintentarFactura(factura.id)}
+                                  onClick={() =>
+                                    handleReintentarFactura(factura.id)
+                                  }
                                   className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-white hover:bg-orange-600 rounded transition-colors"
                                   title="Reintentar"
                                 >
@@ -1415,7 +1602,9 @@ export default function FacturaPage() {
                               )}
 
                               {/* Botón Editar - Para facturas sin procesar, pendientes o falladas */}
-                              {(factura.estado === "SIN PROCESAR" || factura.estado === "PENDIENTE" || factura.estado === "FALLADO") && (
+                              {(factura.estado === "SIN PROCESAR" ||
+                                factura.estado === "PENDIENTE" ||
+                                factura.estado === "FALLADO") && (
                                 <button
                                   onClick={() => handleEditFactura(factura.id)}
                                   className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
@@ -1435,9 +1624,12 @@ export default function FacturaPage() {
                               </button>
 
                               {/* Botón Eliminar - Solo para sin procesar o falladas */}
-                              {(factura.estado === "SIN PROCESAR" || factura.estado === "FALLADO") && (
+                              {(factura.estado === "SIN PROCESAR" ||
+                                factura.estado === "FALLADO") && (
                                 <button
-                                  onClick={() => handleDeleteFactura(factura.id)}
+                                  onClick={() =>
+                                    handleDeleteFactura(factura.id)
+                                  }
                                   className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors"
                                   title="Eliminar"
                                 >
@@ -1456,7 +1648,10 @@ export default function FacturaPage() {
           </Card>
 
           {/* Modal Nueva Factura */}
-          <Dialog open={isNuevaFacturaModalOpen} onOpenChange={setIsNuevaFacturaModalOpen}>
+          <Dialog
+            open={isNuevaFacturaModalOpen}
+            onOpenChange={setIsNuevaFacturaModalOpen}
+          >
             <DialogContent className="max-w-[95vw] max-h-[90vh] w-full overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
@@ -1474,7 +1669,10 @@ export default function FacturaPage() {
                 <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 border rounded-lg">
                   {/* Primera fila */}
                   <div className="col-span-2">
-                    <Label htmlFor="nro-cliente" className="text-xs font-semibold">
+                    <Label
+                      htmlFor="nro-cliente"
+                      className="text-xs font-semibold"
+                    >
                       Nro cliente:
                     </Label>
                     <Button
@@ -1486,7 +1684,10 @@ export default function FacturaPage() {
                     </Button>
                   </div>
                   <div className="col-span-4">
-                    <Label htmlFor="razon-social" className="text-xs font-semibold">
+                    <Label
+                      htmlFor="razon-social"
+                      className="text-xs font-semibold"
+                    >
                       Razón social:
                     </Label>
                     <Input
@@ -1498,7 +1699,10 @@ export default function FacturaPage() {
                     />
                   </div>
                   <div className="col-span-2">
-                    <Label htmlFor="detraccion" className="text-xs font-semibold">
+                    <Label
+                      htmlFor="detraccion"
+                      className="text-xs font-semibold"
+                    >
                       Detracción:
                     </Label>
                     <Select
@@ -1510,7 +1714,12 @@ export default function FacturaPage() {
                             ...prev,
                             aplicarDetraccion: aplicar,
                             detraccion: aplicar
-                              ? { porcentaje: 3, monto: 0, tipo_detraccion: prev.detraccion.tipo_detraccion }
+                              ? {
+                                  porcentaje: 3,
+                                  monto: 0,
+                                  tipo_detraccion:
+                                    prev.detraccion.tipo_detraccion,
+                                }
                               : prev.detraccion,
                           };
                           // Recalcular totales con los nuevos datos
@@ -1520,14 +1729,19 @@ export default function FacturaPage() {
                           );
                           const igvCalculado =
                             subtotalCalculado * (newData.igvPorcentaje / 100);
-                          const totalCalculado = subtotalCalculado + igvCalculado;
+                          const totalCalculado =
+                            subtotalCalculado + igvCalculado;
                           const detraccionMonto = newData.aplicarDetraccion
-                            ? totalCalculado * (newData.detraccion.porcentaje / 100)
+                            ? totalCalculado *
+                              (newData.detraccion.porcentaje / 100)
                             : 0;
                           const fondoGarantiaMonto = newData.fondoGarantia
                             ? parseFloat(newData.fondoGarantiaValor || "0")
                             : 0;
-                          const netoAPagarCalculado = totalCalculado - detraccionMonto - fondoGarantiaMonto;
+                          const netoAPagarCalculado =
+                            totalCalculado -
+                            detraccionMonto -
+                            fondoGarantiaMonto;
 
                           return {
                             ...newData,
@@ -1541,6 +1755,8 @@ export default function FacturaPage() {
                             netoAPagar: netoAPagarCalculado,
                           };
                         });
+                        // Resetear el estado cuando se cambia la detracción
+                        setInfoAutomaticaGenerada(false);
                       }}
                     >
                       <SelectTrigger className="h-8 text-xs">
@@ -1553,7 +1769,10 @@ export default function FacturaPage() {
                     </Select>
                   </div>
                   <div className="col-span-2">
-                    <Label htmlFor="fecha-emision" className="text-xs font-semibold">
+                    <Label
+                      htmlFor="fecha-emision"
+                      className="text-xs font-semibold"
+                    >
                       F. emisión:
                     </Label>
                     <Popover>
@@ -1564,9 +1783,13 @@ export default function FacturaPage() {
                         >
                           <CalendarIcon className="mr-2 h-3 w-3" />
                           {nuevaFacturaData.fechaEmision
-                            ? format(nuevaFacturaData.fechaEmision, "dd/MM/yyyy", {
-                                locale: es,
-                              })
+                            ? format(
+                                nuevaFacturaData.fechaEmision,
+                                "dd/MM/yyyy",
+                                {
+                                  locale: es,
+                                }
+                              )
                             : "Fecha"}
                         </Button>
                       </PopoverTrigger>
@@ -1608,7 +1831,10 @@ export default function FacturaPage() {
 
                   {/* Tipo de Venta */}
                   <div className="col-span-2">
-                    <Label htmlFor="tipo-venta" className="text-xs font-semibold">
+                    <Label
+                      htmlFor="tipo-venta"
+                      className="text-xs font-semibold"
+                    >
                       Tipo de Venta:
                     </Label>
                     <Select
@@ -1634,13 +1860,19 @@ export default function FacturaPage() {
                   {/* Plazo de Crédito - Solo visible si es CREDITO */}
                   {nuevaFacturaData.tipoVenta === "CREDITO" && (
                     <div className="col-span-2">
-                      <Label htmlFor="plazo-credito" className="text-xs font-semibold">
+                      <Label
+                        htmlFor="plazo-credito"
+                        className="text-xs font-semibold"
+                      >
                         Plazo:
                       </Label>
                       <Select
                         value={nuevaFacturaData.plazoCredito.toString()}
                         onValueChange={(value) =>
-                          handleNuevaFacturaInputChange("plazoCredito", parseInt(value))
+                          handleNuevaFacturaInputChange(
+                            "plazoCredito",
+                            parseInt(value)
+                          )
                         }
                       >
                         <SelectTrigger className="h-8 text-xs">
@@ -1659,7 +1891,9 @@ export default function FacturaPage() {
 
                   {/* Segunda fila */}
                   <div className="col-span-6">
-                    <Label className="text-xs font-semibold mb-2 block">Opciones</Label>
+                    <Label className="text-xs font-semibold mb-2 block">
+                      Opciones
+                    </Label>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2">
@@ -1673,7 +1907,10 @@ export default function FacturaPage() {
                                 e.target.checked
                               );
                               // Recalcular totales cuando se active/desactive
-                              setTimeout(() => calcularTotales(nuevaFacturaData.items), 0);
+                              setTimeout(
+                                () => calcularTotales(nuevaFacturaData.items),
+                                0
+                              );
                             }}
                             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                           />
@@ -1690,17 +1927,29 @@ export default function FacturaPage() {
                             onChange={(e) => {
                               const nuevoValor = e.target.value;
                               // Recalcular totales inmediatamente con el nuevo valor
-                              const subtotalCalculado = nuevaFacturaData.items.reduce(
-                                (acc, item) => acc + (item.subtotal || 0),
-                                0
+                              const subtotalCalculado =
+                                nuevaFacturaData.items.reduce(
+                                  (acc, item) => acc + (item.subtotal || 0),
+                                  0
+                                );
+                              const igvCalculado =
+                                subtotalCalculado *
+                                (nuevaFacturaData.igvPorcentaje / 100);
+                              const totalCalculado =
+                                subtotalCalculado + igvCalculado;
+                              const detraccionMonto =
+                                nuevaFacturaData.aplicarDetraccion
+                                  ? totalCalculado *
+                                    (nuevaFacturaData.detraccion.porcentaje /
+                                      100)
+                                  : 0;
+                              const fondoGarantiaMonto = parseFloat(
+                                nuevoValor || "0"
                               );
-                              const igvCalculado = subtotalCalculado * (nuevaFacturaData.igvPorcentaje / 100);
-                              const totalCalculado = subtotalCalculado + igvCalculado;
-                              const detraccionMonto = nuevaFacturaData.aplicarDetraccion
-                                ? totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100)
-                                : 0;
-                              const fondoGarantiaMonto = parseFloat(nuevoValor || "0");
-                              const netoAPagarCalculado = totalCalculado - detraccionMonto - fondoGarantiaMonto;
+                              const netoAPagarCalculado =
+                                totalCalculado -
+                                detraccionMonto -
+                                fondoGarantiaMonto;
 
                               setNuevaFacturaData((prev) => ({
                                 ...prev,
@@ -1727,7 +1976,10 @@ export default function FacturaPage() {
                             id="orden-compra"
                             checked={nuevaFacturaData.ordenCompra}
                             onChange={(e) =>
-                              handleNuevaFacturaInputChange("ordenCompra", e.target.checked)
+                              handleNuevaFacturaInputChange(
+                                "ordenCompra",
+                                e.target.checked
+                              )
                             }
                             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                           />
@@ -1742,7 +1994,10 @@ export default function FacturaPage() {
                           <Input
                             value={nuevaFacturaData.ordenCompraValor}
                             onChange={(e) =>
-                              handleNuevaFacturaInputChange("ordenCompraValor", e.target.value)
+                              handleNuevaFacturaInputChange(
+                                "ordenCompraValor",
+                                e.target.value
+                              )
                             }
                             placeholder="Ingrese valor..."
                             className="h-8 text-xs"
@@ -1760,11 +2015,17 @@ export default function FacturaPage() {
                         id="serie"
                         value={nuevaFacturaData.serie}
                         onChange={(e) => {
-                          handleNuevaFacturaInputChange("serie", e.target.value.toUpperCase());
+                          handleNuevaFacturaInputChange(
+                            "serie",
+                            e.target.value.toUpperCase()
+                          );
                         }}
                         onBlur={(e) => {
                           // Asegurar formato correcto al perder el foco
-                          if (!nuevaFacturaData.serie || nuevaFacturaData.serie.length < 4) {
+                          if (
+                            !nuevaFacturaData.serie ||
+                            nuevaFacturaData.serie.length < 4
+                          ) {
                             handleNuevaFacturaInputChange("serie", "0001");
                           }
                         }}
@@ -1775,7 +2036,10 @@ export default function FacturaPage() {
                       <Input
                         value={nuevaFacturaData.nroDoc}
                         onChange={(e) =>
-                          handleNuevaFacturaInputChange("nroDoc", e.target.value)
+                          handleNuevaFacturaInputChange(
+                            "nroDoc",
+                            e.target.value
+                          )
                         }
                         className="h-8 text-xs flex-1"
                         required
@@ -1865,10 +2129,7 @@ export default function FacturaPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {fases.map((fase) => (
-                            <SelectItem
-                              key={fase.id}
-                              value={fase.codigo || ""}
-                            >
+                            <SelectItem key={fase.id} value={fase.codigo || ""}>
                               {fase.descripcion}
                             </SelectItem>
                           ))}
@@ -2022,9 +2283,12 @@ export default function FacturaPage() {
                             >
                               <div className="flex flex-col items-center gap-2">
                                 <ClipboardList className="h-8 w-8 opacity-50" />
-                                <p className="text-sm">No hay items agregados</p>
+                                <p className="text-sm">
+                                  No hay items agregados
+                                </p>
                                 <p className="text-xs">
-                                  Haz clic en &quot;Agregar ítem&quot; para comenzar
+                                  Haz clic en &quot;Agregar ítem&quot; para
+                                  comenzar
                                 </p>
                               </div>
                             </TableCell>
@@ -2061,7 +2325,10 @@ export default function FacturaPage() {
                         id="observacion-nueva"
                         value={nuevaFacturaData.observacion}
                         onChange={(e) =>
-                          handleNuevaFacturaInputChange("observacion", e.target.value)
+                          handleNuevaFacturaInputChange(
+                            "observacion",
+                            e.target.value
+                          )
                         }
                         className="min-h-[180px] resize-none text-xs font-mono"
                         placeholder="Observaciones adicionales..."
@@ -2092,19 +2359,31 @@ export default function FacturaPage() {
                             onValueChange={(value) => {
                               const nuevoPorcentaje = parseInt(value);
                               // Recalcular totales inmediatamente con el nuevo porcentaje de IGV
-                              const subtotalCalculado = nuevaFacturaData.items.reduce(
-                                (acc, item) => acc + (item.subtotal || 0),
-                                0
-                              );
-                              const igvCalculado = subtotalCalculado * (nuevoPorcentaje / 100);
-                              const totalCalculado = subtotalCalculado + igvCalculado;
-                              const detraccionMonto = nuevaFacturaData.aplicarDetraccion
-                                ? totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100)
-                                : 0;
-                              const fondoGarantiaMonto = nuevaFacturaData.fondoGarantia
-                                ? parseFloat(nuevaFacturaData.fondoGarantiaValor || "0")
-                                : 0;
-                              const netoAPagarCalculado = totalCalculado - detraccionMonto - fondoGarantiaMonto;
+                              const subtotalCalculado =
+                                nuevaFacturaData.items.reduce(
+                                  (acc, item) => acc + (item.subtotal || 0),
+                                  0
+                                );
+                              const igvCalculado =
+                                subtotalCalculado * (nuevoPorcentaje / 100);
+                              const totalCalculado =
+                                subtotalCalculado + igvCalculado;
+                              const detraccionMonto =
+                                nuevaFacturaData.aplicarDetraccion
+                                  ? totalCalculado *
+                                    (nuevaFacturaData.detraccion.porcentaje /
+                                      100)
+                                  : 0;
+                              const fondoGarantiaMonto =
+                                nuevaFacturaData.fondoGarantia
+                                  ? parseFloat(
+                                      nuevaFacturaData.fondoGarantiaValor || "0"
+                                    )
+                                  : 0;
+                              const netoAPagarCalculado =
+                                totalCalculado -
+                                detraccionMonto -
+                                fondoGarantiaMonto;
 
                               setNuevaFacturaData((prev) => ({
                                 ...prev,
@@ -2155,21 +2434,37 @@ export default function FacturaPage() {
 
                           <div className="scale-95 origin-left">
                             <DetraccionSelectDialog
-                              currentPorcentaje={nuevaFacturaData.detraccion.porcentaje}
-                              currentCodigo={nuevaFacturaData.detraccion.tipo_detraccion}
+                              currentPorcentaje={
+                                nuevaFacturaData.detraccion.porcentaje
+                              }
+                              currentCodigo={
+                                nuevaFacturaData.detraccion.tipo_detraccion
+                              }
                               onSelect={(porcentaje, codigo, descripcion) => {
                                 // Recalcular totales inmediatamente con el nuevo porcentaje
-                                const subtotalCalculado = nuevaFacturaData.items.reduce(
-                                  (acc, item) => acc + (item.subtotal || 0),
-                                  0
-                                );
-                                const igvCalculado = subtotalCalculado * (nuevaFacturaData.igvPorcentaje / 100);
-                                const totalCalculado = subtotalCalculado + igvCalculado;
-                                const detraccionMonto = totalCalculado * (porcentaje / 100);
-                                const fondoGarantiaMonto = nuevaFacturaData.fondoGarantia
-                                  ? parseFloat(nuevaFacturaData.fondoGarantiaValor || "0")
-                                  : 0;
-                                const netoAPagarCalculado = totalCalculado - detraccionMonto - fondoGarantiaMonto;
+                                const subtotalCalculado =
+                                  nuevaFacturaData.items.reduce(
+                                    (acc, item) => acc + (item.subtotal || 0),
+                                    0
+                                  );
+                                const igvCalculado =
+                                  subtotalCalculado *
+                                  (nuevaFacturaData.igvPorcentaje / 100);
+                                const totalCalculado =
+                                  subtotalCalculado + igvCalculado;
+                                const detraccionMonto =
+                                  totalCalculado * (porcentaje / 100);
+                                const fondoGarantiaMonto =
+                                  nuevaFacturaData.fondoGarantia
+                                    ? parseFloat(
+                                        nuevaFacturaData.fondoGarantiaValor ||
+                                          "0"
+                                      )
+                                    : 0;
+                                const netoAPagarCalculado =
+                                  totalCalculado -
+                                  detraccionMonto -
+                                  fondoGarantiaMonto;
 
                                 setNuevaFacturaData((prev) => ({
                                   ...prev,
@@ -2195,9 +2490,14 @@ export default function FacturaPage() {
                       {nuevaFacturaData.fondoGarantia && (
                         <div className="border-t pt-2">
                           <div className="flex justify-between items-start text-sm">
-                            <span className="font-semibold">Fondo de Garantía:</span>
+                            <span className="font-semibold">
+                              Fondo de Garantía:
+                            </span>
                             <span className="font-mono text-red-600">
-                              -{parseFloat(nuevaFacturaData.fondoGarantiaValor || "0").toFixed(2)}
+                              -
+                              {parseFloat(
+                                nuevaFacturaData.fondoGarantiaValor || "0"
+                              ).toFixed(2)}
                             </span>
                           </div>
                         </div>
@@ -2235,7 +2535,10 @@ export default function FacturaPage() {
           </Dialog>
 
           {/* Modal de Selección de Proveedores */}
-          <Dialog open={isProveedoresModalOpen} onOpenChange={setIsProveedoresModalOpen}>
+          <Dialog
+            open={isProveedoresModalOpen}
+            onOpenChange={setIsProveedoresModalOpen}
+          >
             <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
               <DialogHeader className="flex-shrink-0">
                 <DialogTitle>Seleccionar Proveedor</DialogTitle>
@@ -2264,8 +2567,12 @@ export default function FacturaPage() {
                         <TableHead className="text-xs font-bold text-center w-32">
                           Nro Documento
                         </TableHead>
-                        <TableHead className="text-xs font-bold">Razón Social</TableHead>
-                        <TableHead className="text-xs font-bold">Dirección</TableHead>
+                        <TableHead className="text-xs font-bold">
+                          Razón Social
+                        </TableHead>
+                        <TableHead className="text-xs font-bold">
+                          Dirección
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2275,7 +2582,9 @@ export default function FacturaPage() {
                           const query = proveedorSearchQuery.toLowerCase();
                           return (
                             proveedor.ruc?.toLowerCase().includes(query) ||
-                            proveedor.nombre_proveedor?.toLowerCase().includes(query)
+                            proveedor.nombre_proveedor
+                              ?.toLowerCase()
+                              .includes(query)
                           );
                         })
                         .map((proveedor) => (
@@ -2286,7 +2595,9 @@ export default function FacturaPage() {
                                 ? "bg-blue-200 hover:bg-blue-300"
                                 : "hover:bg-gray-50"
                             }`}
-                            onClick={() => handleProveedorRowClick(proveedor.id_proveedor)}
+                            onClick={() =>
+                              handleProveedorRowClick(proveedor.id_proveedor)
+                            }
                           >
                             <TableCell className="text-xs text-center">
                               {proveedor.ruc}
@@ -2383,7 +2694,9 @@ export default function FacturaPage() {
                           <TableCell className="text-xs text-center">
                             {item.codigo}
                           </TableCell>
-                          <TableCell className="text-xs">{item.descripcion}</TableCell>
+                          <TableCell className="text-xs">
+                            {item.descripcion}
+                          </TableCell>
                           <TableCell className="text-xs text-center">
                             {item.u_m}
                           </TableCell>
