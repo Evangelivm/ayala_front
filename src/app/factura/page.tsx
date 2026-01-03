@@ -39,7 +39,6 @@ import {
   ClipboardList,
   Plus,
   Trash2,
-  Edit,
   X,
   FileText,
   RefreshCw,
@@ -119,9 +118,35 @@ export default function FacturaPage() {
   const [isProveedoresModalOpen, setIsProveedoresModalOpen] = useState(false);
   const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
   const [isEnlacesModalOpen, setIsEnlacesModalOpen] = useState(false);
-  const [selectedFacturaForModal, setSelectedFacturaForModal] = useState<
-    (typeof facturas)[0] | null
-  >(null);
+  const [selectedFacturaForModal, setSelectedFacturaForModal] = useState<{
+    id: number;
+    numero_factura: string;
+    fecha_factura: string;
+    proveedor: string;
+    subtotal: number;
+    igv: number;
+    total: number;
+    estado: string;
+    fecha_emision?: string;
+    tipo_comprobante?: string;
+    serie?: string;
+    numero?: string;
+    observaciones?: string;
+    moneda?: string;
+    items?: Array<{
+      descripcion_item: string;
+      cantidad: number;
+      unidad_medida: string;
+      precio_unitario: number;
+      subtotal: number;
+    }>;
+    enlace_pdf?: string | null;
+    enlace_xml?: string | null;
+    enlace_cdr?: string | null;
+    aceptada_por_sunat?: boolean | null;
+    sunat_description?: string | null;
+    sunat_note?: string | null;
+  } | null>(null);
   const [selectedProveedor, setSelectedProveedor] = useState<number | null>(
     null
   );
@@ -719,14 +744,14 @@ export default function FacturaPage() {
       // 3 columnas: Cuenta de pago | Información del crédito | Información de la detracción
       observacion +=
         "Cuenta de pago".padEnd(65) +
-        "Información del crédito".padEnd(65) +
+        "Información del crédito".padEnd(55) +
         "Información de la detracción\n";
 
       // Línea 1: Primera cuenta | Monto neto | Bien o Servicio
       const cuenta1 = cuentasPago[0].padEnd(52);
       const montoNeto = `Monto neto: S/ ${nuevaFacturaData.netoAPagar.toFixed(
         2
-      )}`.padEnd(65);
+      )}`.padEnd(56);
       const bienServicio = nuevaFacturaData.aplicarDetraccion
         ? `Bien o Servicio: ${
             nuevaFacturaData.detraccion.tipo_detraccion || "---"
@@ -736,7 +761,7 @@ export default function FacturaPage() {
 
       // Línea 2: Segunda cuenta | N° de cuotas | Porcentaje
       const cuenta2 = cuentasPago[1].padEnd(48);
-      const noCuotas = `Nº de cuotas: ${numCuotas}`.padEnd(70);
+      const noCuotas = `Nº de cuotas: ${numCuotas}`.padEnd(59);
       const porcentaje = nuevaFacturaData.aplicarDetraccion
         ? `Porcentaje %: ${nuevaFacturaData.detraccion.porcentaje.toFixed(2)}`
         : "";
@@ -745,7 +770,7 @@ export default function FacturaPage() {
       // Línea 3: Tercera cuenta | Fecha de Vencimiento | Monto detracción
       const cuenta3 = cuentasPago[2].padEnd(55);
       const vencimiento = `Fecha de Vencimiento: ${fechaVencimiento}`.padEnd(
-        57
+        45
       );
       const montoDetraccion = nuevaFacturaData.aplicarDetraccion
         ? `Monto detracción S/: ${nuevaFacturaData.detraccion.monto.toFixed(2)}`
@@ -1113,13 +1138,21 @@ export default function FacturaPage() {
           valor_unitario: item.valor_unitario,
           subtotal: item.subtotal,
           subtotal_calculado: item.valor_unitario * item.cantidad,
-          subtotal_correcto: item.subtotal === (item.valor_unitario * item.cantidad),
+          subtotal_correcto:
+            item.subtotal === item.valor_unitario * item.cantidad,
         });
       });
       console.log("🔍 DEBUG - Suma subtotales:", {
-        suma_subtotales: finalDataParaBackend.items.reduce((sum, item) => sum + item.subtotal, 0),
+        suma_subtotales: finalDataParaBackend.items.reduce(
+          (sum, item) => sum + item.subtotal,
+          0
+        ),
         total_gravada_enviado: finalDataParaBackend.total_gravada,
-        coincide: finalDataParaBackend.items.reduce((sum, item) => sum + item.subtotal, 0) === finalDataParaBackend.total_gravada,
+        coincide:
+          finalDataParaBackend.items.reduce(
+            (sum, item) => sum + item.subtotal,
+            0
+          ) === finalDataParaBackend.total_gravada,
       });
 
       // Enviar al backend - detectar si es creación o edición
@@ -1313,22 +1346,70 @@ export default function FacturaPage() {
     }
   };
 
-  const handleVerDetalles = (id: number) => {
+  const handleVerDetalles = async (id: number) => {
     try {
       console.log("📋 Ver detalles de factura ID:", id);
 
-      const factura = facturas.find((f) => f.id === id);
+      // Obtener los detalles completos de la factura desde la API
+      const facturaCompleta: FacturaCompletaData = (await facturaApi.getById(
+        id
+      )) as FacturaCompletaData;
 
-      if (!factura) {
+      if (!facturaCompleta) {
         console.error("❌ Factura no encontrada con ID:", id);
         toast.error("Factura no encontrada");
         return;
       }
 
-      console.log("✅ Factura encontrada:", factura);
+      console.log("✅ Factura completa cargada:", facturaCompleta);
 
-      // Abrir modal de enlaces y detalles SUNAT
-      setSelectedFacturaForModal(factura);
+      // Mapear tipo de comprobante
+      const tipoComprobanteMap: { [key: number]: string } = {
+        1: "FACTURA",
+        2: "BOLETA",
+        3: "NOTA DE CRÉDITO",
+        4: "NOTA DE DÉBITO",
+      };
+
+      // Preparar datos para el modal
+      const facturaParaModal = {
+        id: facturaCompleta.id_factura,
+        numero_factura: `${facturaCompleta.serie}-${facturaCompleta.numero}`,
+        fecha_factura: facturaCompleta.fecha_emision || "",
+        proveedor:
+          facturaCompleta.proveedores?.nombre_proveedor || "Sin proveedor",
+        total: Number(facturaCompleta.total) || 0,
+        fecha_emision: facturaCompleta.fecha_emision || "",
+        estado: facturaCompleta.estado_factura || "",
+        tipo_comprobante:
+          tipoComprobanteMap[facturaCompleta.tipo_de_comprobante] || "FACTURA",
+        serie: facturaCompleta.serie || "",
+        numero: String(facturaCompleta.numero || ""),
+        observaciones: facturaCompleta.observaciones || "",
+        moneda: facturaCompleta.moneda === 1 ? "PEN" : "USD",
+        subtotal: Number(facturaCompleta.total_gravada) || 0,
+        igv: Number(facturaCompleta.total_igv) || 0,
+        items: (
+          facturaCompleta.factura_item ||
+          facturaCompleta.items ||
+          []
+        ).map((item: FacturaItem) => ({
+          descripcion_item: item.descripcion_item || "",
+          cantidad: Number(item.cantidad) || 0,
+          unidad_medida: item.unidad_medida || "UNIDAD",
+          precio_unitario: Number(item.precio_unitario) || 0,
+          subtotal: Number(item.subtotal) || 0,
+        })),
+        enlace_pdf: facturaCompleta.enlace_del_pdf || null,
+        enlace_xml: facturaCompleta.enlace_del_xml || null,
+        enlace_cdr: facturaCompleta.enlace_del_cdr || null,
+        aceptada_por_sunat: facturaCompleta.aceptada_por_sunat || null,
+        sunat_description: facturaCompleta.sunat_description || null,
+        sunat_note: facturaCompleta.sunat_note || null,
+      };
+
+      // Abrir modal de enlaces y detalles completos
+      setSelectedFacturaForModal(facturaParaModal);
       setIsEnlacesModalOpen(true);
     } catch (error) {
       console.error("❌ Error al abrir modal de detalles:", error);
@@ -1663,19 +1744,6 @@ export default function FacturaPage() {
                                   title="Reintentar"
                                 >
                                   <RotateCw className="h-4 w-4" />
-                                </button>
-                              )}
-
-                              {/* Botón Editar - Para facturas sin procesar, pendientes o falladas */}
-                              {(factura.estado === "SIN PROCESAR" ||
-                                factura.estado === "PENDIENTE" ||
-                                factura.estado === "FALLADO") && (
-                                <button
-                                  onClick={() => handleEditFactura(factura.id)}
-                                  className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded transition-colors"
-                                  title="Editar"
-                                >
-                                  <Edit className="h-4 w-4" />
                                 </button>
                               )}
 

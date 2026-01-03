@@ -25,6 +25,22 @@ interface EnlacesModalProps {
     numero_factura: string;
     proveedor: string;
     total: number;
+    fecha_emision?: string;
+    estado?: string;
+    tipo_comprobante?: string;
+    serie?: string;
+    numero?: string;
+    observaciones?: string;
+    moneda?: string;
+    subtotal?: number;
+    igv?: number;
+    items?: Array<{
+      descripcion_item: string;
+      cantidad: number;
+      unidad_medida: string;
+      precio_unitario: number;
+      subtotal: number;
+    }>;
     enlace_pdf?: string | null;
     enlace_xml?: string | null;
     enlace_cdr?: string | null;
@@ -61,7 +77,7 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">
             Detalles de Factura {factura.numero_factura || "N/A"}
@@ -72,6 +88,102 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Información Básica */}
+          <div className="bg-gray-50 p-4 rounded-lg border">
+            <h3 className="text-sm font-semibold mb-3">Información General</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-gray-600">Tipo:</span>{" "}
+                <span className="font-medium">{factura.tipo_comprobante || "N/A"}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Fecha Emisión:</span>{" "}
+                <span className="font-medium">{factura.fecha_emision || "N/A"}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Serie:</span>{" "}
+                <span className="font-medium">{factura.serie || "N/A"}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Número:</span>{" "}
+                <span className="font-medium">{factura.numero || "N/A"}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Moneda:</span>{" "}
+                <span className="font-medium">{factura.moneda || "PEN"}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Estado:</span>{" "}
+                <span className="font-medium">{factura.estado || "N/A"}</span>
+              </div>
+            </div>
+            {factura.observaciones && (
+              <div className="mt-3">
+                <span className="text-sm text-gray-600">Observaciones:</span>
+                <p className="text-sm mt-1 text-gray-800">{factura.observaciones}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Items de la Factura */}
+          {factura.items && factura.items.length > 0 && (
+            <div className="bg-gray-50 p-4 rounded-lg border">
+              <h3 className="text-sm font-semibold mb-3">Items</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-200">
+                    <tr>
+                      <th className="text-left p-2 border">Descripción</th>
+                      <th className="text-center p-2 border">Cantidad</th>
+                      <th className="text-center p-2 border">Unidad</th>
+                      <th className="text-right p-2 border">Precio Unit.</th>
+                      <th className="text-right p-2 border">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {factura.items.map((item, index) => (
+                      <tr key={index} className="border-b">
+                        <td className="p-2 border">{item.descripcion_item}</td>
+                        <td className="text-center p-2 border">{item.cantidad}</td>
+                        <td className="text-center p-2 border">{item.unidad_medida}</td>
+                        <td className="text-right p-2 border">
+                          {factura.moneda === "USD" ? "$" : "S/"} {Number(item.precio_unitario || 0).toFixed(2)}
+                        </td>
+                        <td className="text-right p-2 border">
+                          {factura.moneda === "USD" ? "$" : "S/"} {Number(item.subtotal || 0).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Totales */}
+          <div className="bg-gray-50 p-4 rounded-lg border">
+            <h3 className="text-sm font-semibold mb-3">Totales</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-medium">
+                  {factura.moneda === "USD" ? "$" : "S/"} {Number(factura.subtotal || 0).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">IGV (18%):</span>
+                <span className="font-medium">
+                  {factura.moneda === "USD" ? "$" : "S/"} {Number(factura.igv || 0).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between border-t pt-2 text-base">
+                <span className="font-semibold">Total:</span>
+                <span className="font-bold">
+                  {factura.moneda === "USD" ? "$" : "S/"} {Number(factura.total || 0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
           {/* Estado SUNAT */}
           <div className="bg-gray-50 p-4 rounded-lg border">
             <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
