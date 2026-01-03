@@ -74,7 +74,8 @@ interface FacturaItem {
   descripcion_item: string;
   cantidad: number;
   unidad_medida: string;
-  precio_unitario: number;
+  valor_unitario?: number; // Precio SIN IGV
+  precio_unitario: number; // Precio CON IGV (para NUBEFACT)
   subtotal: number;
 }
 
@@ -528,18 +529,20 @@ export default function FacturaPage() {
       updatedItems[index] = { ...updatedItems[index], [field]: value };
 
       // Calcular subtotal automáticamente
+      // IMPORTANTE: subtotal debe ser cantidad × precio SIN IGV
       if (field === "cantidad_solicitada" || field === "precio_unitario") {
         const cantidad = Number(
           field === "cantidad_solicitada"
             ? value
             : updatedItems[index].cantidad_solicitada
         );
-        const precio = Number(
+        const precioSinIgv = Number(
           field === "precio_unitario"
             ? value
             : updatedItems[index].precio_unitario
         );
-        updatedItems[index].subtotal = cantidad * precio;
+        // Subtotal = cantidad × precio SIN IGV
+        updatedItems[index].subtotal = cantidad * precioSinIgv;
       }
 
       // Actualizar estado inmediatamente para UI responsiva
@@ -1101,6 +1104,24 @@ export default function FacturaPage() {
         total: finalDataParaBackend.total,
       });
 
+      // DEBUG: Verificar cálculos de items
+      console.log("🔍 DEBUG - Items enviados:");
+      finalDataParaBackend.items.forEach((item, index) => {
+        console.log(`  Item ${index + 1}:`, {
+          descripcion: item.descripcion_item,
+          cantidad: item.cantidad,
+          valor_unitario: item.valor_unitario,
+          subtotal: item.subtotal,
+          subtotal_calculado: item.valor_unitario * item.cantidad,
+          subtotal_correcto: item.subtotal === (item.valor_unitario * item.cantidad),
+        });
+      });
+      console.log("🔍 DEBUG - Suma subtotales:", {
+        suma_subtotales: finalDataParaBackend.items.reduce((sum, item) => sum + item.subtotal, 0),
+        total_gravada_enviado: finalDataParaBackend.total_gravada,
+        coincide: finalDataParaBackend.items.reduce((sum, item) => sum + item.subtotal, 0) === finalDataParaBackend.total_gravada,
+      });
+
       // Enviar al backend - detectar si es creación o edición
       if (facturaEditandoId) {
         // Modo edición - actualizar factura existente
@@ -1215,7 +1236,8 @@ export default function FacturaPage() {
           descripcion_item: item.descripcion_item || "",
           cantidad_solicitada: Number(item.cantidad) || 0,
           unidadMed: item.unidad_medida || "UNIDAD",
-          precio_unitario: Number(item.precio_unitario) || 0,
+          // CORRECCIÓN: usar valor_unitario (SIN IGV) para cálculos locales
+          precio_unitario: Number(item.valor_unitario) || 0,
           subtotal: Number(item.subtotal) || 0,
         })),
         subtotal: Number(facturaCompleta.total_gravada) || 0,
