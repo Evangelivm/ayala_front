@@ -1005,12 +1005,13 @@ export default function FacturaPage() {
           const igvPorcentajeDecimal = nuevaFacturaData.igvPorcentaje / 100;
           const factorIgv = 1 + igvPorcentajeDecimal;
 
-          const precioConIgv = item.precio_unitario;
-          const valorSinIgv = precioConIgv / factorIgv;
+          // precio_unitario ya viene SIN IGV de la base de datos
+          const valorSinIgv = item.precio_unitario;
           const cantidad = item.cantidad_solicitada;
           const subtotal = valorSinIgv * cantidad;
           const igvItem = subtotal * igvPorcentajeDecimal;
           const totalItem = subtotal + igvItem;
+          const precioConIgv = valorSinIgv * factorIgv;
 
           return {
             codigo_item: item.codigo_item,
