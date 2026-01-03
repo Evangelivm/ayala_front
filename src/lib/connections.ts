@@ -3085,6 +3085,12 @@ export const proveedoresApi = {
       return null;
     }
   },
+
+  // Crear nuevo proveedor
+  create: async (data: Partial<ProveedorData>): Promise<ProveedorData> => {
+    const response = await api.post("/proveedores", data);
+    return decodeProveedorData(response.data);
+  },
 };
 
 // ============ ITEMS API ============

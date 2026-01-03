@@ -180,7 +180,7 @@ export default function FacturaPage() {
     fondoGarantiaValor: "", // Valor del fondo de garantía
     ordenCompra: false, // Checkbox O/C
     ordenCompraValor: "", // Valor de orden de compra
-    serie: "0001",
+    serie: "FFF1",
     nroDoc: "",
     fechaEmision: new Date(),
     moneda: "SOLES",
@@ -641,7 +641,7 @@ export default function FacturaPage() {
       fondoGarantiaValor: "",
       ordenCompra: false,
       ordenCompraValor: "",
-      serie: "0001",
+      serie: "FFF1",
       nroDoc: "",
       fechaEmision: new Date(),
       moneda: "SOLES",
@@ -675,7 +675,7 @@ export default function FacturaPage() {
   // Función para generar observaciones automáticas con formato mejorado
   const generarObservacionesAutomaticas = () => {
     const cuentasPago = [
-      "Cta. Cte. BCP Soles: 191-2551705-0-56",
+      "Cta. Cte. BCP Soles: 191-2551705-0-96",
       "Cci. BCP Soles: 002-191-002551705096-56",
       "Cta. Detracciones: 00-050-045072",
     ];
@@ -701,41 +701,83 @@ export default function FacturaPage() {
     observacion += `Neto a pagar: S/ ${nuevaFacturaData.netoAPagar.toFixed(
       2
     )}\n`;
+
+    // Fondo de Garantía (si aplica)
+    if (nuevaFacturaData.fondoGarantia) {
+      observacion += `Fondo de Garantía: S/ ${parseFloat(
+        nuevaFacturaData.fondoGarantiaValor || "0"
+      ).toFixed(2)}\n`;
+    }
+
     observacion += "\n";
 
-    // Encabezados de las 3 columnas
-    observacion +=
-      "Cuenta de pago".padEnd(65) +
-      "Información del crédito".padEnd(65) +
-      "Información de la detracción\n";
+    // Encabezados: Si es CREDITO mostrar 3 columnas, si es CONTADO solo 2
+    if (nuevaFacturaData.tipoVenta === "CREDITO") {
+      // 3 columnas: Cuenta de pago | Información del crédito | Información de la detracción
+      observacion +=
+        "Cuenta de pago".padEnd(65) +
+        "Información del crédito".padEnd(65) +
+        "Información de la detracción\n";
 
-    // Línea 1: Primera cuenta | Monto neto | Bien o Servicio
-    const cuenta1 = cuentasPago[0].padEnd(52);
-    const montoNeto = `Monto neto: S/ ${nuevaFacturaData.netoAPagar.toFixed(
-      2
-    )}`.padEnd(65);
-    const bienServicio = nuevaFacturaData.aplicarDetraccion
-      ? `Bien o Servicio: ${
-          nuevaFacturaData.detraccion.tipo_detraccion || "---"
-        }`
-      : "No aplica detracción";
-    observacion += cuenta1 + montoNeto + bienServicio + "\n";
+      // Línea 1: Primera cuenta | Monto neto | Bien o Servicio
+      const cuenta1 = cuentasPago[0].padEnd(52);
+      const montoNeto = `Monto neto: S/ ${nuevaFacturaData.netoAPagar.toFixed(
+        2
+      )}`.padEnd(65);
+      const bienServicio = nuevaFacturaData.aplicarDetraccion
+        ? `Bien o Servicio: ${
+            nuevaFacturaData.detraccion.tipo_detraccion || "---"
+          }`
+        : "No aplica detracción";
+      observacion += cuenta1 + montoNeto + bienServicio + "\n";
 
-    // Línea 2: Segunda cuenta | N° de cuotas | Porcentaje
-    const cuenta2 = cuentasPago[1].padEnd(48);
-    const noCuotas = `Nº de cuotas: ${numCuotas}`.padEnd(70);
-    const porcentaje = nuevaFacturaData.aplicarDetraccion
-      ? `Porcentaje %: ${nuevaFacturaData.detraccion.porcentaje.toFixed(2)}`
-      : "";
-    observacion += cuenta2 + noCuotas + porcentaje + "\n";
+      // Línea 2: Segunda cuenta | N° de cuotas | Porcentaje
+      const cuenta2 = cuentasPago[1].padEnd(48);
+      const noCuotas = `Nº de cuotas: ${numCuotas}`.padEnd(70);
+      const porcentaje = nuevaFacturaData.aplicarDetraccion
+        ? `Porcentaje %: ${nuevaFacturaData.detraccion.porcentaje.toFixed(2)}`
+        : "";
+      observacion += cuenta2 + noCuotas + porcentaje + "\n";
 
-    // Línea 3: Tercera cuenta | Fecha de Vencimiento | Monto detracción
-    const cuenta3 = cuentasPago[2].padEnd(55);
-    const vencimiento = `Fecha de Vencimiento: ${fechaVencimiento}`.padEnd(57);
-    const montoDetraccion = nuevaFacturaData.aplicarDetraccion
-      ? `Monto detracción S/: ${nuevaFacturaData.detraccion.monto.toFixed(2)}`
-      : "";
-    observacion += cuenta3 + vencimiento + montoDetraccion;
+      // Línea 3: Tercera cuenta | Fecha de Vencimiento | Monto detracción
+      const cuenta3 = cuentasPago[2].padEnd(55);
+      const vencimiento = `Fecha de Vencimiento: ${fechaVencimiento}`.padEnd(
+        57
+      );
+      const montoDetraccion = nuevaFacturaData.aplicarDetraccion
+        ? `Monto detracción S/: ${nuevaFacturaData.detraccion.monto.toFixed(2)}`
+        : "";
+      observacion += cuenta3 + vencimiento + montoDetraccion;
+    } else {
+      // 2 columnas: Cuenta de pago | Información de la detracción
+      // Los padEnd se calculan sumando las dos primeras columnas del caso CREDITO
+      // Línea 1: 52+65=117, Línea 2: 48+70=118, Línea 3: 55+57=112
+      observacion +=
+        "Cuenta de pago".padEnd(117) + "Información de la detracción\n";
+
+      // Línea 1: Primera cuenta | Bien o Servicio
+      const cuenta1 = cuentasPago[0].padEnd(104);
+      const bienServicio = nuevaFacturaData.aplicarDetraccion
+        ? `Bien o Servicio: ${
+            nuevaFacturaData.detraccion.tipo_detraccion || "---"
+          }`
+        : "No aplica detracción";
+      observacion += cuenta1 + bienServicio + "\n";
+
+      // Línea 2: Segunda cuenta | Porcentaje
+      const cuenta2 = cuentasPago[1].padEnd(100);
+      const porcentaje = nuevaFacturaData.aplicarDetraccion
+        ? `Porcentaje %: ${nuevaFacturaData.detraccion.porcentaje.toFixed(2)}`
+        : "";
+      observacion += cuenta2 + porcentaje + "\n";
+
+      // Línea 3: Tercera cuenta | Monto detracción
+      const cuenta3 = cuentasPago[2].padEnd(106);
+      const montoDetraccion = nuevaFacturaData.aplicarDetraccion
+        ? `Monto detracción S/: ${nuevaFacturaData.detraccion.monto.toFixed(2)}`
+        : "";
+      observacion += cuenta3 + montoDetraccion;
+    }
 
     setNuevaFacturaData((prev) => ({
       ...prev,
@@ -791,17 +833,17 @@ export default function FacturaPage() {
 
       // Asegurar que la serie tenga el formato correcto para SUNAT
       if (!nuevaFacturaData.serie || nuevaFacturaData.serie.length < 4) {
-        // Autocompletar con 0001 si está vacía o incompleta
-        setNuevaFacturaData((prev) => ({ ...prev, serie: "0001" }));
-        nuevaFacturaData.serie = "0001";
+        // Autocompletar con FFF1 si está vacía o incompleta
+        setNuevaFacturaData((prev) => ({ ...prev, serie: "FFF1" }));
+        nuevaFacturaData.serie = "FFF1";
       }
 
       console.log("🔍 Validando serie:", nuevaFacturaData.serie);
 
-      // Validación flexible: acepta formatos como 0001, F001, E001, B001, etc.
+      // Validación flexible: acepta formatos como FFF1, F001, E001, B001, etc.
       if (!nuevaFacturaData.serie.match(/^[A-Z0-9]{4}$/)) {
         toast.error(
-          `La serie "${nuevaFacturaData.serie}" no es válida. Debe tener 4 caracteres (ej: 0001, F001, E001)`
+          `La serie "${nuevaFacturaData.serie}" no es válida. Debe tener 4 caracteres (ej: FFF1, F001, E001)`
         );
         return;
       }
@@ -1143,7 +1185,7 @@ export default function FacturaPage() {
         fondoGarantiaValor: facturaCompleta.fondo_garantia_valor || "",
         ordenCompra: Boolean(facturaCompleta.orden_compra),
         ordenCompraValor: facturaCompleta.orden_compra_valor || "",
-        serie: facturaCompleta.serie || "0001",
+        serie: facturaCompleta.serie || "FFF1",
         nroDoc: String(facturaCompleta.numero || ""),
         fechaEmision: new Date(facturaCompleta.fecha_emision || new Date()),
         moneda: facturaCompleta.moneda === 1 ? "SOLES" : "DOLARES",
@@ -2026,10 +2068,10 @@ export default function FacturaPage() {
                             !nuevaFacturaData.serie ||
                             nuevaFacturaData.serie.length < 4
                           ) {
-                            handleNuevaFacturaInputChange("serie", "0001");
+                            handleNuevaFacturaInputChange("serie", "FFF1");
                           }
                         }}
-                        placeholder="0001"
+                        placeholder="FFF1"
                         maxLength={4}
                         className="h-8 text-xs w-16"
                       />

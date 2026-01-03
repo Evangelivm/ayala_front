@@ -41,6 +41,7 @@ import { RutaDialog } from "@/components/ruta-dialog";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { ProyectoSelect } from "@/components/proyecto-select";
 import { AddCamionDialog } from "@/components/add-camion-dialog";
+import { AddEmpresaDialog } from "@/components/add-empresa-dialog";
 import { ubigeosLima } from "@/lib/ubigeos-lima";
 import {
   getManualRows,
@@ -122,6 +123,21 @@ export default function ProgramacionPage() {
     }
   };
 
+  // Función para cargar empresas
+  const loadEmpresas = async () => {
+    try {
+      const empresasData = await empresasApi.getAll();
+      // Filtrar solo empresas con datos completos
+      const empresasCompletas = empresasData.filter(
+        (e) => e.nro_documento && e.razon_social && e.direccion
+      );
+      setEmpresas(empresasCompletas);
+    } catch (error) {
+      console.error("Error al cargar empresas:", error);
+      toast.error("Error al cargar la lista de empresas");
+    }
+  };
+
   // Cargar camiones al montar el componente
   useEffect(() => {
     loadCamiones();
@@ -129,20 +145,6 @@ export default function ProgramacionPage() {
 
   // Cargar empresas (proveedores) al montar el componente
   useEffect(() => {
-    const loadEmpresas = async () => {
-      try {
-        const empresasData = await empresasApi.getAll();
-        // Filtrar solo empresas con datos completos
-        const empresasCompletas = empresasData.filter(
-          (e) => e.nro_documento && e.razon_social && e.direccion
-        );
-        setEmpresas(empresasCompletas);
-      } catch (error) {
-        console.error("Error al cargar empresas:", error);
-        toast.error("Error al cargar la lista de empresas");
-      }
-    };
-
     loadEmpresas();
   }, []);
 
@@ -903,11 +905,17 @@ export default function ProgramacionPage() {
                 </p>
               </div>
             </div>
-            <AddCamionDialog
-              empresas={empresas}
-              onCamionAdded={loadCamiones}
-              buttonText="Agregar Unidad"
-            />
+            <div className="flex gap-2">
+              <AddEmpresaDialog
+                onEmpresaAdded={loadEmpresas}
+                buttonText="Agregar Empresa"
+              />
+              <AddCamionDialog
+                empresas={empresas}
+                onCamionAdded={loadCamiones}
+                buttonText="Agregar Unidad"
+              />
+            </div>
           </div>
         </div>
       </div>
