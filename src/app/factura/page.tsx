@@ -239,6 +239,7 @@ export default function FacturaPage() {
     observacion: "",
     tipoVenta: "CONTADO", // CONTADO o CREDITO
     plazoCredito: 0, // 7, 15, 30, 45, 60 días
+    medioPago: "EFECTIVO", // Medio de pago para CONTADO
   });
 
   // Hook de debounce para optimizar cálculos
@@ -695,6 +696,7 @@ export default function FacturaPage() {
       observacion: "",
       tipoVenta: "CONTADO",
       plazoCredito: 0,
+      medioPago: "EFECTIVO",
     });
     setFacturaEditandoId(null);
     setInfoAutomaticaGenerada(false);
@@ -1089,10 +1091,25 @@ export default function FacturaPage() {
         dataParaBackend.detraccion_total = Number(detraccionMonto.toFixed(2));
       }
 
-      // Preparar datos finales incluyendo venta al crédito solo si aplica
+      // Preparar datos finales según la documentación de NubeFact
       const finalDataParaBackend = {
         ...dataParaBackend,
-        // Agregar venta al crédito solo si aplica (según documentación de NubeFact)
+
+        // Campos de forma de pago según documentación NubeFact
+        // Si es CRÉDITO: usar condiciones_de_pago + venta_al_credito (NO medio_de_pago)
+        // Si es CONTADO: usar condiciones_de_pago + medio_de_pago (NO venta_al_credito)
+        condiciones_de_pago: nuevaFacturaData.tipoVenta === "CREDITO"
+          ? `CRÉDITO ${nuevaFacturaData.plazoCredito} DÍAS`
+          : "CONTADO",
+
+        // Agregar medio_de_pago solo si es CONTADO (según documentación)
+        ...(nuevaFacturaData.tipoVenta === "CONTADO"
+          ? {
+              medio_de_pago: nuevaFacturaData.medioPago || "EFECTIVO",
+            }
+          : {}),
+
+        // Agregar venta_al_credito solo si es CRÉDITO (según documentación)
         ...(nuevaFacturaData.tipoVenta === "CREDITO" &&
         nuevaFacturaData.plazoCredito > 0
           ? {
@@ -1283,6 +1300,7 @@ export default function FacturaPage() {
         observacion: facturaCompleta.observaciones || "",
         tipoVenta: "CONTADO", // Por defecto CONTADO al editar (backend no devuelve este campo aún)
         plazoCredito: 0,
+        medioPago: "EFECTIVO", // Por defecto EFECTIVO al editar
       });
 
       // Establecer el ID de la factura que se está editando
@@ -1989,6 +2007,46 @@ export default function FacturaPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Medio de Pago - Solo visible si es CONTADO */}
+                  {nuevaFacturaData.tipoVenta === "CONTADO" && (
+                    <div className="col-span-2">
+                      <Label
+                        htmlFor="medio-pago"
+                        className="text-xs font-semibold"
+                      >
+                        Medio de Pago:
+                      </Label>
+                      <Select
+                        value={nuevaFacturaData.medioPago}
+                        onValueChange={(value) =>
+                          handleNuevaFacturaInputChange("medioPago", value)
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Seleccione medio de pago" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                          <SelectItem value="TRANSFERENCIA BANCARIA">
+                            Transferencia Bancaria
+                          </SelectItem>
+                          <SelectItem value="TARJETA DE CRÉDITO">
+                            Tarjeta de Crédito
+                          </SelectItem>
+                          <SelectItem value="TARJETA DE DÉBITO">
+                            Tarjeta de Débito
+                          </SelectItem>
+                          <SelectItem value="CHEQUE">Cheque</SelectItem>
+                          <SelectItem value="YAPE">Yape</SelectItem>
+                          <SelectItem value="PLIN">Plin</SelectItem>
+                          <SelectItem value="DEPÓSITO EN CUENTA">
+                            Depósito en Cuenta
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   {/* Plazo de Crédito - Solo visible si es CREDITO */}
                   {nuevaFacturaData.tipoVenta === "CREDITO" && (

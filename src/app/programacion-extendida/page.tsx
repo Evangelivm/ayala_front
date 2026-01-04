@@ -579,7 +579,7 @@ export default function ProgramacionExtendidaPage() {
                                   <div className="space-y-2">
                                     {duplicados.map((duplicado, index) => (
                                       <div
-                                        key={index}
+                                        key={duplicado.id || `duplicado-${item.id}-${index}`}
                                         className="bg-white p-3 rounded-lg border border-purple-200 hover:border-purple-300 transition-colors"
                                       >
                                         <div className="flex items-start gap-3">
