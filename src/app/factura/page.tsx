@@ -66,6 +66,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useWebSocket } from "@/lib/useWebSocket";
+import { useDistributedLock } from "@/lib/useDistributedLock";
+import { LockResource } from "@/lib/distributed-lock";
 
 // Extended types for factura data with all fields
 interface FacturaItem {
@@ -250,6 +252,13 @@ export default function FacturaPage() {
     }
     debounceTimerRef.current = setTimeout(fn, delay);
   }, []);
+
+  // Hook para gestión de locks distribuidos
+  const { withLock, isLocked } = useDistributedLock({
+    autoRelease: true,
+    ttl: 30000, // 30 segundos
+    timeout: 10000, // 10 segundos de espera máxima
+  });
 
   // Cargar datos al montar el componente
   useEffect(() => {
@@ -1173,20 +1182,31 @@ export default function FacturaPage() {
       });
 
       // Enviar al backend - detectar si es creación o edición
+      // Usar locks distribuidos para evitar condiciones de carrera
       if (facturaEditandoId) {
         // Modo edición - actualizar factura existente
-        const result = await facturaApi.update(
-          facturaEditandoId,
-          finalDataParaBackend
-        );
-        toast.success("Factura actualizada exitosamente", {
-          description: `Número: ${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`,
+        // Lock: factura:ID:update
+        const lockResource = LockResource.facturaUpdate(facturaEditandoId);
+
+        await withLock(lockResource, async () => {
+          const result = await facturaApi.update(
+            facturaEditandoId,
+            finalDataParaBackend
+          );
+          toast.success("Factura actualizada exitosamente", {
+            description: `Número: ${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`,
+          });
         });
       } else {
         // Modo creación - crear nueva factura
-        const result = await facturaApi.create(finalDataParaBackend);
-        toast.success("Factura creada exitosamente", {
-          description: `Número: ${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`,
+        // Lock: factura:create:SERIE para evitar duplicados de número
+        const lockResource = LockResource.facturaCreate(nuevaFacturaData.serie);
+
+        await withLock(lockResource, async () => {
+          const result = await facturaApi.create(finalDataParaBackend);
+          toast.success("Factura creada exitosamente", {
+            description: `Número: ${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`,
+          });
         });
       }
 
