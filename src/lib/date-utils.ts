@@ -71,3 +71,21 @@ export const getTodayPeru = (): string => {
   const peruNow = dayjs().tz('America/Lima');
   return peruNow.format('YYYY-MM-DD');
 };
+
+/**
+ * Convierte una fecha a formato YYYY-MM-DD en timezone de Perú
+ * Útil para enviar fechas al backend sin conversión de timezone
+ * @param date - Date object o string ISO
+ * @returns Fecha en formato YYYY-MM-DD
+ */
+export const toDateStringPeru = (date: string | Date | null): string => {
+  if (!date) return getTodayPeru();
+
+  try {
+    // Convertir a timezone de Perú y obtener formato YYYY-MM-DD
+    const peruDate = dayjs(date).tz('America/Lima');
+    return peruDate.format('YYYY-MM-DD');
+  } catch (error) {
+    return getTodayPeru();
+  }
+};

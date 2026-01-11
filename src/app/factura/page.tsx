@@ -55,7 +55,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   Table,
@@ -68,6 +67,8 @@ import {
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useDistributedLock } from "@/lib/useDistributedLock";
 import { LockResource } from "@/lib/distributed-lock";
+import { formatDatePeru, toDateStringPeru, getTodayPeru } from "@/lib/date-utils";
+import dayjs from 'dayjs';
 
 // Extended types for factura data with all fields
 interface FacturaItem {
@@ -740,9 +741,9 @@ export default function FacturaPage() {
     const fechaVencimiento =
       nuevaFacturaData.tipoVenta === "CREDITO"
         ? (() => {
-            const fecha = new Date(nuevaFacturaData.fechaEmision);
-            fecha.setDate(fecha.getDate() + nuevaFacturaData.plazoCredito);
-            return fecha.toLocaleDateString("es-PE");
+            const fechaEmisionStr = toDateStringPeru(nuevaFacturaData.fechaEmision);
+            const fechaVenc = dayjs(fechaEmisionStr).add(nuevaFacturaData.plazoCredito, 'day');
+            return formatDatePeru(fechaVenc.format('YYYY-MM-DD'));
           })()
         : "Inmediato";
 
@@ -901,20 +902,18 @@ export default function FacturaPage() {
       }
 
       // Validar que la fecha de emisión sea hoy (requisito de SUNAT)
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-      const fechaEmision = new Date(nuevaFacturaData.fechaEmision);
-      fechaEmision.setHours(0, 0, 0, 0);
+      const hoyPeru = getTodayPeru(); // YYYY-MM-DD en timezone de Perú
+      const fechaEmisionStr = toDateStringPeru(nuevaFacturaData.fechaEmision);
 
-      if (fechaEmision.getTime() !== hoy.getTime()) {
+      if (fechaEmisionStr !== hoyPeru) {
         toast.warning(
           "La fecha de emisión debe ser HOY según SUNAT. Se ajustará automáticamente.",
           {
             duration: 4000,
           }
         );
-        // Ajustar la fecha a hoy
-        nuevaFacturaData.fechaEmision = hoy;
+        // Ajustar la fecha a hoy en timezone de Perú
+        nuevaFacturaData.fechaEmision = new Date(hoyPeru);
       }
 
       // Obtener datos del proveedor seleccionado
@@ -946,32 +945,19 @@ export default function FacturaPage() {
         cliente_email_1: null,
         cliente_email_2: null,
 
-        // Fechas (enviar en formato YYYY-MM-DD con hora de Perú para evitar problemas de zona horaria)
-        fecha_emision: (() => {
-          const fecha = new Date(nuevaFacturaData.fechaEmision);
-          const year = fecha.getFullYear();
-          const month = String(fecha.getMonth() + 1).padStart(2, "0");
-          const day = String(fecha.getDate()).padStart(2, "0");
-          return `${year}-${month}-${day}`;
-        })(),
+        // Fechas (enviar en formato YYYY-MM-DD en timezone de Perú)
+        fecha_emision: toDateStringPeru(nuevaFacturaData.fechaEmision),
         fecha_vencimiento:
           nuevaFacturaData.tipoVenta === "CREDITO"
             ? (() => {
-                const fecha = new Date(nuevaFacturaData.fechaEmision);
-                fecha.setDate(fecha.getDate() + nuevaFacturaData.plazoCredito);
-                const day = String(fecha.getDate()).padStart(2, "0");
-                const month = String(fecha.getMonth() + 1).padStart(2, "0");
-                const year = fecha.getFullYear();
-                return `${day}-${month}-${year}`; // Formato DD-MM-YYYY según NubeFact
+                // Sumar días a la fecha de emisión usando dayjs
+                const fechaEmisionStr = toDateStringPeru(nuevaFacturaData.fechaEmision);
+                const fechaVencimiento = dayjs(fechaEmisionStr).add(nuevaFacturaData.plazoCredito, 'day');
+                // Formato DD-MM-YYYY según NubeFact
+                return fechaVencimiento.format('DD-MM-YYYY');
               })()
             : null,
-        fecha_servicio: (() => {
-          const fecha = new Date(nuevaFacturaData.fechaServicio);
-          const year = fecha.getFullYear();
-          const month = String(fecha.getMonth() + 1).padStart(2, "0");
-          const day = String(fecha.getDate()).padStart(2, "0");
-          return `${year}-${month}-${day}`;
-        })(),
+        fecha_servicio: toDateStringPeru(nuevaFacturaData.fechaServicio),
 
         // Moneda y totales
         moneda: nuevaFacturaData.moneda === "SOLES" ? 1 : 2,
@@ -1136,23 +1122,14 @@ export default function FacturaPage() {
         nuevaFacturaData.plazoCredito > 0
           ? {
               venta_al_credito: (() => {
-                const fechaVencimiento = new Date(
-                  nuevaFacturaData.fechaEmision
-                );
-                fechaVencimiento.setDate(
-                  fechaVencimiento.getDate() + nuevaFacturaData.plazoCredito
-                );
-                const day = String(fechaVencimiento.getDate()).padStart(2, "0");
-                const month = String(fechaVencimiento.getMonth() + 1).padStart(
-                  2,
-                  "0"
-                );
-                const year = fechaVencimiento.getFullYear();
+                // Calcular fecha de vencimiento en timezone de Perú
+                const fechaEmisionStr = toDateStringPeru(nuevaFacturaData.fechaEmision);
+                const fechaVencimiento = dayjs(fechaEmisionStr).add(nuevaFacturaData.plazoCredito, 'day');
 
                 return [
                   {
                     cuota: 1,
-                    fecha_de_pago: `${day}-${month}-${year}`, // Formato DD-MM-YYYY
+                    fecha_de_pago: fechaVencimiento.format('DD-MM-YYYY'), // Formato DD-MM-YYYY
                     importe: Number(totalCalculado.toFixed(2)),
                   },
                 ];
@@ -1570,20 +1547,18 @@ export default function FacturaPage() {
 
     // Filtro por fecha desde
     if (filtroFechaDesde) {
-      const fechaFactura = new Date(factura.fecha_factura);
-      const fechaDesde = new Date(filtroFechaDesde);
-      fechaDesde.setHours(0, 0, 0, 0);
-      if (fechaFactura < fechaDesde) {
+      const fechaFacturaStr = toDateStringPeru(factura.fecha_factura);
+      const fechaDesdeStr = toDateStringPeru(filtroFechaDesde);
+      if (fechaFacturaStr < fechaDesdeStr) {
         return false;
       }
     }
 
     // Filtro por fecha hasta
     if (filtroFechaHasta) {
-      const fechaFactura = new Date(factura.fecha_factura);
-      const fechaHasta = new Date(filtroFechaHasta);
-      fechaHasta.setHours(23, 59, 59, 999);
-      if (fechaFactura > fechaHasta) {
+      const fechaFacturaStr = toDateStringPeru(factura.fecha_factura);
+      const fechaHastaStr = toDateStringPeru(filtroFechaHasta);
+      if (fechaFacturaStr > fechaHastaStr) {
         return false;
       }
     }
@@ -1682,9 +1657,7 @@ export default function FacturaPage() {
                         >
                           <CalendarIcon className="mr-2 h-3 w-3" />
                           {filtroFechaDesde ? (
-                            format(filtroFechaDesde, "dd/MM/yyyy", {
-                              locale: es,
-                            })
+                            formatDatePeru(filtroFechaDesde)
                           ) : (
                             <span className="text-gray-400">
                               Seleccionar fecha
@@ -1714,9 +1687,7 @@ export default function FacturaPage() {
                         >
                           <CalendarIcon className="mr-2 h-3 w-3" />
                           {filtroFechaHasta ? (
-                            format(filtroFechaHasta, "dd/MM/yyyy", {
-                              locale: es,
-                            })
+                            formatDatePeru(filtroFechaHasta)
                           ) : (
                             <span className="text-gray-400">
                               Seleccionar fecha
@@ -1808,13 +1779,7 @@ export default function FacturaPage() {
                             {factura.numero_factura}
                           </TableCell>
                           <TableCell className="text-xs text-center">
-                            {format(
-                              new Date(factura.fecha_factura),
-                              "dd/MM/yyyy",
-                              {
-                                locale: es,
-                              }
-                            )}
+                            {formatDatePeru(factura.fecha_factura)}
                           </TableCell>
                           <TableCell className="text-xs">
                             {factura.proveedor}
@@ -2044,13 +2009,7 @@ export default function FacturaPage() {
                         >
                           <CalendarIcon className="mr-2 h-3 w-3" />
                           {nuevaFacturaData.fechaEmision
-                            ? format(
-                                nuevaFacturaData.fechaEmision,
-                                "dd/MM/yyyy",
-                                {
-                                  locale: es,
-                                }
-                              )
+                            ? formatDatePeru(nuevaFacturaData.fechaEmision)
                             : "Fecha"}
                         </Button>
                       </PopoverTrigger>
