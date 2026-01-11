@@ -385,12 +385,15 @@ export default function FacturaPage() {
       });
 
       setFacturas(facturasTransformadas);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading facturas:", error);
 
       let errorMessage = "Error desconocido";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -1226,15 +1229,17 @@ export default function FacturaPage() {
 
       // Recargar la lista de facturas
       await loadFacturas();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error al guardar factura:", error);
 
       // Extraer el mensaje del error desde la respuesta del servidor
       let errorMessage = "Error desconocido";
 
-      if (error?.response?.data?.message) {
-        // Error 400 u otro error con mensaje del backend
-        errorMessage = error.response.data.message;
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -1259,12 +1264,15 @@ export default function FacturaPage() {
       await facturaApi.delete(id);
       toast.success("Factura eliminada exitosamente");
       loadFacturas();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error al eliminar factura:", error);
 
       let errorMessage = "Error desconocido";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -1365,12 +1373,15 @@ export default function FacturaPage() {
         []
       ).length;
       toast.success(`Factura cargada con ${itemsCount} item(s)`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error al cargar factura para editar:", error);
 
       let errorMessage = "Error desconocido";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -1397,12 +1408,15 @@ export default function FacturaPage() {
 
       // Recargar facturas para actualizar la tabla
       await loadFacturas();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error verificando estado:", error);
 
       let errorMessage = "Error desconocido";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -1428,12 +1442,15 @@ export default function FacturaPage() {
 
       // Recargar facturas
       await loadFacturas();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error reintentando factura:", error);
 
       let errorMessage = "Error desconocido";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -1509,12 +1526,15 @@ export default function FacturaPage() {
       // Abrir modal de enlaces y detalles completos
       setSelectedFacturaForModal(facturaParaModal);
       setIsEnlacesModalOpen(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("❌ Error al abrir modal de detalles:", error);
 
       let errorMessage = "Error desconocido";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
