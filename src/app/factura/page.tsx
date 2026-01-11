@@ -385,9 +385,19 @@ export default function FacturaPage() {
       });
 
       setFacturas(facturasTransformadas);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading facturas:", error);
-      toast.error("Error al cargar las facturas");
+
+      let errorMessage = "Error desconocido";
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.error("Error al cargar las facturas", {
+        description: errorMessage,
+      });
       setFacturas([]);
     }
   };
@@ -1216,11 +1226,21 @@ export default function FacturaPage() {
 
       // Recargar la lista de facturas
       await loadFacturas();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al guardar factura:", error);
+
+      // Extraer el mensaje del error desde la respuesta del servidor
+      let errorMessage = "Error desconocido";
+
+      if (error?.response?.data?.message) {
+        // Error 400 u otro error con mensaje del backend
+        errorMessage = error.response.data.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
       toast.error("Error al guardar la factura", {
-        description:
-          error instanceof Error ? error.message : "Error desconocido",
+        description: errorMessage,
       });
     }
   };
@@ -1239,9 +1259,19 @@ export default function FacturaPage() {
       await facturaApi.delete(id);
       toast.success("Factura eliminada exitosamente");
       loadFacturas();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al eliminar factura:", error);
-      toast.error("Error al eliminar la factura");
+
+      let errorMessage = "Error desconocido";
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.error("Error al eliminar la factura", {
+        description: errorMessage,
+      });
     }
   };
 
@@ -1335,9 +1365,19 @@ export default function FacturaPage() {
         []
       ).length;
       toast.success(`Factura cargada con ${itemsCount} item(s)`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al cargar factura para editar:", error);
-      toast.error("Error al cargar la factura para editar");
+
+      let errorMessage = "Error desconocido";
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.error("Error al cargar la factura para editar", {
+        description: errorMessage,
+      });
     }
   };
 
@@ -1357,9 +1397,19 @@ export default function FacturaPage() {
 
       // Recargar facturas para actualizar la tabla
       await loadFacturas();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error verificando estado:", error);
-      toast.error("Error al verificar el estado de la factura");
+
+      let errorMessage = "Error desconocido";
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.error("Error al verificar el estado de la factura", {
+        description: errorMessage,
+      });
     }
   };
 
@@ -1378,9 +1428,19 @@ export default function FacturaPage() {
 
       // Recargar facturas
       await loadFacturas();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error reintentando factura:", error);
-      toast.error("Error al reintentar la factura");
+
+      let errorMessage = "Error desconocido";
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.error("Error al reintentar la factura", {
+        description: errorMessage,
+      });
     }
   };
 
@@ -1449,9 +1509,19 @@ export default function FacturaPage() {
       // Abrir modal de enlaces y detalles completos
       setSelectedFacturaForModal(facturaParaModal);
       setIsEnlacesModalOpen(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error al abrir modal de detalles:", error);
-      toast.error("Error al mostrar los detalles de la factura");
+
+      let errorMessage = "Error desconocido";
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.error("Error al mostrar los detalles de la factura", {
+        description: errorMessage,
+      });
     }
   };
 

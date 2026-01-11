@@ -687,7 +687,19 @@ export default function OrdenCompraPage() {
     field: string,
     value: string | Date | number | boolean | { porcentaje: number; monto: number; tipo_detraccion?: string }
   ) => {
-    setNuevaOrdenData((prev) => ({ ...prev, [field]: value }));
+    setNuevaOrdenData((prev) => {
+      // Si se marca Almacén Central, limpiar los campos de centro de costos
+      if (field === "almacenCentral" && value === true) {
+        return {
+          ...prev,
+          [field]: value,
+          centroCostoNivel1Codigo: "",
+          centroCostoNivel2Codigo: "",
+          centroCostoNivel3Codigo: "",
+        };
+      }
+      return { ...prev, [field]: value };
+    });
 
     // Si cambia a moneda DOLARES, obtener el tipo de cambio automáticamente
     if (field === "moneda" && value === "DOLARES") {
@@ -3427,6 +3439,7 @@ export default function OrdenCompraPage() {
                                 loadCentrosProyecto();
                               }
                             }}
+                            disabled={nuevaOrdenData.almacenCentral}
                           >
                             <SelectTrigger className="h-8 text-xs">
                               <SelectValue placeholder="Seleccionar proyecto..." />
@@ -3450,6 +3463,7 @@ export default function OrdenCompraPage() {
                               className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
                               onClick={() => handleCentroCostoNivel1Change("")}
                               title="Limpiar selección"
+                              disabled={nuevaOrdenData.almacenCentral}
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -3472,6 +3486,7 @@ export default function OrdenCompraPage() {
                                 loadFases();
                               }
                             }}
+                            disabled={nuevaOrdenData.almacenCentral}
                           >
                             <SelectTrigger className="h-8 text-xs">
                               <SelectValue placeholder="Seleccionar fase..." />
@@ -3495,6 +3510,7 @@ export default function OrdenCompraPage() {
                               className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
                               onClick={() => handleCentroCostoNivel2Change("")}
                               title="Limpiar selección"
+                              disabled={nuevaOrdenData.almacenCentral}
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -3517,6 +3533,7 @@ export default function OrdenCompraPage() {
                                 loadRubros();
                               }
                             }}
+                            disabled={nuevaOrdenData.almacenCentral}
                           >
                             <SelectTrigger className="h-8 text-xs">
                               <SelectValue placeholder="Seleccionar rubro..." />
@@ -3540,6 +3557,7 @@ export default function OrdenCompraPage() {
                               className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
                               onClick={() => handleCentroCostoNivel3Change("")}
                               title="Limpiar selección"
+                              disabled={nuevaOrdenData.almacenCentral}
                             >
                               <X className="h-4 w-4" />
                             </Button>
