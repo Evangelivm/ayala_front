@@ -171,6 +171,8 @@ export default function FacturaPage() {
     Array<{
       id: number;
       numero_factura: string;
+      serie: string;
+      numero: number;
       fecha_factura: string;
       proveedor: string;
       subtotal: number;
@@ -366,6 +368,8 @@ export default function FacturaPage() {
             8,
             "0"
           )}`,
+          serie: factura.serie,
+          numero: factura.numero,
           fecha_factura: factura.fecha_emision,
           proveedor:
             factura.proveedores?.nombre_proveedor ||
@@ -683,7 +687,27 @@ export default function FacturaPage() {
     []
   );
 
+  // Función para obtener el siguiente número de documento disponible
+  const obtenerSiguienteNumeroDocumento = (serie: string): string => {
+    // Filtrar facturas por serie y obtener el número más alto
+    const facturasConMismaSerie = facturas.filter((f) => f.serie === serie);
+
+    if (facturasConMismaSerie.length === 0) {
+      // Si no hay facturas con esta serie, empezar desde 1
+      return "1";
+    }
+
+    // Obtener el número más alto
+    const numeroMaximo = Math.max(...facturasConMismaSerie.map((f) => f.numero));
+
+    // Retornar el siguiente número
+    return String(numeroMaximo + 1);
+  };
+
   const limpiarFormularioFactura = () => {
+    const serieInicial = "FFF1";
+    const siguienteNumero = obtenerSiguienteNumeroDocumento(serieInicial);
+
     setNuevaFacturaData({
       id_proveedor: 0,
       nroCliente: "",
@@ -693,8 +717,8 @@ export default function FacturaPage() {
       fondoGarantiaValor: "",
       ordenCompra: false,
       ordenCompraValor: "",
-      serie: "FFF1",
-      nroDoc: "",
+      serie: serieInicial,
+      nroDoc: siguienteNumero,
       fechaEmision: new Date(),
       moneda: "SOLES",
       tipoCambio: 0,
@@ -2275,10 +2299,14 @@ export default function FacturaPage() {
                         id="serie"
                         value={nuevaFacturaData.serie}
                         onChange={(e) => {
+                          const nuevaSerie = e.target.value.toUpperCase();
                           handleNuevaFacturaInputChange(
                             "serie",
-                            e.target.value.toUpperCase()
+                            nuevaSerie
                           );
+                          // Actualizar el número de documento automáticamente al cambiar la serie
+                          const siguienteNumero = obtenerSiguienteNumeroDocumento(nuevaSerie);
+                          handleNuevaFacturaInputChange("nroDoc", siguienteNumero);
                         }}
                         onBlur={(e) => {
                           // Asegurar formato correcto al perder el foco
@@ -2287,6 +2315,9 @@ export default function FacturaPage() {
                             nuevaFacturaData.serie.length < 4
                           ) {
                             handleNuevaFacturaInputChange("serie", "FFF1");
+                            // Actualizar el número al volver a FFF1
+                            const siguienteNumero = obtenerSiguienteNumeroDocumento("FFF1");
+                            handleNuevaFacturaInputChange("nroDoc", siguienteNumero);
                           }
                         }}
                         placeholder="FFF1"
