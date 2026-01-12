@@ -347,6 +347,40 @@ export default function FacturaPage() {
     };
   }, [facturas]); // Dependencia: facturas
 
+  // Polling automático para facturas en FALLIDO (verificación de estado real)
+  useEffect(() => {
+    // Solo hacer polling si hay facturas en FALLIDO o con errores
+    const facturasConErrores = facturas.filter(
+      (f) => f.estado === "FALLIDO" || f.estado === "ERROR"
+    );
+
+    if (facturasConErrores.length === 0) {
+      return; // No hay nada que hacer
+    }
+
+    // Verificar inmediatamente después de 5 segundos
+    const timeoutId = setTimeout(() => {
+      console.log(
+        `🔍 Verificando estado real de ${facturasConErrores.length} factura(s) con errores...`
+      );
+      loadFacturas();
+    }, 5000); // 5 segundos
+
+    // Luego continuar verificando cada 20 segundos
+    const intervalId = setInterval(() => {
+      console.log(
+        `🔍 Revalidando ${facturasConErrores.length} factura(s) en estado de error`
+      );
+      loadFacturas();
+    }, 20000); // 20 segundos
+
+    // Cleanup al desmontar o cuando cambien las facturas
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(intervalId);
+    };
+  }, [facturas]); // Dependencia: facturas
+
   const loadFacturas = async () => {
     try {
       const data = await facturaApi.getAll();
@@ -356,10 +390,27 @@ export default function FacturaPage() {
         // Determinar el estado real de la factura
         let estadoReal = factura.estado_factura || "SIN PROCESAR";
 
-        // Si tiene enlace del PDF y fue aceptada por SUNAT, considerarla COMPLETADA
-        // independientemente del estado en la BD
-        if (factura.enlace_del_pdf && factura.aceptada_por_sunat === true) {
+        // VALIDACIÓN INTELIGENTE DE ESTADO:
+        // Si tiene enlaces y fue aceptada por SUNAT, considerarla COMPLETADA
+        // independientemente del estado en la BD (previene falsos positivos de errores)
+        const tieneEnlacesPDF = Boolean(factura.enlace_del_pdf);
+        const tieneEnlaceXML = Boolean(factura.enlace_del_xml);
+        const tieneEnlaceCDR = Boolean(factura.enlace_del_cdr);
+        const aceptadaSUNAT = factura.aceptada_por_sunat === true;
+
+        // Si tiene PDF Y fue aceptada por SUNAT -> definitivamente COMPLETADA
+        if (tieneEnlacesPDF && aceptadaSUNAT) {
+          if (estadoReal !== "COMPLETADO") {
+            console.log(`✅ Factura ${factura.serie}-${factura.numero}: Corrigiendo estado de "${estadoReal}" a "COMPLETADO" (tiene PDF y aceptada por SUNAT)`);
+          }
           estadoReal = "COMPLETADO";
+        }
+        // Si tiene los 3 enlaces (PDF, XML, CDR) aunque SUNAT no responda -> muy probablemente COMPLETADA
+        else if (tieneEnlacesPDF && tieneEnlaceXML && tieneEnlaceCDR) {
+          if (estadoReal === "FALLIDO" || estadoReal === "ERROR") {
+            console.log(`✅ Factura ${factura.serie}-${factura.numero}: Corrigiendo estado de "${estadoReal}" a "COMPLETADO" (tiene todos los enlaces)`);
+            estadoReal = "COMPLETADO";
+          }
         }
 
         return {
@@ -1128,18 +1179,16 @@ export default function FacturaPage() {
         ...dataParaBackend,
 
         // Campos de forma de pago según documentación NubeFact
-        // Si es CRÉDITO: usar condiciones_de_pago + venta_al_credito (NO medio_de_pago)
-        // Si es CONTADO: usar condiciones_de_pago + medio_de_pago (NO venta_al_credito)
+        // Si es CRÉDITO: usar condiciones_de_pago + venta_al_credito + medio_de_pago
+        // Si es CONTADO: usar medio_de_pago
         condiciones_de_pago: nuevaFacturaData.tipoVenta === "CREDITO"
           ? `CRÉDITO ${nuevaFacturaData.plazoCredito} DÍAS`
-          : "CONTADO",
+          : "",
 
-        // Agregar medio_de_pago solo si es CONTADO (según documentación)
-        ...(nuevaFacturaData.tipoVenta === "CONTADO"
-          ? {
-              medio_de_pago: nuevaFacturaData.medioPago || "EFECTIVO",
-            }
-          : {}),
+        // Enviar medio_de_pago para ambos casos
+        medio_de_pago: nuevaFacturaData.tipoVenta === "CREDITO"
+          ? `CRÉDITO ${nuevaFacturaData.plazoCredito} DÍAS`
+          : nuevaFacturaData.medioPago,
 
         // Agregar venta_al_credito solo si es CRÉDITO (según documentación)
         ...(nuevaFacturaData.tipoVenta === "CREDITO" &&
@@ -1211,25 +1260,64 @@ export default function FacturaPage() {
             description: `Número: ${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`,
           });
         });
+
+        // Cerrar modal y recargar para edición
+        setIsNuevaFacturaModalOpen(false);
+        handleNuevaFacturaCancel();
+        await loadFacturas();
+
       } else {
         // Modo creación - crear nueva factura
         // Lock: factura:create:SERIE para evitar duplicados de número
         const lockResource = LockResource.facturaCreate(nuevaFacturaData.serie);
 
+        let facturaId: number | null = null;
         await withLock(lockResource, async () => {
           const result = await facturaApi.create(finalDataParaBackend);
+          facturaId = result.id_factura;
           toast.success("Factura creada exitosamente", {
             description: `Número: ${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`,
           });
         });
+
+        // Cerrar el modal y limpiar el formulario
+        setIsNuevaFacturaModalOpen(false);
+        handleNuevaFacturaCancel();
+
+        // Recargar la lista de facturas inmediatamente
+        await loadFacturas();
+
+        // Continuar recargando cada 2 segundos hasta que la factura tenga un estado final
+        let pollCount = 0;
+        const maxPolls = 30; // 30 veces x 2 segundos = 60 segundos máximo
+        const pollInterval = setInterval(async () => {
+          pollCount++;
+          console.log(`🔄 Actualizando lista de facturas (${pollCount}/${maxPolls})...`);
+
+          const facturas = await facturaApi.getAll();
+          const facturaCreada = facturas.find(f => f.id_factura === facturaId);
+
+          if (facturaCreada) {
+            const estadoFinal = facturaCreada.estado_factura === "COMPLETADO" ||
+                               facturaCreada.estado_factura === "ERROR" ||
+                               facturaCreada.aceptada_por_sunat === true;
+
+            if (estadoFinal) {
+              clearInterval(pollInterval);
+              console.log(`✅ Factura ${facturaCreada.serie}-${facturaCreada.numero} procesada: ${facturaCreada.estado_factura}`);
+              await loadFacturas(); // Recargar una última vez
+              return;
+            }
+          }
+
+          await loadFacturas();
+
+          if (pollCount >= maxPolls) {
+            clearInterval(pollInterval);
+            console.log("⏱️ Tiempo máximo de polling alcanzado");
+          }
+        }, 2000);
       }
-
-      // Cerrar el modal y limpiar el formulario
-      setIsNuevaFacturaModalOpen(false);
-      handleNuevaFacturaCancel();
-
-      // Recargar la lista de facturas
-      await loadFacturas();
     } catch (error: unknown) {
       console.error("Error al guardar factura:", error);
 
@@ -1248,6 +1336,28 @@ export default function FacturaPage() {
       toast.error("Error al guardar la factura", {
         description: errorMessage,
       });
+
+      // Verificar el estado real después de 3 segundos
+      // (a veces el error es un timeout pero la factura sí se procesó)
+      setTimeout(async () => {
+        try {
+          console.log("🔍 Verificando estado real después de error...");
+          await loadFacturas();
+
+          // Intentar encontrar la factura recién creada por serie y número
+          const facturaCreada = facturas.find(
+            (f) => f.numero_factura === `${nuevaFacturaData.serie}-${String(nuevaFacturaData.nroDoc).padStart(8, "0")}`
+          );
+
+          if (facturaCreada && facturaCreada.estado === "COMPLETADO") {
+            toast.success("La factura se procesó correctamente", {
+              description: "El error fue temporal, la factura está completada",
+            });
+          }
+        } catch (recheckError) {
+          console.error("Error al verificar estado:", recheckError);
+        }
+      }, 3000);
     }
   };
 
