@@ -67,8 +67,12 @@ import {
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useDistributedLock } from "@/lib/useDistributedLock";
 import { LockResource } from "@/lib/distributed-lock";
-import { formatDatePeru, toDateStringPeru, getTodayPeru } from "@/lib/date-utils";
-import dayjs from 'dayjs';
+import {
+  formatDatePeru,
+  toDateStringPeru,
+  getTodayPeru,
+} from "@/lib/date-utils";
+import dayjs from "dayjs";
 
 // Extended types for factura data with all fields
 interface FacturaItem {
@@ -401,14 +405,18 @@ export default function FacturaPage() {
         // Si tiene PDF Y fue aceptada por SUNAT -> definitivamente COMPLETADA
         if (tieneEnlacesPDF && aceptadaSUNAT) {
           if (estadoReal !== "COMPLETADO") {
-            console.log(`✅ Factura ${factura.serie}-${factura.numero}: Corrigiendo estado de "${estadoReal}" a "COMPLETADO" (tiene PDF y aceptada por SUNAT)`);
+            console.log(
+              `✅ Factura ${factura.serie}-${factura.numero}: Corrigiendo estado de "${estadoReal}" a "COMPLETADO" (tiene PDF y aceptada por SUNAT)`
+            );
           }
           estadoReal = "COMPLETADO";
         }
         // Si tiene los 3 enlaces (PDF, XML, CDR) aunque SUNAT no responda -> muy probablemente COMPLETADA
         else if (tieneEnlacesPDF && tieneEnlaceXML && tieneEnlaceCDR) {
           if (estadoReal === "FALLIDO" || estadoReal === "ERROR") {
-            console.log(`✅ Factura ${factura.serie}-${factura.numero}: Corrigiendo estado de "${estadoReal}" a "COMPLETADO" (tiene todos los enlaces)`);
+            console.log(
+              `✅ Factura ${factura.serie}-${factura.numero}: Corrigiendo estado de "${estadoReal}" a "COMPLETADO" (tiene todos los enlaces)`
+            );
             estadoReal = "COMPLETADO";
           }
         }
@@ -446,7 +454,9 @@ export default function FacturaPage() {
 
       let errorMessage = "Error desconocido";
       if (error && typeof error === "object" && "response" in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
         if (axiosError.response?.data?.message) {
           errorMessage = axiosError.response.data.message;
         }
@@ -749,7 +759,9 @@ export default function FacturaPage() {
     }
 
     // Obtener el número más alto
-    const numeroMaximo = Math.max(...facturasConMismaSerie.map((f) => f.numero));
+    const numeroMaximo = Math.max(
+      ...facturasConMismaSerie.map((f) => f.numero)
+    );
 
     // Retornar el siguiente número
     return String(numeroMaximo + 1);
@@ -816,9 +828,14 @@ export default function FacturaPage() {
     const fechaVencimiento =
       nuevaFacturaData.tipoVenta === "CREDITO"
         ? (() => {
-            const fechaEmisionStr = toDateStringPeru(nuevaFacturaData.fechaEmision);
-            const fechaVenc = dayjs(fechaEmisionStr).add(nuevaFacturaData.plazoCredito, 'day');
-            return formatDatePeru(fechaVenc.format('YYYY-MM-DD'));
+            const fechaEmisionStr = toDateStringPeru(
+              nuevaFacturaData.fechaEmision
+            );
+            const fechaVenc = dayjs(fechaEmisionStr).add(
+              nuevaFacturaData.plazoCredito,
+              "day"
+            );
+            return formatDatePeru(fechaVenc.format("YYYY-MM-DD"));
           })()
         : "Inmediato";
 
@@ -843,15 +860,15 @@ export default function FacturaPage() {
     if (nuevaFacturaData.tipoVenta === "CREDITO") {
       // 3 columnas: Cuenta de pago | Información del crédito | Información de la detracción
       observacion +=
-        "Cuenta de pago".padEnd(65) +
-        "Información del crédito".padEnd(55) +
+        "Cuenta de pago".padEnd(58) +
+        "Información del crédito".padEnd(30) +
         "Información de la detracción\n";
 
       // Línea 1: Primera cuenta | Monto neto | Bien o Servicio
-      const cuenta1 = cuentasPago[0].padEnd(52);
+      const cuenta1 = cuentasPago[0].padEnd(45);
       const montoNeto = `Monto neto: S/ ${nuevaFacturaData.netoAPagar.toFixed(
         2
-      )}`.padEnd(56);
+      )}`.padEnd(30);
       const bienServicio = nuevaFacturaData.aplicarDetraccion
         ? `Bien o Servicio: ${
             nuevaFacturaData.detraccion.tipo_detraccion || "---"
@@ -860,18 +877,16 @@ export default function FacturaPage() {
       observacion += cuenta1 + montoNeto + bienServicio + "\n";
 
       // Línea 2: Segunda cuenta | N° de cuotas | Porcentaje
-      const cuenta2 = cuentasPago[1].padEnd(48);
-      const noCuotas = `Nº de cuotas: ${numCuotas}`.padEnd(59);
+      const cuenta2 = cuentasPago[1].padEnd(42);
+      const noCuotas = `Nº de cuotas: ${numCuotas}`.padEnd(34);
       const porcentaje = nuevaFacturaData.aplicarDetraccion
         ? `Porcentaje %: ${nuevaFacturaData.detraccion.porcentaje.toFixed(2)}`
         : "";
       observacion += cuenta2 + noCuotas + porcentaje + "\n";
 
       // Línea 3: Tercera cuenta | Fecha de Vencimiento | Monto detracción
-      const cuenta3 = cuentasPago[2].padEnd(55);
-      const vencimiento = `Fecha de Vencimiento: ${fechaVencimiento}`.padEnd(
-        45
-      );
+      const cuenta3 = cuentasPago[2].padEnd(47);
+      const vencimiento = `F.V.: ${fechaVencimiento}`.padEnd(35);
       const montoDetraccion = nuevaFacturaData.aplicarDetraccion
         ? `Monto detracción S/: ${nuevaFacturaData.detraccion.monto.toFixed(2)}`
         : "";
@@ -1026,10 +1041,15 @@ export default function FacturaPage() {
           nuevaFacturaData.tipoVenta === "CREDITO"
             ? (() => {
                 // Sumar días a la fecha de emisión usando dayjs
-                const fechaEmisionStr = toDateStringPeru(nuevaFacturaData.fechaEmision);
-                const fechaVencimiento = dayjs(fechaEmisionStr).add(nuevaFacturaData.plazoCredito, 'day');
+                const fechaEmisionStr = toDateStringPeru(
+                  nuevaFacturaData.fechaEmision
+                );
+                const fechaVencimiento = dayjs(fechaEmisionStr).add(
+                  nuevaFacturaData.plazoCredito,
+                  "day"
+                );
                 // Formato DD-MM-YYYY según NubeFact
-                return fechaVencimiento.format('DD-MM-YYYY');
+                return fechaVencimiento.format("DD-MM-YYYY");
               })()
             : null,
         fecha_servicio: toDateStringPeru(nuevaFacturaData.fechaServicio),
@@ -1181,14 +1201,16 @@ export default function FacturaPage() {
         // Campos de forma de pago según documentación NubeFact
         // Si es CRÉDITO: usar condiciones_de_pago + venta_al_credito + medio_de_pago
         // Si es CONTADO: usar medio_de_pago
-        condiciones_de_pago: nuevaFacturaData.tipoVenta === "CREDITO"
-          ? `CRÉDITO ${nuevaFacturaData.plazoCredito} DÍAS`
-          : "",
+        condiciones_de_pago:
+          nuevaFacturaData.tipoVenta === "CREDITO"
+            ? `CRÉDITO ${nuevaFacturaData.plazoCredito} DÍAS`
+            : "",
 
         // Enviar medio_de_pago para ambos casos
-        medio_de_pago: nuevaFacturaData.tipoVenta === "CREDITO"
-          ? `CRÉDITO ${nuevaFacturaData.plazoCredito} DÍAS`
-          : nuevaFacturaData.medioPago,
+        medio_de_pago:
+          nuevaFacturaData.tipoVenta === "CREDITO"
+            ? `CRÉDITO ${nuevaFacturaData.plazoCredito} DÍAS`
+            : nuevaFacturaData.medioPago,
 
         // Agregar venta_al_credito solo si es CRÉDITO (según documentación)
         ...(nuevaFacturaData.tipoVenta === "CREDITO" &&
@@ -1196,13 +1218,18 @@ export default function FacturaPage() {
           ? {
               venta_al_credito: (() => {
                 // Calcular fecha de vencimiento en timezone de Perú
-                const fechaEmisionStr = toDateStringPeru(nuevaFacturaData.fechaEmision);
-                const fechaVencimiento = dayjs(fechaEmisionStr).add(nuevaFacturaData.plazoCredito, 'day');
+                const fechaEmisionStr = toDateStringPeru(
+                  nuevaFacturaData.fechaEmision
+                );
+                const fechaVencimiento = dayjs(fechaEmisionStr).add(
+                  nuevaFacturaData.plazoCredito,
+                  "day"
+                );
 
                 return [
                   {
                     cuota: 1,
-                    fecha_de_pago: fechaVencimiento.format('DD-MM-YYYY'), // Formato DD-MM-YYYY
+                    fecha_de_pago: fechaVencimiento.format("DD-MM-YYYY"), // Formato DD-MM-YYYY
                     importe: Number(totalCalculado.toFixed(2)),
                   },
                 ];
@@ -1265,7 +1292,6 @@ export default function FacturaPage() {
         setIsNuevaFacturaModalOpen(false);
         handleNuevaFacturaCancel();
         await loadFacturas();
-
       } else {
         // Modo creación - crear nueva factura
         // Lock: factura:create:SERIE para evitar duplicados de número
@@ -1292,19 +1318,26 @@ export default function FacturaPage() {
         const maxPolls = 30; // 30 veces x 2 segundos = 60 segundos máximo
         const pollInterval = setInterval(async () => {
           pollCount++;
-          console.log(`🔄 Actualizando lista de facturas (${pollCount}/${maxPolls})...`);
+          console.log(
+            `🔄 Actualizando lista de facturas (${pollCount}/${maxPolls})...`
+          );
 
           const facturas = await facturaApi.getAll();
-          const facturaCreada = facturas.find(f => f.id_factura === facturaId);
+          const facturaCreada = facturas.find(
+            (f) => f.id_factura === facturaId
+          );
 
           if (facturaCreada) {
-            const estadoFinal = facturaCreada.estado_factura === "COMPLETADO" ||
-                               facturaCreada.estado_factura === "ERROR" ||
-                               facturaCreada.aceptada_por_sunat === true;
+            const estadoFinal =
+              facturaCreada.estado_factura === "COMPLETADO" ||
+              facturaCreada.estado_factura === "ERROR" ||
+              facturaCreada.aceptada_por_sunat === true;
 
             if (estadoFinal) {
               clearInterval(pollInterval);
-              console.log(`✅ Factura ${facturaCreada.serie}-${facturaCreada.numero} procesada: ${facturaCreada.estado_factura}`);
+              console.log(
+                `✅ Factura ${facturaCreada.serie}-${facturaCreada.numero} procesada: ${facturaCreada.estado_factura}`
+              );
               await loadFacturas(); // Recargar una última vez
               return;
             }
@@ -1325,7 +1358,9 @@ export default function FacturaPage() {
       let errorMessage = "Error desconocido";
 
       if (error && typeof error === "object" && "response" in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
         if (axiosError.response?.data?.message) {
           errorMessage = axiosError.response.data.message;
         }
@@ -1346,7 +1381,11 @@ export default function FacturaPage() {
 
           // Intentar encontrar la factura recién creada por serie y número
           const facturaCreada = facturas.find(
-            (f) => f.numero_factura === `${nuevaFacturaData.serie}-${String(nuevaFacturaData.nroDoc).padStart(8, "0")}`
+            (f) =>
+              f.numero_factura ===
+              `${nuevaFacturaData.serie}-${String(
+                nuevaFacturaData.nroDoc
+              ).padStart(8, "0")}`
           );
 
           if (facturaCreada && facturaCreada.estado === "COMPLETADO") {
@@ -1380,7 +1419,9 @@ export default function FacturaPage() {
 
       let errorMessage = "Error desconocido";
       if (error && typeof error === "object" && "response" in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
         if (axiosError.response?.data?.message) {
           errorMessage = axiosError.response.data.message;
         }
@@ -1489,7 +1530,9 @@ export default function FacturaPage() {
 
       let errorMessage = "Error desconocido";
       if (error && typeof error === "object" && "response" in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
         if (axiosError.response?.data?.message) {
           errorMessage = axiosError.response.data.message;
         }
@@ -1524,7 +1567,9 @@ export default function FacturaPage() {
 
       let errorMessage = "Error desconocido";
       if (error && typeof error === "object" && "response" in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
         if (axiosError.response?.data?.message) {
           errorMessage = axiosError.response.data.message;
         }
@@ -1558,7 +1603,9 @@ export default function FacturaPage() {
 
       let errorMessage = "Error desconocido";
       if (error && typeof error === "object" && "response" in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
         if (axiosError.response?.data?.message) {
           errorMessage = axiosError.response.data.message;
         }
@@ -1642,7 +1689,9 @@ export default function FacturaPage() {
 
       let errorMessage = "Error desconocido";
       if (error && typeof error === "object" && "response" in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
         if (axiosError.response?.data?.message) {
           errorMessage = axiosError.response.data.message;
         }
@@ -2410,13 +2459,14 @@ export default function FacturaPage() {
                         value={nuevaFacturaData.serie}
                         onChange={(e) => {
                           const nuevaSerie = e.target.value.toUpperCase();
-                          handleNuevaFacturaInputChange(
-                            "serie",
-                            nuevaSerie
-                          );
+                          handleNuevaFacturaInputChange("serie", nuevaSerie);
                           // Actualizar el número de documento automáticamente al cambiar la serie
-                          const siguienteNumero = obtenerSiguienteNumeroDocumento(nuevaSerie);
-                          handleNuevaFacturaInputChange("nroDoc", siguienteNumero);
+                          const siguienteNumero =
+                            obtenerSiguienteNumeroDocumento(nuevaSerie);
+                          handleNuevaFacturaInputChange(
+                            "nroDoc",
+                            siguienteNumero
+                          );
                         }}
                         onBlur={(e) => {
                           // Asegurar formato correcto al perder el foco
@@ -2426,8 +2476,12 @@ export default function FacturaPage() {
                           ) {
                             handleNuevaFacturaInputChange("serie", "FFF1");
                             // Actualizar el número al volver a FFF1
-                            const siguienteNumero = obtenerSiguienteNumeroDocumento("FFF1");
-                            handleNuevaFacturaInputChange("nroDoc", siguienteNumero);
+                            const siguienteNumero =
+                              obtenerSiguienteNumeroDocumento("FFF1");
+                            handleNuevaFacturaInputChange(
+                              "nroDoc",
+                              siguienteNumero
+                            );
                           }
                         }}
                         placeholder="FFF1"
