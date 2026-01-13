@@ -215,7 +215,7 @@ export default function FacturaPage() {
     fondoGarantiaValor: "", // Valor del fondo de garantía
     ordenCompra: false, // Checkbox O/C
     ordenCompraValor: "", // Valor de orden de compra
-    serie: "FFF1",
+    serie: "FFF2",
     nroDoc: "",
     fechaEmision: new Date(),
     moneda: "SOLES",
@@ -768,7 +768,7 @@ export default function FacturaPage() {
   };
 
   const limpiarFormularioFactura = () => {
-    const serieInicial = "FFF1";
+    const serieInicial = "FFF2";
     const siguienteNumero = obtenerSiguienteNumeroDocumento(serieInicial);
 
     setNuevaFacturaData({
@@ -976,9 +976,9 @@ export default function FacturaPage() {
 
       // Asegurar que la serie tenga el formato correcto para SUNAT
       if (!nuevaFacturaData.serie || nuevaFacturaData.serie.length < 4) {
-        // Autocompletar con FFF1 si está vacía o incompleta
-        setNuevaFacturaData((prev) => ({ ...prev, serie: "FFF1" }));
-        nuevaFacturaData.serie = "FFF1";
+        // Autocompletar con FFF2 si está vacía o incompleta
+        setNuevaFacturaData((prev) => ({ ...prev, serie: "FFF2" }));
+        nuevaFacturaData.serie = "FFF2";
       }
 
       console.log("🔍 Validando serie:", nuevaFacturaData.serie);
@@ -986,7 +986,7 @@ export default function FacturaPage() {
       // Validación flexible: acepta formatos como FFF1, F001, E001, B001, etc.
       if (!nuevaFacturaData.serie.match(/^[A-Z0-9]{4}$/)) {
         toast.error(
-          `La serie "${nuevaFacturaData.serie}" no es válida. Debe tener 4 caracteres (ej: FFF1, F001, E001)`
+          `La serie "${nuevaFacturaData.serie}" no es válida. Debe tener 4 caracteres (ej: FFF2, F001, E001)`
         );
         return;
       }
@@ -1467,7 +1467,7 @@ export default function FacturaPage() {
         fondoGarantiaValor: facturaCompleta.fondo_garantia_valor || "",
         ordenCompra: Boolean(facturaCompleta.orden_compra),
         ordenCompraValor: facturaCompleta.orden_compra_valor || "",
-        serie: facturaCompleta.serie || "FFF1",
+        serie: facturaCompleta.serie || "FFF2",
         nroDoc: String(facturaCompleta.numero || ""),
         fechaEmision: new Date(facturaCompleta.fecha_emision || new Date()),
         moneda: facturaCompleta.moneda === 1 ? "SOLES" : "DOLARES",
