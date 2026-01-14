@@ -1230,7 +1230,7 @@ export default function FacturaPage() {
                   {
                     cuota: 1,
                     fecha_de_pago: fechaVencimiento.format("DD-MM-YYYY"), // Formato DD-MM-YYYY
-                    importe: Number(totalCalculado.toFixed(2)),
+                    importe: Number(nuevaFacturaData.netoAPagar.toFixed(2)),
                   },
                 ];
               })(),
