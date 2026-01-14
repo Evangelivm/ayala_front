@@ -14,7 +14,7 @@ import {
   Download,
   CheckCircle2,
   XCircle,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
 
 interface EnlacesModalProps {
@@ -70,10 +70,11 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
       aceptada: factura.aceptada_por_sunat,
       description: factura.sunat_description,
       note: factura.sunat_note,
-    }
+    },
   });
 
-  const hasAnyEnlace = factura.enlace_pdf || factura.enlace_xml || factura.enlace_cdr;
+  const hasAnyEnlace =
+    factura.enlace_pdf || factura.enlace_xml || factura.enlace_cdr;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -83,7 +84,8 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
             Detalles de Factura {factura.numero_factura || "N/A"}
           </DialogTitle>
           <DialogDescription>
-            Proveedor: {factura.proveedor || "Sin proveedor"} | Total: S/ {Number(factura.total || 0).toFixed(2)}
+            Proveedor: {factura.proveedor || "Sin proveedor"} | Total: S/{" "}
+            {Number(factura.total || 0).toFixed(2)}
           </DialogDescription>
         </DialogHeader>
 
@@ -94,11 +96,15 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="text-gray-600">Tipo:</span>{" "}
-                <span className="font-medium">{factura.tipo_comprobante || "N/A"}</span>
+                <span className="font-medium">
+                  {factura.tipo_comprobante || "N/A"}
+                </span>
               </div>
               <div>
                 <span className="text-gray-600">Fecha Emisión:</span>{" "}
-                <span className="font-medium">{factura.fecha_emision || "N/A"}</span>
+                <span className="font-medium">
+                  {factura.fecha_emision || "N/A"}
+                </span>
               </div>
               <div>
                 <span className="text-gray-600">Serie:</span>{" "}
@@ -112,15 +118,17 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
                 <span className="text-gray-600">Moneda:</span>{" "}
                 <span className="font-medium">{factura.moneda || "PEN"}</span>
               </div>
-              <div>
+              {/* <div>
                 <span className="text-gray-600">Estado:</span>{" "}
                 <span className="font-medium">{factura.estado || "N/A"}</span>
-              </div>
+              </div> */}
             </div>
             {factura.observaciones && (
               <div className="mt-3">
                 <span className="text-sm text-gray-600">Observaciones:</span>
-                <p className="text-sm mt-1 text-gray-800">{factura.observaciones}</p>
+                <p className="text-sm mt-1 text-gray-800">
+                  {factura.observaciones}
+                </p>
               </div>
             )}
           </div>
@@ -144,13 +152,19 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
                     {factura.items.map((item, index) => (
                       <tr key={index} className="border-b">
                         <td className="p-2 border">{item.descripcion_item}</td>
-                        <td className="text-center p-2 border">{item.cantidad}</td>
-                        <td className="text-center p-2 border">{item.unidad_medida}</td>
-                        <td className="text-right p-2 border">
-                          {factura.moneda === "USD" ? "$" : "S/"} {Number(item.precio_unitario || 0).toFixed(2)}
+                        <td className="text-center p-2 border">
+                          {item.cantidad}
+                        </td>
+                        <td className="text-center p-2 border">
+                          {item.unidad_medida}
                         </td>
                         <td className="text-right p-2 border">
-                          {factura.moneda === "USD" ? "$" : "S/"} {Number(item.subtotal || 0).toFixed(2)}
+                          {factura.moneda === "USD" ? "$" : "S/"}{" "}
+                          {Number(item.precio_unitario || 0).toFixed(2)}
+                        </td>
+                        <td className="text-right p-2 border">
+                          {factura.moneda === "USD" ? "$" : "S/"}{" "}
+                          {Number(item.subtotal || 0).toFixed(2)}
                         </td>
                       </tr>
                     ))}
@@ -167,19 +181,22 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal:</span>
                 <span className="font-medium">
-                  {factura.moneda === "USD" ? "$" : "S/"} {Number(factura.subtotal || 0).toFixed(2)}
+                  {factura.moneda === "USD" ? "$" : "S/"}{" "}
+                  {Number(factura.subtotal || 0).toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">IGV (18%):</span>
                 <span className="font-medium">
-                  {factura.moneda === "USD" ? "$" : "S/"} {Number(factura.igv || 0).toFixed(2)}
+                  {factura.moneda === "USD" ? "$" : "S/"}{" "}
+                  {Number(factura.igv || 0).toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between border-t pt-2 text-base">
                 <span className="font-semibold">Total:</span>
                 <span className="font-bold">
-                  {factura.moneda === "USD" ? "$" : "S/"} {Number(factura.total || 0).toFixed(2)}
+                  {factura.moneda === "USD" ? "$" : "S/"}{" "}
+                  {Number(factura.total || 0).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -216,15 +233,23 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
 
               {factura.sunat_description && (
                 <div className="flex gap-2">
-                  <span className="text-sm text-gray-600 w-32 flex-shrink-0">Descripción:</span>
-                  <p className="text-sm text-gray-800 flex-1">{factura.sunat_description}</p>
+                  <span className="text-sm text-gray-600 w-32 flex-shrink-0">
+                    Descripción:
+                  </span>
+                  <p className="text-sm text-gray-800 flex-1">
+                    {factura.sunat_description}
+                  </p>
                 </div>
               )}
 
               {factura.sunat_note && (
                 <div className="flex gap-2">
-                  <span className="text-sm text-gray-600 w-32 flex-shrink-0">Nota:</span>
-                  <p className="text-sm text-gray-800 flex-1">{factura.sunat_note}</p>
+                  <span className="text-sm text-gray-600 w-32 flex-shrink-0">
+                    Nota:
+                  </span>
+                  <p className="text-sm text-gray-800 flex-1">
+                    {factura.sunat_note}
+                  </p>
                 </div>
               )}
 
@@ -245,8 +270,9 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
 
             {!hasAnyEnlace && (
               <p className="text-sm text-gray-500 italic">
-                No hay archivos disponibles para esta factura aún.
-                Los archivos se generarán automáticamente cuando SUNAT procese el comprobante.
+                No hay archivos disponibles para esta factura aún. Los archivos
+                se generarán automáticamente cuando SUNAT procese el
+                comprobante.
               </p>
             )}
 
@@ -262,8 +288,12 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
                       <FileText className="h-5 w-5 text-red-600" />
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="text-sm font-medium">Representación Impresa (PDF)</p>
-                      <p className="text-xs text-gray-500">Documento visual del comprobante</p>
+                      <p className="text-sm font-medium">
+                        Representación Impresa (PDF)
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Documento visual del comprobante
+                      </p>
                     </div>
                     <Download className="h-4 w-4 text-gray-400" />
                   </Button>
@@ -279,8 +309,12 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
                       <FileCode className="h-5 w-5 text-blue-600" />
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="text-sm font-medium">Comprobante Electrónico (XML)</p>
-                      <p className="text-xs text-gray-500">Archivo estructurado para SUNAT</p>
+                      <p className="text-sm font-medium">
+                        Comprobante Electrónico (XML)
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Archivo estructurado para SUNAT
+                      </p>
                     </div>
                     <Download className="h-4 w-4 text-gray-400" />
                   </Button>
@@ -296,8 +330,12 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
                       <FileCheck2 className="h-5 w-5 text-green-600" />
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="text-sm font-medium">Constancia de Recepción (CDR)</p>
-                      <p className="text-xs text-gray-500">Validación oficial de SUNAT</p>
+                      <p className="text-sm font-medium">
+                        Constancia de Recepción (CDR)
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Validación oficial de SUNAT
+                      </p>
                     </div>
                     <Download className="h-4 w-4 text-gray-400" />
                   </Button>
