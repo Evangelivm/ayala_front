@@ -820,24 +820,24 @@ export default function FacturaPage() {
       "Cta. Detracciones: 00-050-045072",
     ];
 
-    const numCuotas =
-      nuevaFacturaData.tipoVenta === "CONTADO"
-        ? 1
-        : Math.ceil(nuevaFacturaData.plazoCredito / 30);
+    // const numCuotas =
+    //   nuevaFacturaData.tipoVenta === "CONTADO"
+    //     ? 1
+    //     : Math.ceil(nuevaFacturaData.plazoCredito / 30);
 
-    const fechaVencimiento =
-      nuevaFacturaData.tipoVenta === "CREDITO"
-        ? (() => {
-            const fechaEmisionStr = toDateStringPeru(
-              nuevaFacturaData.fechaEmision
-            );
-            const fechaVenc = dayjs(fechaEmisionStr).add(
-              nuevaFacturaData.plazoCredito,
-              "day"
-            );
-            return formatDatePeru(fechaVenc.format("YYYY-MM-DD"));
-          })()
-        : "Inmediato";
+    // const fechaVencimiento =
+    //   nuevaFacturaData.tipoVenta === "CREDITO"
+    //     ? (() => {
+    //         const fechaEmisionStr = toDateStringPeru(
+    //           nuevaFacturaData.fechaEmision
+    //         );
+    //         const fechaVenc = dayjs(fechaEmisionStr).add(
+    //           nuevaFacturaData.plazoCredito,
+    //           "day"
+    //         );
+    //         return formatDatePeru(fechaVenc.format("YYYY-MM-DD"));
+    //       })()
+    //     : "Inmediato";
 
     // Generar texto con formato en 3 columnas
     let observacion = "";
@@ -856,71 +856,32 @@ export default function FacturaPage() {
 
     observacion += "\n";
 
-    // Encabezados: Si es CREDITO mostrar 3 columnas, si es CONTADO solo 2
-    if (nuevaFacturaData.tipoVenta === "CREDITO") {
-      // 3 columnas: Cuenta de pago | Información del crédito | Información de la detracción
-      observacion +=
-        "Cuenta de pago".padEnd(58) +
-        "Información del crédito".padEnd(30) +
-        "Información de la detracción\n";
+    // 2 columnas: Cuenta de pago | Información de la detracción (igual para CONTADO y CREDITO)
+    observacion +=
+      "Cuenta de pago".padEnd(63) + "Información de la detracción\n";
 
-      // Línea 1: Primera cuenta | Monto neto | Bien o Servicio
-      const cuenta1 = cuentasPago[0].padEnd(45);
-      const montoNeto = `Monto neto: S/ ${nuevaFacturaData.netoAPagar.toFixed(
-        2
-      )}`.padEnd(30);
-      const bienServicio = nuevaFacturaData.aplicarDetraccion
-        ? `Bien o Servicio: ${
-            nuevaFacturaData.detraccion.tipo_detraccion || "---"
-          }`
-        : "No aplica detracción";
-      observacion += cuenta1 + montoNeto + bienServicio + "\n";
+    // Línea 1: Primera cuenta | Bien o Servicio
+    const cuenta1 = cuentasPago[0].padEnd(50);
+    const bienServicio = nuevaFacturaData.aplicarDetraccion
+      ? `Bien o Servicio: ${
+          nuevaFacturaData.detraccion.tipo_detraccion || "---"
+        }`
+      : "No aplica detracción";
+    observacion += cuenta1 + bienServicio + "\n";
 
-      // Línea 2: Segunda cuenta | N° de cuotas | Porcentaje
-      const cuenta2 = cuentasPago[1].padEnd(42);
-      const noCuotas = `Nº de cuotas: ${numCuotas}`.padEnd(34);
-      const porcentaje = nuevaFacturaData.aplicarDetraccion
-        ? `Porcentaje %: ${nuevaFacturaData.detraccion.porcentaje.toFixed(2)}`
-        : "";
-      observacion += cuenta2 + noCuotas + porcentaje + "\n";
+    // Línea 2: Segunda cuenta | Porcentaje
+    const cuenta2 = cuentasPago[1].padEnd(45);
+    const porcentaje = nuevaFacturaData.aplicarDetraccion
+      ? `Porcentaje %: ${nuevaFacturaData.detraccion.porcentaje.toFixed(2)}`
+      : "";
+    observacion += cuenta2 + porcentaje + "\n";
 
-      // Línea 3: Tercera cuenta | Fecha de Vencimiento | Monto detracción
-      const cuenta3 = cuentasPago[2].padEnd(47);
-      const vencimiento = `F.V.: ${fechaVencimiento}`.padEnd(35);
-      const montoDetraccion = nuevaFacturaData.aplicarDetraccion
-        ? `Monto detracción S/: ${nuevaFacturaData.detraccion.monto.toFixed(2)}`
-        : "";
-      observacion += cuenta3 + vencimiento + montoDetraccion;
-    } else {
-      // 2 columnas: Cuenta de pago | Información de la detracción
-      // Los padEnd se calculan sumando las dos primeras columnas del caso CREDITO
-      // Línea 1: 52+65=117, Línea 2: 48+70=118, Línea 3: 55+57=112
-      observacion +=
-        "Cuenta de pago".padEnd(117) + "Información de la detracción\n";
-
-      // Línea 1: Primera cuenta | Bien o Servicio
-      const cuenta1 = cuentasPago[0].padEnd(104);
-      const bienServicio = nuevaFacturaData.aplicarDetraccion
-        ? `Bien o Servicio: ${
-            nuevaFacturaData.detraccion.tipo_detraccion || "---"
-          }`
-        : "No aplica detracción";
-      observacion += cuenta1 + bienServicio + "\n";
-
-      // Línea 2: Segunda cuenta | Porcentaje
-      const cuenta2 = cuentasPago[1].padEnd(100);
-      const porcentaje = nuevaFacturaData.aplicarDetraccion
-        ? `Porcentaje %: ${nuevaFacturaData.detraccion.porcentaje.toFixed(2)}`
-        : "";
-      observacion += cuenta2 + porcentaje + "\n";
-
-      // Línea 3: Tercera cuenta | Monto detracción
-      const cuenta3 = cuentasPago[2].padEnd(106);
-      const montoDetraccion = nuevaFacturaData.aplicarDetraccion
-        ? `Monto detracción S/: ${nuevaFacturaData.detraccion.monto.toFixed(2)}`
-        : "";
-      observacion += cuenta3 + montoDetraccion;
-    }
+    // Línea 3: Tercera cuenta | Monto detracción
+    const cuenta3 = cuentasPago[2].padEnd(52);
+    const montoDetraccion = nuevaFacturaData.aplicarDetraccion
+      ? `Monto detracción S/: ${nuevaFacturaData.detraccion.monto.toFixed(2)}`
+      : "";
+    observacion += cuenta3 + montoDetraccion;
 
     setNuevaFacturaData((prev) => ({
       ...prev,
@@ -1111,7 +1072,9 @@ export default function FacturaPage() {
           ? nuevaFacturaData.ordenCompraValor
           : null,
         placa_vehiculo: nuevaFacturaData.unidad || null,
-        orden_compra_servicio: null,
+        orden_compra_servicio: nuevaFacturaData.ordenCompra
+          ? nuevaFacturaData.ordenCompraValor
+          : null,
 
         // Centro de costos
         centro_costo_nivel1_codigo:
