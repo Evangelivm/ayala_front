@@ -3313,6 +3313,9 @@ export interface OrdenCompraData {
   auto_administrador?: boolean;
   auto_contabilidad?: boolean;
   jefe_proyecto?: boolean;
+  fecha_auto_administrador?: string | null; // Fecha de autorización administrador
+  fecha_auto_contabilidad?: string | null; // Fecha de autorización contabilidad
+  fecha_jefe_proyecto?: string | null; // Fecha de autorización jefe de proyecto
   has_anticipo?: number;
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
   ruc_proveedor?: string; // RUC del proveedor desde la relación
@@ -3607,6 +3610,9 @@ export interface OrdenServicioData {
   auto_administrador?: boolean;
   auto_contabilidad?: boolean;
   jefe_proyecto?: boolean;
+  fecha_auto_administrador?: string | null; // Fecha de autorización administrador
+  fecha_auto_contabilidad?: string | null; // Fecha de autorización contabilidad
+  fecha_jefe_proyecto?: string | null; // Fecha de autorización jefe de proyecto
   has_anticipo?: number;
   nombre_proveedor?: string; // Nombre del proveedor desde la relación
   ruc_proveedor?: string; // RUC del proveedor desde la relación
