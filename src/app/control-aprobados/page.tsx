@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, Search, Filter, X, CalendarIcon, CheckCircle, Clock, ShieldCheck } from "lucide-react";
+import { ClipboardList, Search, Filter, X, CalendarIcon, CheckCircle, Clock, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -46,6 +46,12 @@ export default function ControlAprobadosPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
   const [fechaFiltro, setFechaFiltro] = useState<Date | undefined>(undefined);
+
+  // Estados para ordenamiento
+  type SortColumn = "admin" | "jefe" | "contab" | "procede" | null;
+  type SortDirection = "asc" | "desc" | null;
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
   // Funciones para cargar ordenes
   const loadOrdenesCompra = useCallback(async () => {
@@ -86,9 +92,76 @@ export default function ControlAprobadosPage() {
   useWebSocket('ordenCompraUpdated', handleOrdenCompraUpdate);
   useWebSocket('ordenServicioUpdated', handleOrdenServicioUpdate);
 
+  // Funcion para manejar el click en las cabeceras de ordenamiento
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      // Si ya estaba ordenando por esta columna, cambiar dirección
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else if (sortDirection === "desc") {
+        // Si ya estaba descendente, quitar el ordenamiento
+        setSortColumn(null);
+        setSortDirection(null);
+      }
+    } else {
+      // Nueva columna, empezar con ascendente
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  // Funcion para ordenar ordenes
+  const sortOrdenes = <T extends OrdenCompraData | OrdenServicioData>(ordenes: T[]): T[] => {
+    if (!sortColumn || !sortDirection) return ordenes;
+
+    return [...ordenes].sort((a, b) => {
+      let compareA: boolean | string | number | null | undefined;
+      let compareB: boolean | string | number | null | undefined;
+
+      switch (sortColumn) {
+        case "admin":
+          compareA = a.auto_administrador;
+          compareB = b.auto_administrador;
+          break;
+        case "jefe":
+          compareA = a.jefe_proyecto;
+          compareB = b.jefe_proyecto;
+          break;
+        case "contab":
+          compareA = a.auto_contabilidad;
+          compareB = b.auto_contabilidad;
+          break;
+        case "procede":
+          compareA = a.procede_pago;
+          compareB = b.procede_pago;
+          break;
+        default:
+          return 0;
+      }
+
+      // Manejar valores null/undefined (los ponemos al final)
+      if (compareA === null || compareA === undefined) return 1;
+      if (compareB === null || compareB === undefined) return -1;
+
+      // Para booleanos (admin, jefe, contab): true > false
+      if (typeof compareA === "boolean") {
+        const diff = (compareA ? 1 : 0) - (compareB ? 1 : 0);
+        return sortDirection === "asc" ? diff : -diff;
+      }
+
+      // Para strings (procede_pago)
+      if (typeof compareA === "string" && typeof compareB === "string") {
+        const diff = compareA.localeCompare(compareB);
+        return sortDirection === "asc" ? diff : -diff;
+      }
+
+      return 0;
+    });
+  };
+
   // Funcion para filtrar ordenes de compra
   const ordenesFiltradas = useMemo(() => {
-    return ordenesCompra.filter((orden) => {
+    const filtered = ordenesCompra.filter((orden) => {
       // Filtro por busqueda (numero de orden, proveedor)
       const matchSearch = searchQuery === "" ||
         orden.numero_orden?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -106,11 +179,13 @@ export default function ControlAprobadosPage() {
 
       return matchSearch && matchEstado && matchFecha;
     });
-  }, [ordenesCompra, searchQuery, filtroEstado, fechaFiltro]);
+
+    return sortOrdenes(filtered);
+  }, [ordenesCompra, searchQuery, filtroEstado, fechaFiltro, sortColumn, sortDirection]);
 
   // Funcion para filtrar ordenes de servicio
   const ordenesServicioFiltradas = useMemo(() => {
-    return ordenesServicio.filter((orden) => {
+    const filtered = ordenesServicio.filter((orden) => {
       // Filtro por busqueda (numero de orden, proveedor)
       const matchSearch = searchQuery === "" ||
         orden.numero_orden?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -128,7 +203,20 @@ export default function ControlAprobadosPage() {
 
       return matchSearch && matchEstado && matchFecha;
     });
-  }, [ordenesServicio, searchQuery, filtroEstado, fechaFiltro]);
+
+    return sortOrdenes(filtered);
+  }, [ordenesServicio, searchQuery, filtroEstado, fechaFiltro, sortColumn, sortDirection]);
+
+  // Componente para renderizar el icono de ordenamiento
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    if (sortDirection === "asc") {
+      return <ArrowUp className="h-3 w-3 ml-1" />;
+    }
+    return <ArrowDown className="h-3 w-3 ml-1" />;
+  };
 
   // Componente para renderizar el badge de autorizacion
   const AutorizacionBadge = ({ aprobado, fecha }: { aprobado?: boolean; fecha?: string | null }) => {
@@ -196,7 +284,15 @@ export default function ControlAprobadosPage() {
                   Autorizaciones
                 </div>
               </TableHead>
-              <TableHead className="font-bold text-xs text-center">Proc. Pago</TableHead>
+              <TableHead
+                className="font-bold text-xs text-center cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort("procede")}
+              >
+                <div className="flex items-center justify-center">
+                  Proc. Pago
+                  <SortIcon column="procede" />
+                </div>
+              </TableHead>
             </TableRow>
             <TableRow className="bg-gray-50/50">
               <TableHead></TableHead>
@@ -204,9 +300,33 @@ export default function ControlAprobadosPage() {
               <TableHead></TableHead>
               <TableHead></TableHead>
               <TableHead></TableHead>
-              <TableHead className="font-medium text-[10px] text-center text-gray-600">Admin.</TableHead>
-              <TableHead className="font-medium text-[10px] text-center text-gray-600">Contab.</TableHead>
-              <TableHead className="font-medium text-[10px] text-center text-gray-600">Jefe Proy.</TableHead>
+              <TableHead
+                className="font-medium text-[10px] text-center text-gray-600 cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort("admin")}
+              >
+                <div className="flex items-center justify-center">
+                  Admin.
+                  <SortIcon column="admin" />
+                </div>
+              </TableHead>
+              <TableHead
+                className="font-medium text-[10px] text-center text-gray-600 cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort("jefe")}
+              >
+                <div className="flex items-center justify-center">
+                  Jefe Proy.
+                  <SortIcon column="jefe" />
+                </div>
+              </TableHead>
+              <TableHead
+                className="font-medium text-[10px] text-center text-gray-600 cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort("contab")}
+              >
+                <div className="flex items-center justify-center">
+                  Contab.
+                  <SortIcon column="contab" />
+                </div>
+              </TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -260,14 +380,14 @@ export default function ControlAprobadosPage() {
                   </TableCell>
                   <TableCell className="text-center">
                     <AutorizacionBadge
-                      aprobado={orden.auto_contabilidad}
-                      fecha={orden.fecha_auto_contabilidad}
+                      aprobado={orden.jefe_proyecto}
+                      fecha={orden.fecha_jefe_proyecto}
                     />
                   </TableCell>
                   <TableCell className="text-center">
                     <AutorizacionBadge
-                      aprobado={orden.jefe_proyecto}
-                      fecha={orden.fecha_jefe_proyecto}
+                      aprobado={orden.auto_contabilidad}
+                      fecha={orden.fecha_auto_contabilidad}
                     />
                   </TableCell>
                   <TableCell className="text-center">
