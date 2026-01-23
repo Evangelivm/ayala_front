@@ -3600,7 +3600,10 @@ export default function OrdenCompraPage() {
                                 Cantidad
                               </TableHead>
                               <TableHead className="w-32 text-xs font-bold text-right">
-                                Valor Unitario
+                                Valor Unitario (Precio sin IGV)
+                              </TableHead>
+                              <TableHead className="w-32 text-xs font-bold text-right">
+                                Valor Unitario (Precio con IGV)
                               </TableHead>
                               <TableHead className="w-32 text-xs font-bold text-right">
                                 Subtotal
@@ -3653,6 +3656,9 @@ export default function OrdenCompraPage() {
                                 </TableCell>
                                 <TableCell className="text-right text-xs font-semibold bg-gray-100 p-2 font-mono">
                                   {item.precio_unitario.toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-right text-xs font-semibold bg-blue-50 p-2 font-mono">
+                                  {(item.precio_unitario * 1.18).toFixed(2)}
                                 </TableCell>
                                 <TableCell>
                                   <Input

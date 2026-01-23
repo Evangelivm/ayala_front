@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +42,16 @@ import {
   type ProgramacionTecnicaData,
 } from "@/lib/connections";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
+import { useWebSocket } from "@/lib/useWebSocket";
+import { ProyectoSelect } from "@/components/proyecto-select";
+import { EtapaSelect } from "@/components/etapa-select";
+import { SectorSelect } from "@/components/sector-select";
+import { FrenteSelectBySector } from "@/components/frente-select-by-sector";
+import { PartidaSelect } from "@/components/partida-select";
+import { SubEtapaSelect } from "@/components/subetapa-select";
+import { SubsectorSelect } from "@/components/subsector-select";
+import { SubfrenteSelect } from "@/components/subfrente-select";
+import { SubpartidaSelect } from "@/components/subpartida-select";
 
 interface DuplicadoConModificaciones extends ProgramacionTecnicaData {
   _isModified?: boolean;
@@ -51,12 +61,33 @@ interface DuplicadosPorGuia {
   [idGuiaOriginal: number]: {
     duplicados: DuplicadoConModificaciones[];
     loteId: string;
+    selectionType?: "proyecto" | "subproyecto" | null;
+    proyectoData?: {
+      id_proyecto?: number;
+      id_etapa?: number;
+      id_sector?: number;
+      id_frente?: number;
+      id_partida?: number;
+      id_subproyecto?: number;
+      id_subetapa?: number;
+      id_subsector?: number;
+      id_subfrente?: number;
+      id_subpartida?: number;
+    };
   };
+}
+
+interface ProgTecnicaCompletadaData {
+  identificador_unico: string;
+  pdf_link: string;
+  xml_link: string;
+  cdr_link: string;
 }
 
 export default function ProgramacionExtendidaPage() {
   const router = useRouter();
   const [dataOriginales, setDataOriginales] = useState<ProgramacionTecnicaData[]>([]);
+  const [identificadoresConGuia, setIdentificadoresConGuia] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Modal de duplicación
@@ -92,6 +123,62 @@ export default function ProgramacionExtendidaPage() {
     fetchDataOriginales();
   }, []);
 
+  // WebSocket para actualización en tiempo real
+  useWebSocket('prog-tecnica-completada', (data?: ProgTecnicaCompletadaData) => {
+    if (!data) return;
+
+    const { identificador_unico, pdf_link, xml_link, cdr_link } = data;
+
+    // Actualizar dataOriginales
+    setDataOriginales(prev => prev.map(item => {
+      if (item.identificador_unico === identificador_unico) {
+        return {
+          ...item,
+          enlace_del_pdf: pdf_link,
+          enlace_del_xml: xml_link,
+          enlace_del_cdr: cdr_link,
+          estado_gre: 'ACEPTADA'
+        };
+      }
+      return item;
+    }));
+
+    // Actualizar duplicadosPorGuia
+    setDuplicadosPorGuia(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(key => {
+        const guiaData = updated[Number(key)];
+        guiaData.duplicados = guiaData.duplicados.map(dup => {
+          if (dup.identificador_unico === identificador_unico) {
+            return {
+              ...dup,
+              enlace_del_pdf: pdf_link,
+              enlace_del_xml: xml_link,
+              enlace_del_cdr: cdr_link,
+              estado_gre: 'ACEPTADA'
+            };
+          }
+          return dup;
+        });
+      });
+      return updated;
+    });
+
+    // Remover de la lista de guías en proceso
+    setIdentificadoresConGuia(prev => prev.filter(id => id !== identificador_unico));
+
+    toast.success(`Guía ${identificador_unico} completada y lista`);
+  });
+
+  // Funciones helper para estados
+  const hasArchivosGenerados = (item: ProgramacionTecnicaData): boolean => {
+    return !!(item.enlace_del_pdf && item.enlace_del_xml && item.enlace_del_cdr);
+  };
+
+  const hasGuiaEnProceso = (item: ProgramacionTecnicaData): boolean => {
+    return !!(item.identificador_unico && identificadoresConGuia.includes(item.identificador_unico));
+  };
+
   const handleAbrirModalDuplicar = (guia: ProgramacionTecnicaData) => {
     // Validar que no tenga archivos generados
     if (guia.enlace_del_pdf || guia.enlace_del_xml || guia.enlace_del_cdr) {
@@ -120,19 +207,47 @@ export default function ProgramacionExtendidaPage() {
       );
 
       if (result.success) {
+        // Determinar el tipo de selección inicial (proyecto o subproyecto)
+        // Basado en los datos del registro original
+        let initialSelectionType: "proyecto" | "subproyecto" | null = null;
+        let initialProyectoData: DuplicadosPorGuia[number]["proyectoData"] = {};
+
+        if (guiaSeleccionada.id_proyecto && guiaSeleccionada.id_proyecto > 0) {
+          initialSelectionType = "proyecto";
+          initialProyectoData = {
+            id_proyecto: guiaSeleccionada.id_proyecto,
+            id_etapa: guiaSeleccionada.id_etapa ?? undefined,
+            id_sector: guiaSeleccionada.id_sector ?? undefined,
+            id_frente: guiaSeleccionada.id_frente ?? undefined,
+            id_partida: guiaSeleccionada.id_partida ?? undefined,
+          };
+        } else if (guiaSeleccionada.id_subproyecto && guiaSeleccionada.id_subproyecto > 0) {
+          initialSelectionType = "subproyecto";
+          initialProyectoData = {
+            id_subproyecto: guiaSeleccionada.id_subproyecto,
+            id_subetapa: guiaSeleccionada.id_subetapa ?? undefined,
+            id_subsector: guiaSeleccionada.id_subsector ?? undefined,
+            id_subfrente: guiaSeleccionada.id_subfrente ?? undefined,
+            id_subpartida: guiaSeleccionada.id_subpartida ?? undefined,
+          };
+        }
+
         // Agregar duplicados al mapa organizados por guía original
+        // Los duplicados ya vienen con TODOS los datos del original desde el backend
         setDuplicadosPorGuia(prev => ({
           ...prev,
           [guiaSeleccionada.id]: {
             duplicados: result.duplicados,
-            loteId: result.loteId
+            loteId: result.loteId,
+            selectionType: initialSelectionType,
+            proyectoData: initialProyectoData
           }
         }));
 
         // Expandir automáticamente la fila
         setFilasExpandidas(prev => new Set(prev).add(guiaSeleccionada.id));
 
-        toast.success(result.message);
+        toast.success(`${result.message}. Todos los datos han sido copiados del original.`);
         setIsDuplicarModalOpen(false);
       }
     } catch (error) {
@@ -186,28 +301,59 @@ export default function ProgramacionExtendidaPage() {
     toast.info("Duplicado eliminado");
   };
 
-  const handleModificarDuplicado = (
+  const handleModificarTodosDuplicados = (
     idGuiaOriginal: number,
-    index: number,
     campo: string,
-    valor: string
+    valor: unknown
   ) => {
     setDuplicadosPorGuia(prev => {
       const guiaDuplicados = prev[idGuiaOriginal];
       if (!guiaDuplicados) return prev;
 
-      const nuevosDuplicados = [...guiaDuplicados.duplicados];
-      nuevosDuplicados[index] = {
-        ...nuevosDuplicados[index],
+      // Actualizar TODOS los duplicados con el mismo valor
+      const nuevosDuplicados = guiaDuplicados.duplicados.map(duplicado => ({
+        ...duplicado,
         [campo]: valor,
         _isModified: true
-      };
+      }));
 
       return {
         ...prev,
         [idGuiaOriginal]: {
           ...guiaDuplicados,
           duplicados: nuevosDuplicados
+        }
+      };
+    });
+  };
+
+  const handleProyectoChange = (
+    idGuiaOriginal: number,
+    campo: string,
+    valor: unknown
+  ) => {
+    setDuplicadosPorGuia(prev => {
+      const guiaDuplicados = prev[idGuiaOriginal];
+      if (!guiaDuplicados) return prev;
+
+      const updatedProyectoData = {
+        ...guiaDuplicados.proyectoData,
+        [campo]: valor
+      };
+
+      // Actualizar TODOS los duplicados con los datos del proyecto
+      const nuevosDuplicados = guiaDuplicados.duplicados.map(duplicado => ({
+        ...duplicado,
+        ...updatedProyectoData,
+        _isModified: true
+      }));
+
+      return {
+        ...prev,
+        [idGuiaOriginal]: {
+          ...guiaDuplicados,
+          duplicados: nuevosDuplicados,
+          proyectoData: updatedProyectoData
         }
       };
     });
@@ -228,10 +374,39 @@ export default function ProgramacionExtendidaPage() {
     setProgresoEnvio(0);
 
     try {
+      // Primero, actualizar los duplicados en el backend con los cambios del usuario
+      const modificaciones: Record<string, unknown> = {};
+
+      // ✅ SIEMPRE enviar peso_bruto_total (incluso si es 0)
+      if (guiaDuplicados.duplicados[0]?.peso_bruto_total !== undefined) {
+        modificaciones.peso_bruto_total = guiaDuplicados.duplicados[0].peso_bruto_total;
+      }
+
+      // Obtener datos del proyecto si existen
+      if (guiaDuplicados.proyectoData) {
+        Object.keys(guiaDuplicados.proyectoData).forEach(key => {
+          const valor = guiaDuplicados.proyectoData![key as keyof typeof guiaDuplicados.proyectoData];
+          if (valor !== undefined && valor !== null) {
+            modificaciones[key] = valor;
+          }
+        });
+      }
+
+      // Actualizar en el backend antes de enviar
+      toast.info("Guardando cambios antes de enviar...");
+      await programacionApi.actualizarDuplicados(guiaDuplicados.loteId, modificaciones);
+      toast.success("Cambios guardados correctamente");
+
       const idsGuias = guiaDuplicados.duplicados.map(d => d.id);
       const tamañoLote = 5;
       let procesados = 0;
       const errores: Array<{ id: number; error: string }> = [];
+
+      // Agregar identificadores al estado de "en proceso"
+      const identificadores = guiaDuplicados.duplicados
+        .map(d => d.identificador_unico)
+        .filter(Boolean) as string[];
+      setIdentificadoresConGuia(prev => [...prev, ...identificadores]);
 
       // Procesar en lotes de 5
       for (let i = 0; i < idsGuias.length; i += tamañoLote) {
@@ -368,6 +543,26 @@ export default function ProgramacionExtendidaPage() {
 
       {/* Contenido Principal */}
       <div className="w-full px-4 sm:px-6 pb-8 space-y-6">
+        {/* Leyenda de colores */}
+        <Card className="bg-gradient-to-r from-slate-50 to-purple-50 border-purple-200">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded border-2 border-green-500 bg-green-100"></div>
+                <span className="text-slate-700 font-medium">Completada (PDF/XML/CDR disponibles)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded border-2 border-cyan-500 bg-cyan-100"></div>
+                <span className="text-slate-700 font-medium">En proceso (enviada a Nubefact)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded border-2 border-purple-500 bg-purple-50"></div>
+                <span className="text-slate-700 font-medium">Con duplicados pendientes</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Card de guías originales */}
         <Card>
           <CardHeader>
@@ -412,11 +607,18 @@ export default function ProgramacionExtendidaPage() {
                       const duplicados = duplicadosPorGuia[item.id]?.duplicados || [];
 
                       return (
-                        <>
+                        <Fragment key={item.id}>
                           {/* Fila principal */}
                           <TableRow
-                            key={item.id}
-                            className={tieneDuplicados ? "bg-purple-50 border-l-4 border-purple-500" : ""}
+                            className={
+                              hasArchivosGenerados(item)
+                                ? "bg-green-100 hover:bg-green-200 border-l-4 border-green-500"
+                                : hasGuiaEnProceso(item)
+                                ? "bg-cyan-100 hover:bg-cyan-200 border-l-4 border-cyan-500"
+                                : tieneDuplicados
+                                ? "bg-purple-50 border-l-4 border-purple-500"
+                                : ""
+                            }
                           >
                             <TableCell>
                               {tieneDuplicados && (
@@ -502,7 +704,45 @@ export default function ProgramacionExtendidaPage() {
                             <TableCell>{item.m3 || "-"}</TableCell>
                             <TableCell>{item.cantidad_viaje || "-"}</TableCell>
                             <TableCell className="text-center">
-                              {tieneDuplicados ? (
+                              {hasArchivosGenerados(item) ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                  <a
+                                    href={item.enlace_del_pdf || "#"}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 hover:underline"
+                                    title="Ver PDF"
+                                  >
+                                    PDF
+                                  </a>
+                                  <span className="text-slate-300">|</span>
+                                  <a
+                                    href={item.enlace_del_xml || "#"}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 hover:underline"
+                                    title="Ver XML"
+                                  >
+                                    XML
+                                  </a>
+                                  <span className="text-slate-300">|</span>
+                                  <a
+                                    href={item.enlace_del_cdr || "#"}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 hover:underline"
+                                    title="Ver CDR"
+                                  >
+                                    CDR
+                                  </a>
+                                </div>
+                              ) : hasGuiaEnProceso(item) ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <Loader2 className="h-4 w-4 text-cyan-600 animate-spin" />
+                                  <span className="text-xs font-semibold text-cyan-700">En proceso...</span>
+                                </div>
+                              ) : tieneDuplicados ? (
                                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-300">
                                   {duplicados.length} duplicado{duplicados.length !== 1 ? 's' : ''}
                                 </span>
@@ -575,87 +815,310 @@ export default function ProgramacionExtendidaPage() {
                                     </div>
                                   )}
 
-                                  {/* Lista de duplicados */}
-                                  <div className="space-y-2">
-                                    {duplicados.map((duplicado, index) => (
-                                      <div
-                                        key={duplicado.id || `duplicado-${item.id}-${index}`}
-                                        className="bg-white p-3 rounded-lg border border-purple-200 hover:border-purple-300 transition-colors"
-                                      >
-                                        <div className="flex items-start gap-3">
-                                          <div className="flex-shrink-0">
-                                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold text-sm">
-                                              {index + 1}
-                                            </span>
-                                          </div>
-                                          <div className="flex-1 grid grid-cols-4 gap-3">
-                                            <div>
-                                              <Label className="text-xs font-semibold text-slate-600">
-                                                Hora Partida
-                                              </Label>
-                                              <Input
-                                                type="time"
-                                                value={duplicado.hora_partida || ""}
-                                                onChange={(e) =>
-                                                  handleModificarDuplicado(item.id, index, "hora_partida", e.target.value)
+                                  {/* Inputs generales para TODOS los duplicados */}
+                                  <div className="bg-white p-4 rounded-lg border-2 border-purple-300">
+                                    <Label className="text-sm font-bold text-purple-700 mb-3 block">
+                                      Valores para todos los duplicados
+                                    </Label>
+
+                                    {/* Peso Bruto Total - ÚNICO INPUT EDITABLE */}
+                                    <div className="mb-4">
+                                      <Label className="text-xs font-semibold text-slate-600">
+                                        Peso Bruto Total (TNE)
+                                      </Label>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={duplicados[0]?.peso_bruto_total || ""}
+                                        onChange={(e) => {
+                                          const valor = e.target.value ? parseFloat(e.target.value) : 0;
+                                          handleModificarTodosDuplicados(item.id, "peso_bruto_total", valor);
+                                        }}
+                                        className="mt-1"
+                                        placeholder="Ej: 25.5"
+                                      />
+                                    </div>
+
+                                    {/* Proyecto / Subproyecto Selects */}
+                                    <div className="space-y-3 border-t pt-3">
+                                      <Label className="text-xs font-bold text-purple-700">
+                                        Relacionar con Proyecto
+                                      </Label>
+
+                                      <div className="grid grid-cols-1 gap-3">
+                                        {/* Proyecto/Subproyecto */}
+                                        <div>
+                                          <Label className="text-xs font-semibold text-slate-600">
+                                            Proyecto / Subproyecto
+                                          </Label>
+                                          <ProyectoSelect
+                                            value={
+                                              duplicados[0]?.id_proyecto && duplicados[0]?.id_proyecto > 0
+                                                ? `p-${duplicados[0].id_proyecto}`
+                                                : duplicados[0]?.id_subproyecto && duplicados[0]?.id_subproyecto > 0
+                                                ? `s-${duplicados[0].id_subproyecto}`
+                                                : undefined
+                                            }
+                                            onChange={(id, type) => {
+                                              setDuplicadosPorGuia(prev => ({
+                                                ...prev,
+                                                [item.id]: {
+                                                  ...prev[item.id],
+                                                  selectionType: type
                                                 }
-                                                className="h-8 text-xs mt-1"
+                                              }));
+
+                                              if (type === "proyecto") {
+                                                handleProyectoChange(item.id, "id_proyecto", id);
+                                                handleProyectoChange(item.id, "id_subproyecto", undefined);
+                                                handleProyectoChange(item.id, "id_etapa", undefined);
+                                                handleProyectoChange(item.id, "id_sector", undefined);
+                                                handleProyectoChange(item.id, "id_frente", undefined);
+                                                handleProyectoChange(item.id, "id_partida", undefined);
+                                                handleProyectoChange(item.id, "id_subetapa", undefined);
+                                                handleProyectoChange(item.id, "id_subsector", undefined);
+                                                handleProyectoChange(item.id, "id_subfrente", undefined);
+                                                handleProyectoChange(item.id, "id_subpartida", undefined);
+                                              } else if (type === "subproyecto") {
+                                                handleProyectoChange(item.id, "id_subproyecto", id);
+                                                handleProyectoChange(item.id, "id_proyecto", undefined);
+                                                handleProyectoChange(item.id, "id_etapa", undefined);
+                                                handleProyectoChange(item.id, "id_sector", undefined);
+                                                handleProyectoChange(item.id, "id_frente", undefined);
+                                                handleProyectoChange(item.id, "id_partida", undefined);
+                                                handleProyectoChange(item.id, "id_subetapa", undefined);
+                                                handleProyectoChange(item.id, "id_subsector", undefined);
+                                                handleProyectoChange(item.id, "id_subfrente", undefined);
+                                                handleProyectoChange(item.id, "id_subpartida", undefined);
+                                              }
+                                            }}
+                                            onNameChange={() => {}}
+                                          />
+                                        </div>
+
+                                        {/* Flujo PROYECTO */}
+                                        {duplicados[0]?.id_proyecto && duplicados[0]?.id_proyecto > 0 && (
+                                          <>
+                                            <div>
+                                              <Label className="text-xs font-semibold text-slate-600">Etapa</Label>
+                                              <EtapaSelect
+                                                idProyecto={duplicados[0].id_proyecto}
+                                                value={duplicados[0]?.id_etapa ?? undefined}
+                                                onChange={(id) => {
+                                                  handleProyectoChange(item.id, "id_etapa", id);
+                                                  handleProyectoChange(item.id, "id_sector", undefined);
+                                                  handleProyectoChange(item.id, "id_frente", undefined);
+                                                  handleProyectoChange(item.id, "id_partida", undefined);
+                                                }}
+                                                onNameChange={() => {}}
                                               />
                                             </div>
+
+                                            {duplicados[0]?.id_etapa && (
+                                              <div>
+                                                <Label className="text-xs font-semibold text-slate-600">Sector</Label>
+                                                <SectorSelect
+                                                  idEtapa={duplicados[0].id_etapa}
+                                                  value={duplicados[0]?.id_sector ?? undefined}
+                                                  onChange={(id) => {
+                                                    handleProyectoChange(item.id, "id_sector", id);
+                                                    handleProyectoChange(item.id, "id_frente", undefined);
+                                                    handleProyectoChange(item.id, "id_partida", undefined);
+                                                  }}
+                                                  onNameChange={() => {}}
+                                                />
+                                              </div>
+                                            )}
+
+                                            {duplicados[0]?.id_sector && (
+                                              <div>
+                                                <Label className="text-xs font-semibold text-slate-600">Frente</Label>
+                                                <FrenteSelectBySector
+                                                  idSector={duplicados[0].id_sector}
+                                                  value={duplicados[0]?.id_frente ?? undefined}
+                                                  onChange={(id) => {
+                                                    handleProyectoChange(item.id, "id_frente", id);
+                                                    handleProyectoChange(item.id, "id_partida", undefined);
+                                                  }}
+                                                  onNameChange={() => {}}
+                                                />
+                                              </div>
+                                            )}
+
+                                            {duplicados[0]?.id_frente && (
+                                              <div>
+                                                <Label className="text-xs font-semibold text-slate-600">Partida</Label>
+                                                <PartidaSelect
+                                                  idFrente={duplicados[0].id_frente}
+                                                  value={duplicados[0]?.id_partida ?? undefined}
+                                                  onChange={(id) => {
+                                                    handleProyectoChange(item.id, "id_partida", id);
+                                                  }}
+                                                  onNameChange={() => {}}
+                                                />
+                                              </div>
+                                            )}
+                                          </>
+                                        )}
+
+                                        {/* Flujo SUBPROYECTO */}
+                                        {duplicados[0]?.id_subproyecto && duplicados[0]?.id_subproyecto > 0 && (
+                                          <>
                                             <div>
-                                              <Label className="text-xs font-semibold text-slate-600">
-                                                Cantidad Viaje
-                                              </Label>
-                                              <Input
-                                                type="text"
-                                                value={duplicado.cantidad_viaje || ""}
-                                                onChange={(e) =>
-                                                  handleModificarDuplicado(item.id, index, "cantidad_viaje", e.target.value)
-                                                }
-                                                className="h-8 text-xs mt-1"
+                                              <Label className="text-xs font-semibold text-slate-600">SubEtapa</Label>
+                                              <SubEtapaSelect
+                                                idSubproyecto={duplicados[0].id_subproyecto}
+                                                value={duplicados[0]?.id_subetapa ?? undefined}
+                                                onChange={(id) => {
+                                                  handleProyectoChange(item.id, "id_subetapa", id);
+                                                  handleProyectoChange(item.id, "id_subsector", undefined);
+                                                  handleProyectoChange(item.id, "id_subfrente", undefined);
+                                                  handleProyectoChange(item.id, "id_subpartida", undefined);
+                                                }}
+                                                onNameChange={() => {}}
                                               />
                                             </div>
-                                            <div>
-                                              <Label className="text-xs font-semibold text-slate-600">
-                                                M3
-                                              </Label>
-                                              <Input
-                                                type="text"
-                                                value={duplicado.m3 || ""}
-                                                onChange={(e) =>
-                                                  handleModificarDuplicado(item.id, index, "m3", e.target.value)
-                                                }
-                                                className="h-8 text-xs mt-1"
-                                              />
-                                            </div>
-                                            <div className="flex items-end">
-                                              <Button
-                                                onClick={() => handleEliminarDuplicado(item.id, index)}
-                                                variant="outline"
-                                                size="sm"
-                                                className="w-full h-8 border-red-300 text-red-700 hover:bg-red-50"
+
+                                            {duplicados[0]?.id_subetapa && (
+                                              <div>
+                                                <Label className="text-xs font-semibold text-slate-600">SubSector</Label>
+                                                <SubsectorSelect
+                                                  idSubEtapa={duplicados[0].id_subetapa}
+                                                  value={duplicados[0]?.id_subsector ?? undefined}
+                                                  onChange={(id) => {
+                                                    handleProyectoChange(item.id, "id_subsector", id);
+                                                    handleProyectoChange(item.id, "id_subfrente", undefined);
+                                                    handleProyectoChange(item.id, "id_subpartida", undefined);
+                                                  }}
+                                                  onNameChange={() => {}}
+                                                />
+                                              </div>
+                                            )}
+
+                                            {duplicados[0]?.id_subsector && (
+                                              <div>
+                                                <Label className="text-xs font-semibold text-slate-600">SubFrente</Label>
+                                                <SubfrenteSelect
+                                                  idSubsector={duplicados[0].id_subsector}
+                                                  value={duplicados[0]?.id_subfrente ?? undefined}
+                                                  onChange={(id) => {
+                                                    handleProyectoChange(item.id, "id_subfrente", id);
+                                                    handleProyectoChange(item.id, "id_subpartida", undefined);
+                                                  }}
+                                                  onNameChange={() => {}}
+                                                />
+                                              </div>
+                                            )}
+
+                                            {duplicados[0]?.id_subfrente && (
+                                              <div>
+                                                <Label className="text-xs font-semibold text-slate-600">SubPartida</Label>
+                                                <SubpartidaSelect
+                                                  idSubfrente={duplicados[0].id_subfrente}
+                                                  value={duplicados[0]?.id_subpartida ?? undefined}
+                                                  onChange={(id) => {
+                                                    handleProyectoChange(item.id, "id_subpartida", id);
+                                                  }}
+                                                  onNameChange={() => {}}
+                                                />
+                                              </div>
+                                            )}
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                      <p className="text-xs font-bold text-blue-800 mb-2">
+                                        ℹ️ Datos ya copiados del original:
+                                      </p>
+                                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-blue-700">
+                                        <div>✓ Destinatario (empresa)</div>
+                                        <div>✓ Vehículo y placa</div>
+                                        <div>✓ Conductor y licencia</div>
+                                        <div>✓ Puntos de partida/llegada</div>
+                                        <div>✓ Productos a transportar</div>
+                                        <div>✓ Observaciones</div>
+                                        <div>✓ M3: {item.m3 || '-'}</div>
+                                        <div>✓ Hora Partida: {item.hora_partida ? formatTimePeru(item.hora_partida) : '-'}</div>
+                                        <div>✓ Proyecto base preseleccionado</div>
+                                      </div>
+                                      <p className="text-xs text-blue-600 font-semibold mt-2">
+                                        🚛 Cada duplicado = 1 viaje
+                                      </p>
+                                    </div>
+
+                                    <p className="text-xs text-purple-600 font-semibold mt-2 text-center">
+                                      Solo debes configurar: Peso Bruto Total y cascada de Proyecto (Etapa → Sector → Frente → Partida)
+                                    </p>
+                                  </div>
+
+                                  {/* Lista de duplicados agrupados como acordeón */}
+                                  <div className="bg-white rounded-lg border border-purple-200">
+                                    <details open className="group">
+                                      <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-purple-50 rounded-t-lg transition-colors">
+                                        <div className="flex items-center gap-3">
+                                          <GitBranch className="h-5 w-5 text-purple-600" />
+                                          <Label className="text-sm font-semibold text-slate-700 cursor-pointer">
+                                            Duplicados creados ({duplicados.length})
+                                          </Label>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-medium text-purple-600">
+                                            {duplicados.filter(d => hasArchivosGenerados(d)).length} completados
+                                          </span>
+                                          <ChevronDown className="h-5 w-5 text-purple-600 transition-transform group-open:rotate-180" />
+                                        </div>
+                                      </summary>
+                                      <div className="p-4 pt-2 border-t border-purple-100">
+                                        <div className="grid grid-cols-10 gap-2">
+                                          {duplicados.map((duplicado, index) => {
+                                            const tieneArchivos = hasArchivosGenerados(duplicado);
+                                            const enProceso = hasGuiaEnProceso(duplicado);
+
+                                            return (
+                                              <div
+                                                key={duplicado.id || `duplicado-${item.id}-${index}`}
+                                                className="relative group"
                                               >
-                                                <X className="h-3 w-3 mr-1" />
-                                                Eliminar
-                                              </Button>
-                                            </div>
-                                          </div>
-                                          {duplicado._isModified && (
-                                            <div className="flex-shrink-0">
-                                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 border border-yellow-300">
-                                                Modificado
-                                              </span>
-                                            </div>
-                                          )}
+                                                <div
+                                                  className={`flex flex-col items-center justify-center w-full h-12 rounded-lg font-bold text-lg border-2 transition-all ${
+                                                    tieneArchivos
+                                                      ? "bg-green-100 text-green-700 border-green-400 hover:bg-green-200"
+                                                      : enProceso
+                                                      ? "bg-cyan-100 text-cyan-700 border-cyan-400 hover:bg-cyan-200"
+                                                      : "bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200 hover:border-purple-400"
+                                                  }`}
+                                                >
+                                                  {enProceso ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                  ) : tieneArchivos ? (
+                                                    <CheckCircle className="h-4 w-4" />
+                                                  ) : (
+                                                    <span>{index + 1}</span>
+                                                  )}
+                                                </div>
+                                                {!tieneArchivos && !enProceso && (
+                                                  <button
+                                                    onClick={() => handleEliminarDuplicado(item.id, index)}
+                                                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-600"
+                                                    title="Eliminar duplicado"
+                                                  >
+                                                    <X className="h-3 w-3" />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
                                         </div>
                                       </div>
-                                    ))}
+                                    </details>
                                   </div>
                                 </div>
                               </TableCell>
                             </TableRow>
                           )}
-                        </>
+                        </Fragment>
                       );
                     })}
                   </TableBody>

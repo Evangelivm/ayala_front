@@ -2062,6 +2062,20 @@ export interface ProgramacionTecnicaData {
   duplicado_origen_id: number | null;
   duplicado_fecha: string | null;
   duplicado_lote_id: string | null;
+  // IDs de Proyecto (necesarios para duplicación y preselección)
+  id_proyecto?: number | null;
+  id_etapa?: number | null;
+  id_sector?: number | null;
+  id_frente?: number | null;
+  id_partida?: number | null;
+  // IDs de Subproyecto
+  id_subproyecto?: number | null;
+  id_subetapa?: number | null;
+  id_subsector?: number | null;
+  id_subfrente?: number | null;
+  id_subpartida?: number | null;
+  // Peso bruto total
+  peso_bruto_total?: number | null;
 }
 
 // Extended type for getTecnicaById response
@@ -2300,6 +2314,39 @@ export const programacionApi = {
         }
       }
       throw new Error("Error al duplicar la guía");
+    }
+  },
+
+  // Actualizar duplicados de un lote
+  actualizarDuplicados: async (
+    loteId: string,
+    modificaciones: {
+      peso_bruto_total?: number;
+      id_proyecto?: number;
+      id_subproyecto?: number;
+      id_etapa?: number;
+      id_sector?: number;
+      id_frente?: number;
+      id_partida?: number;
+      id_subetapa?: number;
+      id_subsector?: number;
+      id_subfrente?: number;
+      id_subpartida?: number;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    registrosActualizados: number;
+  }> => {
+    try {
+      const response = await api.patch("/programacion/tecnica/duplicados/actualizar", {
+        loteId,
+        modificaciones,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Actualizar Duplicados API error:", error);
+      throw new Error("Error al actualizar duplicados");
     }
   },
 
