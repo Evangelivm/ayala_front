@@ -3654,11 +3654,41 @@ export default function OrdenCompraPage() {
                                     required
                                   />
                                 </TableCell>
-                                <TableCell className="text-right text-xs font-semibold bg-gray-100 p-2 font-mono">
-                                  {item.precio_unitario.toFixed(2)}
+                                <TableCell>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const precioSinIgv = item.precio_unitario;
+                                      const cantidad = Number(item.cantidad_solicitada) || 1;
+                                      const nuevoSubtotal = cantidad * precioSinIgv;
+                                      const updatedItems = [...nuevaOrdenData.items];
+                                      updatedItems[index] = { ...updatedItems[index], subtotal: nuevoSubtotal };
+                                      setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
+                                      debounce(() => calcularTotales(updatedItems), 300);
+                                    }}
+                                    className="w-full h-8 text-xs font-semibold bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded p-2 text-right font-mono transition-colors cursor-pointer"
+                                    title="Clic para usar este precio en el subtotal"
+                                  >
+                                    {Number((item.precio_unitario * (Number(item.cantidad_solicitada) || 1)).toFixed(2))}
+                                  </button>
                                 </TableCell>
-                                <TableCell className="text-right text-xs font-semibold bg-blue-50 p-2 font-mono">
-                                  {(item.precio_unitario * 1.18).toFixed(2)}
+                                <TableCell>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const precioConIgv = item.precio_unitario * 1.18;
+                                      const cantidad = Number(item.cantidad_solicitada) || 1;
+                                      const nuevoSubtotal = cantidad * precioConIgv;
+                                      const updatedItems = [...nuevaOrdenData.items];
+                                      updatedItems[index] = { ...updatedItems[index], subtotal: nuevoSubtotal };
+                                      setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
+                                      debounce(() => calcularTotales(updatedItems), 300);
+                                    }}
+                                    className="w-full h-8 text-xs font-semibold bg-blue-50 hover:bg-blue-100 border border-blue-300 rounded p-2 text-right font-mono transition-colors cursor-pointer"
+                                    title="Clic para usar este precio en el subtotal"
+                                  >
+                                    {Number((item.precio_unitario * 1.18 * (Number(item.cantidad_solicitada) || 1)).toFixed(2))}
+                                  </button>
                                 </TableCell>
                                 <TableCell>
                                   <Input

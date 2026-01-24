@@ -607,7 +607,7 @@ export default function FacturaPage() {
         subtotalCalculado * (nuevaFacturaData.igvPorcentaje / 100);
       const totalCalculado = subtotalCalculado + igvCalculado;
       const detraccionMonto = nuevaFacturaData.aplicarDetraccion
-        ? totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100)
+        ? Math.round(totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100))
         : 0;
       const fondoGarantiaMonto = nuevaFacturaData.fondoGarantia
         ? parseFloat(nuevaFacturaData.fondoGarantiaValor || "0")
@@ -1154,7 +1154,7 @@ export default function FacturaPage() {
       if (dataParaBackend.aplicar_detraccion) {
         const detraccionMonto =
           totalCalculado * (nuevaFacturaData.detraccion.porcentaje / 100);
-        dataParaBackend.detraccion_total = Number(detraccionMonto.toFixed(2));
+        dataParaBackend.detraccion_total = Math.round(detraccionMonto);
       }
 
       // Preparar datos finales según la documentación de NubeFact
@@ -2104,8 +2104,8 @@ export default function FacturaPage() {
                           const totalCalculado =
                             subtotalCalculado + igvCalculado;
                           const detraccionMonto = newData.aplicarDetraccion
-                            ? totalCalculado *
-                              (newData.detraccion.porcentaje / 100)
+                            ? Math.round(totalCalculado *
+                              (newData.detraccion.porcentaje / 100))
                             : 0;
                           const fondoGarantiaMonto = newData.fondoGarantia
                             ? parseFloat(newData.fondoGarantiaValor || "0")
@@ -2345,9 +2345,9 @@ export default function FacturaPage() {
                                 subtotalCalculado + igvCalculado;
                               const detraccionMonto =
                                 nuevaFacturaData.aplicarDetraccion
-                                  ? totalCalculado *
+                                  ? Math.round(totalCalculado *
                                     (nuevaFacturaData.detraccion.porcentaje /
-                                      100)
+                                      100))
                                   : 0;
                               const fondoGarantiaMonto = parseFloat(
                                 nuevoValor || "0"
@@ -2788,9 +2788,9 @@ export default function FacturaPage() {
                                 subtotalCalculado + igvCalculado;
                               const detraccionMonto =
                                 nuevaFacturaData.aplicarDetraccion
-                                  ? totalCalculado *
+                                  ? Math.round(totalCalculado *
                                     (nuevaFacturaData.detraccion.porcentaje /
-                                      100)
+                                      100))
                                   : 0;
                               const fondoGarantiaMonto =
                                 nuevaFacturaData.fondoGarantia
@@ -2871,7 +2871,7 @@ export default function FacturaPage() {
                                 const totalCalculado =
                                   subtotalCalculado + igvCalculado;
                                 const detraccionMonto =
-                                  totalCalculado * (porcentaje / 100);
+                                  Math.round(totalCalculado * (porcentaje / 100));
                                 const fondoGarantiaMonto =
                                   nuevaFacturaData.fondoGarantia
                                     ? parseFloat(
