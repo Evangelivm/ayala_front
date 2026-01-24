@@ -3599,13 +3599,13 @@ export default function OrdenCompraPage() {
                               <TableHead className="w-24 text-xs font-bold text-center">
                                 Cantidad
                               </TableHead>
-                              <TableHead className="w-32 text-xs font-bold text-right">
+                              <TableHead className="w-48 text-xs font-bold text-right">
                                 Valor Unitario (Precio sin IGV)
                               </TableHead>
-                              <TableHead className="w-32 text-xs font-bold text-right">
+                              <TableHead className="w-48 text-xs font-bold text-right">
                                 Valor Unitario (Precio con IGV)
                               </TableHead>
-                              <TableHead className="w-32 text-xs font-bold text-right">
+                              <TableHead className="w-40 text-xs font-bold text-right">
                                 Subtotal
                               </TableHead>
                               <TableHead className="w-12"></TableHead>
@@ -3655,40 +3655,83 @@ export default function OrdenCompraPage() {
                                   />
                                 </TableCell>
                                 <TableCell>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const precioSinIgv = item.precio_unitario;
-                                      const cantidad = Number(item.cantidad_solicitada) || 1;
-                                      const nuevoSubtotal = cantidad * precioSinIgv;
-                                      const updatedItems = [...nuevaOrdenData.items];
-                                      updatedItems[index] = { ...updatedItems[index], subtotal: nuevoSubtotal };
-                                      setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
-                                      debounce(() => calcularTotales(updatedItems), 300);
-                                    }}
-                                    className="w-full h-8 text-xs font-semibold bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded p-2 text-right font-mono transition-colors cursor-pointer"
-                                    title="Clic para usar este precio en el subtotal"
-                                  >
-                                    {Number((item.precio_unitario * (Number(item.cantidad_solicitada) || 1)).toFixed(2))}
-                                  </button>
+                                  <div className="flex gap-1 items-center">
+                                    <Input
+                                      type="number"
+                                      value={Number((item.precio_unitario * (Number(item.cantidad_solicitada) || 1)).toFixed(2))}
+                                      onChange={(e) => {
+                                        const valorTotal = parseFloat(e.target.value) || 0;
+                                        const cantidad = Number(item.cantidad_solicitada) || 1;
+                                        const nuevoPrecio = cantidad > 0 ? valorTotal / cantidad : 0;
+                                        const updatedItems = [...nuevaOrdenData.items];
+                                        updatedItems[index] = {
+                                          ...updatedItems[index],
+                                          precio_unitario: nuevoPrecio,
+                                        };
+                                        setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
+                                      }}
+                                      className="h-8 text-xs border border-gray-300 p-2 text-right rounded font-mono bg-gray-50 flex-1"
+                                      min="0"
+                                      step="0.01"
+                                    />
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => {
+                                        const precioSinIgv = item.precio_unitario;
+                                        const cantidad = Number(item.cantidad_solicitada) || 1;
+                                        const nuevoSubtotal = Math.round(cantidad * precioSinIgv * 100) / 100;
+                                        const updatedItems = [...nuevaOrdenData.items];
+                                        updatedItems[index] = { ...updatedItems[index], subtotal: nuevoSubtotal };
+                                        setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
+                                        debounce(() => calcularTotales(updatedItems), 300);
+                                      }}
+                                      className="h-8 w-8 p-0 bg-gray-600 hover:bg-gray-700"
+                                      title="Usar este precio en el subtotal"
+                                    >
+                                      →
+                                    </Button>
+                                  </div>
                                 </TableCell>
                                 <TableCell>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const precioConIgv = item.precio_unitario * 1.18;
-                                      const cantidad = Number(item.cantidad_solicitada) || 1;
-                                      const nuevoSubtotal = cantidad * precioConIgv;
-                                      const updatedItems = [...nuevaOrdenData.items];
-                                      updatedItems[index] = { ...updatedItems[index], subtotal: nuevoSubtotal };
-                                      setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
-                                      debounce(() => calcularTotales(updatedItems), 300);
-                                    }}
-                                    className="w-full h-8 text-xs font-semibold bg-blue-50 hover:bg-blue-100 border border-blue-300 rounded p-2 text-right font-mono transition-colors cursor-pointer"
-                                    title="Clic para usar este precio en el subtotal"
-                                  >
-                                    {Number((item.precio_unitario * 1.18 * (Number(item.cantidad_solicitada) || 1)).toFixed(2))}
-                                  </button>
+                                  <div className="flex gap-1 items-center">
+                                    <Input
+                                      type="number"
+                                      value={Number((item.precio_unitario * 1.18 * (Number(item.cantidad_solicitada) || 1)).toFixed(2))}
+                                      onChange={(e) => {
+                                        const valorTotalConIgv = parseFloat(e.target.value) || 0;
+                                        const cantidad = Number(item.cantidad_solicitada) || 1;
+                                        const precioUnitarioConIgv = cantidad > 0 ? valorTotalConIgv / cantidad : 0;
+                                        const precioSinIgv = precioUnitarioConIgv / 1.18;
+                                        const updatedItems = [...nuevaOrdenData.items];
+                                        updatedItems[index] = {
+                                          ...updatedItems[index],
+                                          precio_unitario: precioSinIgv,
+                                        };
+                                        setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
+                                      }}
+                                      className="h-8 text-xs border border-blue-300 p-2 text-right rounded font-mono bg-blue-50 flex-1"
+                                      min="0"
+                                      step="0.01"
+                                    />
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => {
+                                        const precioConIgv = item.precio_unitario * 1.18;
+                                        const cantidad = Number(item.cantidad_solicitada) || 1;
+                                        const nuevoSubtotal = Math.round(cantidad * precioConIgv * 100) / 100;
+                                        const updatedItems = [...nuevaOrdenData.items];
+                                        updatedItems[index] = { ...updatedItems[index], subtotal: nuevoSubtotal };
+                                        setNuevaOrdenData((prev) => ({ ...prev, items: updatedItems }));
+                                        debounce(() => calcularTotales(updatedItems), 300);
+                                      }}
+                                      className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700"
+                                      title="Usar este precio en el subtotal"
+                                    >
+                                      →
+                                    </Button>
+                                  </div>
                                 </TableCell>
                                 <TableCell>
                                   <Input
