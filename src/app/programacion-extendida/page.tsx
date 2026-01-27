@@ -55,12 +55,28 @@ import { SubpartidaSelect } from "@/components/subpartida-select";
 
 interface DuplicadoConModificaciones extends ProgramacionTecnicaData {
   _isModified?: boolean;
+  observaciones?: string;
+  items?: string;
+  peso_bruto_total?: number | null;
+}
+
+// ✅ NUEVO FLUJO: Ya no hay loteId, duplicados solo en memoria
+interface SelectedNamesType {
+  proyecto: string;
+  etapa: string;
+  sector: string;
+  frente: string;
+  partida: string;
+  subproyecto: string;
+  subetapa: string;
+  subsector: string;
+  subfrente: string;
+  subpartida: string;
 }
 
 interface DuplicadosPorGuia {
   [idGuiaOriginal: number]: {
     duplicados: DuplicadoConModificaciones[];
-    loteId: string;
     selectionType?: "proyecto" | "subproyecto" | null;
     proyectoData?: {
       id_proyecto?: number;
@@ -74,6 +90,7 @@ interface DuplicadosPorGuia {
       id_subfrente?: number;
       id_subpartida?: number;
     };
+    selectedNames: SelectedNamesType;
   };
 }
 
@@ -232,22 +249,32 @@ export default function ProgramacionExtendidaPage() {
           };
         }
 
-        // Agregar duplicados al mapa organizados por guía original
-        // Los duplicados ya vienen con TODOS los datos del original desde el backend
+        // ✅ NUEVO FLUJO: Duplicados solo en memoria, listos para editar
         setDuplicadosPorGuia(prev => ({
           ...prev,
           [guiaSeleccionada.id]: {
             duplicados: result.duplicados,
-            loteId: result.loteId,
             selectionType: initialSelectionType,
-            proyectoData: initialProyectoData
+            proyectoData: initialProyectoData,
+            selectedNames: {
+              proyecto: "",
+              etapa: "",
+              sector: "",
+              frente: "",
+              partida: "",
+              subproyecto: "",
+              subetapa: "",
+              subsector: "",
+              subfrente: "",
+              subpartida: "",
+            }
           }
         }));
 
         // Expandir automáticamente la fila
         setFilasExpandidas(prev => new Set(prev).add(guiaSeleccionada.id));
 
-        toast.success(`${result.message}. Todos los datos han sido copiados del original.`);
+        toast.success(`${result.message}. Edite los campos y presione "Guardar y Enviar".`);
         setIsDuplicarModalOpen(false);
       }
     } catch (error) {
@@ -359,97 +386,233 @@ export default function ProgramacionExtendidaPage() {
     });
   };
 
+  // Función para actualizar nombres seleccionados
+  const handleNameChange = (
+    idGuiaOriginal: number,
+    campo: keyof SelectedNamesType,
+    nombre: string
+  ) => {
+    setDuplicadosPorGuia(prev => {
+      const guiaDuplicados = prev[idGuiaOriginal];
+      if (!guiaDuplicados) return prev;
+
+      return {
+        ...prev,
+        [idGuiaOriginal]: {
+          ...guiaDuplicados,
+          selectedNames: {
+            ...guiaDuplicados.selectedNames,
+            [campo]: nombre
+          }
+        }
+      };
+    });
+  };
+
+  // Función para generar observaciones basadas en los nombres seleccionados
+  const generarObservaciones = (
+    selectionType: "proyecto" | "subproyecto" | null,
+    selectedNames: SelectedNamesType
+  ): string => {
+    let observacionesText = "";
+
+    // Si se seleccionó un proyecto
+    if (selectionType === "proyecto") {
+      if (selectedNames.proyecto) {
+        observacionesText += `Proyecto: ${selectedNames.proyecto}\n`;
+      }
+      if (selectedNames.etapa) {
+        observacionesText += `Etapa: ${selectedNames.etapa}\n`;
+      }
+      if (selectedNames.sector) {
+        observacionesText += `Sector: ${selectedNames.sector}\n`;
+      }
+      if (selectedNames.frente) {
+        observacionesText += `Frente: ${selectedNames.frente}\n`;
+      }
+      if (selectedNames.partida) {
+        observacionesText += `Partida: ${selectedNames.partida}`;
+      }
+    }
+    // Si se seleccionó un subproyecto
+    else if (selectionType === "subproyecto") {
+      if (selectedNames.subproyecto) {
+        observacionesText += `Subproyecto: ${selectedNames.subproyecto}\n`;
+      }
+      if (selectedNames.subetapa) {
+        observacionesText += `Sub-Etapa: ${selectedNames.subetapa}\n`;
+      }
+      if (selectedNames.subsector) {
+        observacionesText += `Subsector: ${selectedNames.subsector}\n`;
+      }
+      if (selectedNames.subfrente) {
+        observacionesText += `Subfrente: ${selectedNames.subfrente}\n`;
+      }
+      if (selectedNames.subpartida) {
+        observacionesText += `Subpartida: ${selectedNames.subpartida}`;
+      }
+    }
+
+    return observacionesText.trim();
+  };
+
+  // useEffect para actualizar observaciones cuando cambian los nombres
+  useEffect(() => {
+    Object.keys(duplicadosPorGuia).forEach(key => {
+      const idGuiaOriginal = Number(key);
+      const guiaDuplicados = duplicadosPorGuia[idGuiaOriginal];
+      if (!guiaDuplicados) return;
+
+      const observacionesGeneradas = generarObservaciones(
+        guiaDuplicados.selectionType || null,
+        guiaDuplicados.selectedNames
+      );
+
+      // Solo actualizar si las observaciones han cambiado
+      const observacionesActuales = guiaDuplicados.duplicados[0]?.observaciones || "";
+      if (observacionesActuales !== observacionesGeneradas) {
+        setDuplicadosPorGuia(prev => {
+          const guia = prev[idGuiaOriginal];
+          if (!guia) return prev;
+
+          const nuevosDuplicados = guia.duplicados.map(duplicado => ({
+            ...duplicado,
+            observaciones: observacionesGeneradas,
+            _isModified: true
+          }));
+
+          return {
+            ...prev,
+            [idGuiaOriginal]: {
+              ...guia,
+              duplicados: nuevosDuplicados
+            }
+          };
+        });
+      }
+    });
+  }, [
+    JSON.stringify(
+      Object.fromEntries(
+        Object.entries(duplicadosPorGuia).map(([key, value]) => [
+          key,
+          {
+            selectionType: value.selectionType,
+            selectedNames: value.selectedNames
+          }
+        ])
+      )
+    )
+  ]);
+
+  // ✅ NUEVO FLUJO: Guardar duplicados en BD con estado_gre: null (auto-detección)
   const handleEnviarDuplicadosDeGuia = async (idGuiaOriginal: number) => {
     const guiaDuplicados = duplicadosPorGuia[idGuiaOriginal];
     if (!guiaDuplicados || guiaDuplicados.duplicados.length === 0) {
-      toast.error("No hay duplicados para enviar");
+      toast.error("No hay duplicados para guardar");
       return;
     }
 
-    if (!confirm(`¿Está seguro de enviar ${guiaDuplicados.duplicados.length} duplicados a Kafka?`)) {
+    // Validar que se haya completado la cascada de proyecto
+    const primerDuplicado = guiaDuplicados.duplicados[0];
+    const esProyecto = guiaDuplicados.selectionType === "proyecto";
+    const esSubproyecto = guiaDuplicados.selectionType === "subproyecto";
+
+    if (esProyecto) {
+      if (!primerDuplicado.id_partida) {
+        toast.error("Debe completar la cascada de Proyecto hasta Partida para generar el código del producto");
+        return;
+      }
+    } else if (esSubproyecto) {
+      if (!primerDuplicado.id_subpartida) {
+        toast.error("Debe completar la cascada de Subproyecto hasta Subpartida para generar el código del producto");
+        return;
+      }
+    } else {
+      toast.error("Debe seleccionar un Proyecto o Subproyecto");
+      return;
+    }
+
+    // Validar que los items tengan código
+    try {
+      const items = JSON.parse(primerDuplicado.items || "[]");
+      if (!items.length || !items[0]?.codigo || items[0].codigo.trim() === "") {
+        toast.error("Los items no tienen código. Asegúrese de haber seleccionado la Partida/Subpartida completa.");
+        return;
+      }
+    } catch (e) {
+      toast.error("Error al validar los items de la guía");
+      return;
+    }
+
+    // Validar peso bruto total
+    if (!primerDuplicado.peso_bruto_total || primerDuplicado.peso_bruto_total <= 0) {
+      toast.error("Debe ingresar un Peso Bruto Total válido");
+      return;
+    }
+
+    // Generar observaciones actualizadas antes de guardar
+    const observacionesFinales = generarObservaciones(
+      guiaDuplicados.selectionType || null,
+      guiaDuplicados.selectedNames
+    );
+
+    if (!confirm(`¿Está seguro de guardar ${guiaDuplicados.duplicados.length} duplicados? El sistema los procesará automáticamente.`)) {
       return;
     }
 
     setIsEnviando(true);
-    setProgresoEnvio(0);
+    setProgresoEnvio(50);
 
     try {
-      // Primero, actualizar los duplicados en el backend con los cambios del usuario
-      const modificaciones: Record<string, unknown> = {};
+      toast.info("Guardando duplicados en la base de datos...");
 
-      // ✅ SIEMPRE enviar peso_bruto_total (incluso si es 0)
-      if (guiaDuplicados.duplicados[0]?.peso_bruto_total !== undefined) {
-        modificaciones.peso_bruto_total = guiaDuplicados.duplicados[0].peso_bruto_total;
-      }
+      // Preparar duplicados con todos los datos editados
+      const duplicadosParaGuardar = guiaDuplicados.duplicados.map(duplicado => ({
+        ...duplicado,
+        // Asegurar que los datos del proyecto estén incluidos
+        ...guiaDuplicados.proyectoData,
+        // Asegurar que las observaciones estén incluidas
+        observaciones: observacionesFinales
+      }));
 
-      // Obtener datos del proyecto si existen
-      if (guiaDuplicados.proyectoData) {
-        Object.keys(guiaDuplicados.proyectoData).forEach(key => {
-          const valor = guiaDuplicados.proyectoData![key as keyof typeof guiaDuplicados.proyectoData];
-          if (valor !== undefined && valor !== null) {
-            modificaciones[key] = valor;
+      console.log("📋 Duplicados a guardar:", duplicadosParaGuardar);
+      console.log("📝 Observaciones:", observacionesFinales);
+
+      // Validar que todos los items tengan código
+      duplicadosParaGuardar.forEach((dup, index) => {
+        try {
+          const items = JSON.parse(dup.items || "[]");
+          console.log(`🔍 Duplicado ${index + 1} - Items:`, items);
+
+          if (items.length === 0) {
+            console.warn(`⚠️ Duplicado ${index + 1} no tiene items`);
+          } else if (!items[0]?.codigo || items[0].codigo.trim() === "") {
+            console.warn(`⚠️ Duplicado ${index + 1} tiene items sin código`);
           }
-        });
-      }
+        } catch (e) {
+          console.error(`❌ Error parseando items del duplicado ${index + 1}:`, e);
+        }
+      });
 
-      // Actualizar en el backend antes de enviar
-      toast.info("Guardando cambios antes de enviar...");
-      await programacionApi.actualizarDuplicados(guiaDuplicados.loteId, modificaciones);
-      toast.success("Cambios guardados correctamente");
+      // Llamar al nuevo endpoint para guardar
+      const result = await programacionApi.guardarDuplicados(duplicadosParaGuardar);
 
-      const idsGuias = guiaDuplicados.duplicados.map(d => d.id);
-      const tamañoLote = 5;
-      let procesados = 0;
-      const errores: Array<{ id: number; error: string }> = [];
+      setProgresoEnvio(100);
 
       // Agregar identificadores al estado de "en proceso"
-      const identificadores = guiaDuplicados.duplicados
-        .map(d => d.identificador_unico)
+      const identificadores = result.guiasCreadas
+        .map(g => g.identificador_unico)
         .filter(Boolean) as string[];
       setIdentificadoresConGuia(prev => [...prev, ...identificadores]);
 
-      // Procesar en lotes de 5
-      for (let i = 0; i < idsGuias.length; i += tamañoLote) {
-        const loteParcial = idsGuias.slice(i, i + tamañoLote);
+      toast.success(
+        `✅ ${result.guiasCreadas.length} duplicados guardados exitosamente. ` +
+        `El sistema los procesará automáticamente en los próximos 30 segundos.`,
+        { duration: 5000 }
+      );
 
-        try {
-          const result = await programacionApi.enviarDuplicadosKafka(
-            guiaDuplicados.loteId,
-            loteParcial
-          );
-          procesados += result.procesados;
-
-          if (result.errores && result.errores.length > 0) {
-            errores.push(...result.errores);
-          }
-        } catch (error) {
-          console.error(`Error enviando lote ${i / tamañoLote + 1}:`, error);
-          loteParcial.forEach(id => {
-            errores.push({
-              id,
-              error: error instanceof Error ? error.message : "Error desconocido"
-            });
-          });
-        }
-
-        // Actualizar progreso
-        const progreso = Math.round(((i + tamañoLote) / idsGuias.length) * 100);
-        setProgresoEnvio(Math.min(progreso, 100));
-
-        // Pausa de 500ms entre lotes
-        if (i + tamañoLote < idsGuias.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-
-      // Mostrar resultado
-      if (errores.length === 0) {
-        toast.success(`Todos los duplicados (${procesados}) fueron enviados exitosamente`);
-      } else {
-        toast.warning(`Se procesaron ${procesados} de ${idsGuias.length}. ${errores.length} tuvieron errores.`);
-      }
-
-      // Eliminar del estado
+      // Eliminar del estado local
       setDuplicadosPorGuia(prev => {
         const { [idGuiaOriginal]: removed, ...rest } = prev;
         return rest;
@@ -463,45 +626,42 @@ export default function ProgramacionExtendidaPage() {
 
       setProgresoEnvio(0);
 
-      // Recargar datos
-      await fetchDataOriginales();
+      // Recargar datos después de un momento
+      setTimeout(async () => {
+        await fetchDataOriginales();
+      }, 2000);
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Error al enviar duplicados";
+      const errorMessage = error instanceof Error ? error.message : "Error al guardar duplicados";
       toast.error(errorMessage);
-      console.error("Error enviando a Kafka:", error);
+      console.error("Error guardando duplicados:", error);
     } finally {
       setIsEnviando(false);
     }
   };
 
-  const handleCancelarDuplicacion = async (idGuiaOriginal: number) => {
+  // ✅ NUEVO FLUJO: Cancelar solo elimina del estado local (no toca BD)
+  const handleCancelarDuplicacion = (idGuiaOriginal: number) => {
     const guiaDuplicados = duplicadosPorGuia[idGuiaOriginal];
     if (!guiaDuplicados) return;
 
-    if (!confirm("¿Está seguro de cancelar? Se eliminarán todos los duplicados creados.")) {
+    if (!confirm("¿Está seguro de cancelar? Se descartarán todos los duplicados sin guardar.")) {
       return;
     }
 
-    try {
-      await programacionApi.eliminarDuplicados(guiaDuplicados.loteId);
+    // Solo eliminar del estado local
+    setDuplicadosPorGuia(prev => {
+      const { [idGuiaOriginal]: removed, ...rest } = prev;
+      return rest;
+    });
 
-      setDuplicadosPorGuia(prev => {
-        const { [idGuiaOriginal]: removed, ...rest } = prev;
-        return rest;
-      });
+    setFilasExpandidas(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(idGuiaOriginal);
+      return newSet;
+    });
 
-      setFilasExpandidas(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(idGuiaOriginal);
-        return newSet;
-      });
-
-      toast.info("Duplicados cancelados y eliminados");
-    } catch (error) {
-      toast.error("Error al cancelar duplicados");
-      console.error("Error cancelando:", error);
-    }
+    toast.info("Duplicados descartados (no se guardaron en la base de datos)");
   };
 
   const getTotalDuplicados = () => {
@@ -793,12 +953,12 @@ export default function ProgramacionExtendidaPage() {
                                         {isEnviando ? (
                                           <>
                                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                            Enviando...
+                                            Guardando...
                                           </>
                                         ) : (
                                           <>
                                             <Send className="h-4 w-4 mr-2" />
-                                            Enviar a Kafka
+                                            Guardar y Procesar
                                           </>
                                         )}
                                       </Button>
@@ -832,7 +992,50 @@ export default function ProgramacionExtendidaPage() {
                                         value={duplicados[0]?.peso_bruto_total || ""}
                                         onChange={(e) => {
                                           const valor = e.target.value ? parseFloat(e.target.value) : 0;
-                                          handleModificarTodosDuplicados(item.id, "peso_bruto_total", valor);
+
+                                          // Actualizar peso_bruto_total y también la cantidad en items
+                                          setDuplicadosPorGuia(prev => {
+                                            const guia = prev[item.id];
+                                            if (!guia) return prev;
+
+                                            const nuevosDuplicados = guia.duplicados.map(duplicado => {
+                                              // Parsear items existentes o crear uno nuevo
+                                              let items = [{ unidad_de_medida: "MTQ", codigo: "", descripcion: "", cantidad: valor }];
+                                              try {
+                                                const itemsExistentes = JSON.parse(duplicado.items || "[]") as Array<{
+                                                  unidad_de_medida: string;
+                                                  codigo: string;
+                                                  descripcion: string;
+                                                  cantidad: number;
+                                                }>;
+                                                if (itemsExistentes.length > 0) {
+                                                  items = itemsExistentes.map((it) => ({
+                                                    ...it,
+                                                    cantidad: valor
+                                                  }));
+                                                } else {
+                                                  items = [{ unidad_de_medida: "MTQ", codigo: "", descripcion: "", cantidad: valor }];
+                                                }
+                                              } catch (e) {
+                                                console.error("Error parseando items:", e);
+                                              }
+
+                                              return {
+                                                ...duplicado,
+                                                peso_bruto_total: valor,
+                                                items: JSON.stringify(items),
+                                                _isModified: true
+                                              };
+                                            });
+
+                                            return {
+                                              ...prev,
+                                              [item.id]: {
+                                                ...guia,
+                                                duplicados: nuevosDuplicados
+                                              }
+                                            };
+                                          });
                                         }}
                                         className="mt-1"
                                         placeholder="Ej: 25.5"
@@ -892,7 +1095,14 @@ export default function ProgramacionExtendidaPage() {
                                                 handleProyectoChange(item.id, "id_subpartida", undefined);
                                               }
                                             }}
-                                            onNameChange={() => {}}
+                                            onNameChange={(name) => {
+                                              const tipo = duplicadosPorGuia[item.id]?.selectionType;
+                                              if (tipo === "proyecto") {
+                                                handleNameChange(item.id, "proyecto", name);
+                                              } else if (tipo === "subproyecto") {
+                                                handleNameChange(item.id, "subproyecto", name);
+                                              }
+                                            }}
                                           />
                                         </div>
 
@@ -910,7 +1120,7 @@ export default function ProgramacionExtendidaPage() {
                                                   handleProyectoChange(item.id, "id_frente", undefined);
                                                   handleProyectoChange(item.id, "id_partida", undefined);
                                                 }}
-                                                onNameChange={() => {}}
+                                                onNameChange={(name) => handleNameChange(item.id, "etapa", name)}
                                               />
                                             </div>
 
@@ -925,7 +1135,7 @@ export default function ProgramacionExtendidaPage() {
                                                     handleProyectoChange(item.id, "id_frente", undefined);
                                                     handleProyectoChange(item.id, "id_partida", undefined);
                                                   }}
-                                                  onNameChange={() => {}}
+                                                  onNameChange={(name) => handleNameChange(item.id, "sector", name)}
                                                 />
                                               </div>
                                             )}
@@ -940,7 +1150,7 @@ export default function ProgramacionExtendidaPage() {
                                                     handleProyectoChange(item.id, "id_frente", id);
                                                     handleProyectoChange(item.id, "id_partida", undefined);
                                                   }}
-                                                  onNameChange={() => {}}
+                                                  onNameChange={(name) => handleNameChange(item.id, "frente", name)}
                                                 />
                                               </div>
                                             )}
@@ -954,7 +1164,35 @@ export default function ProgramacionExtendidaPage() {
                                                   onChange={(id) => {
                                                     handleProyectoChange(item.id, "id_partida", id);
                                                   }}
-                                                  onNameChange={() => {}}
+                                                  onNameChange={(name) => handleNameChange(item.id, "partida", name)}
+                                                  onPartidaDataChange={(data) => {
+                                                    if (data) {
+                                                      // Actualizar código y descripción en TODOS los duplicados
+                                                      setDuplicadosPorGuia(prev => {
+                                                        const guia = prev[item.id];
+                                                        if (!guia) return prev;
+
+                                                        const nuevosDuplicados = guia.duplicados.map(duplicado => ({
+                                                          ...duplicado,
+                                                          items: JSON.stringify([{
+                                                            unidad_de_medida: "MTQ",
+                                                            codigo: data.codigo,
+                                                            descripcion: data.descripcion,
+                                                            cantidad: duplicado.peso_bruto_total || 1
+                                                          }]),
+                                                          _isModified: true
+                                                        }));
+
+                                                        return {
+                                                          ...prev,
+                                                          [item.id]: {
+                                                            ...guia,
+                                                            duplicados: nuevosDuplicados
+                                                          }
+                                                        };
+                                                      });
+                                                    }
+                                                  }}
                                                 />
                                               </div>
                                             )}
@@ -975,7 +1213,7 @@ export default function ProgramacionExtendidaPage() {
                                                   handleProyectoChange(item.id, "id_subfrente", undefined);
                                                   handleProyectoChange(item.id, "id_subpartida", undefined);
                                                 }}
-                                                onNameChange={() => {}}
+                                                onNameChange={(name) => handleNameChange(item.id, "subetapa", name)}
                                               />
                                             </div>
 
@@ -990,7 +1228,7 @@ export default function ProgramacionExtendidaPage() {
                                                     handleProyectoChange(item.id, "id_subfrente", undefined);
                                                     handleProyectoChange(item.id, "id_subpartida", undefined);
                                                   }}
-                                                  onNameChange={() => {}}
+                                                  onNameChange={(name) => handleNameChange(item.id, "subsector", name)}
                                                 />
                                               </div>
                                             )}
@@ -1005,7 +1243,7 @@ export default function ProgramacionExtendidaPage() {
                                                     handleProyectoChange(item.id, "id_subfrente", id);
                                                     handleProyectoChange(item.id, "id_subpartida", undefined);
                                                   }}
-                                                  onNameChange={() => {}}
+                                                  onNameChange={(name) => handleNameChange(item.id, "subfrente", name)}
                                                 />
                                               </div>
                                             )}
@@ -1019,7 +1257,35 @@ export default function ProgramacionExtendidaPage() {
                                                   onChange={(id) => {
                                                     handleProyectoChange(item.id, "id_subpartida", id);
                                                   }}
-                                                  onNameChange={() => {}}
+                                                  onNameChange={(name) => handleNameChange(item.id, "subpartida", name)}
+                                                  onSubpartidaDataChange={(data) => {
+                                                    if (data) {
+                                                      // Actualizar código y descripción en TODOS los duplicados
+                                                      setDuplicadosPorGuia(prev => {
+                                                        const guia = prev[item.id];
+                                                        if (!guia) return prev;
+
+                                                        const nuevosDuplicados = guia.duplicados.map(duplicado => ({
+                                                          ...duplicado,
+                                                          items: JSON.stringify([{
+                                                            unidad_de_medida: "MTQ",
+                                                            codigo: data.codigo,
+                                                            descripcion: data.descripcion,
+                                                            cantidad: duplicado.peso_bruto_total || 1
+                                                          }]),
+                                                          _isModified: true
+                                                        }));
+
+                                                        return {
+                                                          ...prev,
+                                                          [item.id]: {
+                                                            ...guia,
+                                                            duplicados: nuevosDuplicados
+                                                          }
+                                                        };
+                                                      });
+                                                    }
+                                                  }}
                                                 />
                                               </div>
                                             )}
@@ -1037,11 +1303,18 @@ export default function ProgramacionExtendidaPage() {
                                         <div>✓ Vehículo y placa</div>
                                         <div>✓ Conductor y licencia</div>
                                         <div>✓ Puntos de partida/llegada</div>
-                                        <div>✓ Productos a transportar</div>
-                                        <div>✓ Observaciones</div>
                                         <div>✓ M3: {item.m3 || '-'}</div>
                                         <div>✓ Hora Partida: {item.hora_partida ? formatTimePeru(item.hora_partida) : '-'}</div>
                                         <div>✓ Proyecto base preseleccionado</div>
+                                      </div>
+                                      <p className="text-xs text-green-600 font-semibold mt-2">
+                                        🔄 Se generará automáticamente:
+                                      </p>
+                                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-green-700 mt-1">
+                                        <div>• Código del producto (de Partida/Subpartida)</div>
+                                        <div>• Descripción del producto (de Partida/Subpartida)</div>
+                                        <div>• Observaciones (de la cascada de proyecto)</div>
+                                        <div>• Cantidad (del Peso Bruto Total)</div>
                                       </div>
                                       <p className="text-xs text-blue-600 font-semibold mt-2">
                                         🚛 Cada duplicado = 1 viaje
@@ -1052,6 +1325,21 @@ export default function ProgramacionExtendidaPage() {
                                       Solo debes configurar: Peso Bruto Total y cascada de Proyecto (Etapa → Sector → Frente → Partida)
                                     </p>
                                   </div>
+
+                                  {/* Mostrar observaciones generadas automáticamente */}
+                                  {duplicados[0]?.observaciones && (
+                                    <div className="bg-white p-4 rounded-lg border-2 border-green-300">
+                                      <Label className="text-xs font-bold text-green-700 mb-2 block">
+                                        Observaciones Generadas (se aplicarán a todos los duplicados)
+                                      </Label>
+                                      <textarea
+                                        value={duplicados[0].observaciones}
+                                        readOnly
+                                        rows={6}
+                                        className="w-full p-2 text-xs bg-green-50 border border-green-200 rounded-md resize-none"
+                                      />
+                                    </div>
+                                  )}
 
                                   {/* Lista de duplicados agrupados como acordeón */}
                                   <div className="bg-white rounded-lg border border-purple-200">

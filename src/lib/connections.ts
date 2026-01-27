@@ -2288,6 +2288,7 @@ export const programacionApi = {
   },
 
   // Duplicar guía
+  // ✅ NUEVO FLUJO: Duplicar guía devuelve estructura en memoria (no guarda en BD)
   duplicarGuia: async (
     idGuiaOriginal: number,
     cantidad: number,
@@ -2295,8 +2296,7 @@ export const programacionApi = {
   ): Promise<{
     success: boolean;
     message: string;
-    loteId: string;
-    duplicados: ProgramacionTecnicaData[]
+    duplicados: ProgramacionTecnicaData[] // Ya no hay loteId
   }> => {
     try {
       const response = await api.post("/programacion/tecnica/duplicar", {
@@ -2314,6 +2314,31 @@ export const programacionApi = {
         }
       }
       throw new Error("Error al duplicar la guía");
+    }
+  },
+
+  // ✅ NUEVO: Guardar duplicados editados en BD (se auto-detectarán)
+  guardarDuplicados: async (
+    duplicados: Array<Partial<ProgramacionTecnicaData>>
+  ): Promise<{
+    success: boolean;
+    message: string;
+    guiasCreadas: Array<{ id_guia: number; identificador_unico: string; serie: string; numero: number }>;
+  }> => {
+    try {
+      const response = await api.post("/programacion/tecnica/guardar-duplicados", {
+        duplicados
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Guardar Duplicados API error:", error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          throw new Error(axiosError.response.data.message);
+        }
+      }
+      throw new Error("Error al guardar duplicados");
     }
   },
 

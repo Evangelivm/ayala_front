@@ -55,7 +55,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   Table,
@@ -67,6 +67,34 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWebSocket } from "@/lib/useWebSocket";
+
+// Helper para parsear fechas DATE del backend sin conversión de zona horaria
+const parseDateSafe = (dateString: string): Date => {
+  // Si la fecha viene sin hora (DATE en SQL), agregamos T12:00:00 para evitar problemas de zona horaria
+  if (dateString && !dateString.includes('T')) {
+    return parseISO(dateString + 'T12:00:00');
+  }
+  return parseISO(dateString);
+};
+
+// Helper para formatear fecha string YYYY-MM-DD a dd/MM/yyyy sin usar Date
+const formatDateString = (dateString: string | null | undefined): string => {
+  if (!dateString) return '';
+
+  // Si la fecha ya está en formato YYYY-MM-DD, convertir a dd/MM/yyyy
+  const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const [, year, month, day] = match;
+    return `${day}/${month}/${year}`;
+  }
+
+  // Si no coincide, intentar parsear normalmente
+  try {
+    return format(parseDateSafe(dateString), "dd/MM/yyyy", { locale: es });
+  } catch {
+    return dateString;
+  }
+};
 
 export default function OrdenCompraPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1095,10 +1123,10 @@ export default function OrdenCompraPage() {
         anticipo: orden.tiene_anticipo === "SI" || orden.tiene_anticipo === 1,
         serie: serie || "0001",
         nroDoc: nroDoc || "",
-        fechaEmision: new Date(orden.fecha_orden),
+        fechaEmision: parseDateSafe(orden.fecha_orden),
         moneda: orden.moneda,
         tipoCambio: Number(orden.tipo_cambio) || 0,
-        fechaServicio: new Date(orden.fecha_registro),
+        fechaServicio: parseDateSafe(orden.fecha_registro),
         estado: orden.estado,
         centroCostoNivel1Codigo: orden.centro_costo_nivel1 || "",
         centroCostoNivel2Codigo: orden.centro_costo_nivel2 || "",
@@ -1172,10 +1200,10 @@ export default function OrdenCompraPage() {
         anticipo: orden.tiene_anticipo === "SI" || orden.tiene_anticipo === 1,
         serie: serie || "0001",
         nroDoc: nroDoc || "",
-        fechaEmision: new Date(orden.fecha_orden),
+        fechaEmision: parseDateSafe(orden.fecha_orden),
         moneda: orden.moneda,
         tipoCambio: Number(orden.tipo_cambio) || 0,
-        fechaServicio: new Date(orden.fecha_registro),
+        fechaServicio: parseDateSafe(orden.fecha_registro),
         estado: orden.estado,
         centroCostoNivel1Codigo: orden.centro_costo_nivel1 || "",
         centroCostoNivel2Codigo: orden.centro_costo_nivel2 || "",
@@ -1421,8 +1449,8 @@ export default function OrdenCompraPage() {
     if (fechaFiltro) {
       const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
       filtered = filtered.filter((orden) => {
-        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
-        return fechaOrden === fechaFiltroStr;
+        // El backend ya envía la fecha como string YYYY-MM-DD, comparar directamente
+        return orden.fecha_orden === fechaFiltroStr;
       });
     }
 
@@ -1446,8 +1474,8 @@ export default function OrdenCompraPage() {
     if (fechaFiltro) {
       const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
       filtered = filtered.filter((orden) => {
-        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
-        return fechaOrden === fechaFiltroStr;
+        // El backend ya envía la fecha como string YYYY-MM-DD, comparar directamente
+        return orden.fecha_orden === fechaFiltroStr;
       });
     }
 
@@ -1636,7 +1664,7 @@ export default function OrdenCompraPage() {
                                 <div className="flex flex-col items-start min-w-[100px]">
                                   <span className="text-xs text-gray-500 font-medium">Fecha</span>
                                   <span className="text-sm font-medium">
-                                    {format(new Date(orden.fecha_orden), "dd/MM/yyyy", { locale: es })}
+                                    {formatDateString(orden.fecha_orden)}
                                   </span>
                                 </div>
 
@@ -2053,7 +2081,7 @@ export default function OrdenCompraPage() {
                                 <div className="flex flex-col items-start min-w-[100px]">
                                   <span className="text-xs text-gray-500 font-medium">Fecha</span>
                                   <span className="text-sm font-medium">
-                                    {format(new Date(orden.fecha_orden), "dd/MM/yyyy", { locale: es })}
+                                    {formatDateString(orden.fecha_orden)}
                                   </span>
                                 </div>
 
