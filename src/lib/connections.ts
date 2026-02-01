@@ -1493,6 +1493,145 @@ export const guiasRemisionApi = {
       return 0;
     }
   },
+
+  // Obtener identificadores que ya tienen guías en la tabla regular
+  getIdentificadoresExistentes: async (): Promise<string[]> => {
+    try {
+      const response = await api.get("/guias-remision/identificadores-existentes");
+      return response.data || [];
+    } catch (error) {
+      console.error("Error obteniendo identificadores existentes:", error);
+      return [];
+    }
+  },
+};
+
+// ============ GUIAS REMISION EXTENDIDO API (TTT2) ============
+export const guiasRemisionExtendidoApi = {
+  // Obtener todas las guías extendidas con filtros
+  getAll: async (filters?: {
+    page?: number;
+    limit?: number;
+    fecha_desde?: string;
+    fecha_hasta?: string;
+    id_proyecto?: number;
+    estado_gre?: string;
+    serie?: string;
+  }) => {
+    try {
+      const response = await api.get("/guias-remision-extendido", { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error("Guías de Remisión Extendido API error:", error);
+      return { data: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } };
+    }
+  },
+
+  // Obtener guía extendida por ID
+  getById: async (id: number): Promise<GuiaRemisionData> => {
+    try {
+      const response = await api.get(`/guias-remision-extendido/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Guías de Remisión Extendido API error:", error);
+      throw new Error("Guía de remisión extendida no encontrada");
+    }
+  },
+
+  // Crear nueva guía extendida
+  create: async (data: Omit<GuiaRemisionData, "id_guia" | "created_at" | "updated_at" | "estado_gre" | "enlace_del_pdf" | "enlace_del_xml" | "enlace_del_cdr">): Promise<GuiaRemisionData> => {
+    try {
+      const response = await api.post("/guias-remision-extendido", data);
+      return response.data;
+    } catch (error) {
+      console.error("Guías de Remisión Extendido API error:", error);
+      throw new Error("Error al crear guía de remisión extendida");
+    }
+  },
+
+  // Actualizar guía extendida
+  update: async (id: number, data: Partial<GuiaRemisionData>): Promise<GuiaRemisionData> => {
+    try {
+      const response = await api.put(`/guias-remision-extendido/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Guías de Remisión Extendido API error:", error);
+      throw new Error("Error al actualizar guía de remisión extendida");
+    }
+  },
+
+  // Eliminar guía extendida
+  delete: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/guias-remision-extendido/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Guías de Remisión Extendido API error:", error);
+      throw new Error("Error al eliminar guía de remisión extendida");
+    }
+  },
+
+  // Obtener el último número de guía extendida
+  getLastNumber: async (): Promise<number> => {
+    try {
+      const response = await api.get("/guias-remision-extendido/ultimo-numero");
+      return response.data.numero || 0;
+    } catch (error) {
+      console.error("Guías de Remisión Extendido API error:", error);
+      return 0;
+    }
+  },
+
+  // Obtener guías por identificador único (para mostrar duplicaciones)
+  getByIdentificador: async (identificador: string): Promise<GuiaRemisionData[]> => {
+    try {
+      const response = await api.get(`/guias-remision-extendido/by-identificador/${identificador}`);
+      return response.data || [];
+    } catch (error) {
+      console.error("Error obteniendo guías por identificador:", error);
+      return [];
+    }
+  },
+
+  // Obtener identificadores que ya tienen guías en la tabla extendida
+  getIdentificadoresExistentes: async (): Promise<string[]> => {
+    try {
+      const response = await api.get("/guias-remision-extendido/identificadores-existentes");
+      return response.data || [];
+    } catch (error) {
+      console.error("Error obteniendo identificadores existentes:", error);
+      return [];
+    }
+  },
+
+  // Recuperar archivos de una guía extendida específica desde SUNAT
+  recuperarArchivosGuia: async (idGuia: number): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      id_guia: number;
+      serie: string;
+      numero: number;
+      estado_gre: string | null;
+      enlace_del_pdf: string;
+      enlace_del_xml: string;
+      enlace_del_cdr: string;
+    }
+  }> => {
+    try {
+      const response = await api.post(`/guias-remision-extendido/manual-consulta/${idGuia}`);
+      return response.data;
+    } catch (error) {
+      console.error("Recuperar Archivos Guía Extendida API error:", error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          throw new Error(axiosError.response.data.message);
+        }
+      }
+      throw new Error("Error al recuperar archivos de la guía extendida");
+    }
+  },
 };
 
 // Exportar la instancia de axios para uso directo si es necesario
@@ -3415,6 +3554,8 @@ export interface OrdenCompraData {
   url_cotizacion?: string | null;
   url_factura?: string | null;
   nro_factura?: string | null; // Número de factura
+  url_comprobante_retencion?: string | null; // URL del comprobante de retención
+  nro_serie?: string | null; // Número de serie del comprobante de retención
 }
 
 // Helper para decodificar HTML entities en órdenes de compra
@@ -3661,6 +3802,32 @@ export const ordenesCompraApi = {
       throw error;
     }
   },
+
+  // Subir comprobante de retención para orden de compra
+  uploadComprobanteRetencion: async (id: number, formData: FormData): Promise<{
+    success: boolean;
+    message: string;
+    fileUrl: string;
+    filePath: string;
+    fileId: string;
+  }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-compra/${id}/upload-comprobante-retencion`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir comprobante de retención');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo comprobante de retención de orden de compra:", error);
+      throw error;
+    }
+  },
 };
 
 // ============ ORDENES SERVICIO API ============
@@ -3712,6 +3879,8 @@ export interface OrdenServicioData {
   url_cotizacion?: string | null;
   url_factura?: string | null;
   nro_factura?: string | null; // Número de factura
+  url_comprobante_retencion?: string | null; // URL del comprobante de retención
+  nro_serie?: string | null; // Número de serie del comprobante de retención
 }
 
 // Helper para decodificar HTML entities en órdenes de servicio
@@ -3955,6 +4124,32 @@ export const ordenesServicioApi = {
       return response.json();
     } catch (error) {
       console.error("Error subiendo factura de orden de servicio:", error);
+      throw error;
+    }
+  },
+
+  // Subir comprobante de retención para orden de servicio
+  uploadComprobanteRetencion: async (id: number, formData: FormData): Promise<{
+    success: boolean;
+    message: string;
+    fileUrl: string;
+    filePath: string;
+    fileId: string;
+  }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-servicio/${id}/upload-comprobante-retencion`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir comprobante de retención');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo comprobante de retención de orden de servicio:", error);
       throw error;
     }
   },

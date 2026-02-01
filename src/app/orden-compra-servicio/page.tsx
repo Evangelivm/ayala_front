@@ -1915,7 +1915,33 @@ export default function OrdenCompraPage() {
                                         Factura
                                       </span>
                                     )}
+                                    {orden.url_comprobante_retencion ? (
+                                      <a
+                                        href={orden.url_comprobante_retencion}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs hover:bg-indigo-200"
+                                      >
+                                        <FileText className="h-3 w-3" />
+                                        Comp. Retención
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-400 rounded text-xs cursor-not-allowed">
+                                        <FileText className="h-3 w-3" />
+                                        Comp. Retención
+                                      </span>
+                                    )}
                                   </div>
+
+                                  {/* Mostrar número de serie si existe */}
+                                  {orden.url_comprobante_retencion && orden.nro_serie && (
+                                    <div className="mt-2">
+                                      <span className="text-xs text-gray-600">
+                                        <span className="font-semibold">N° Serie:</span>{" "}
+                                        <span className="font-mono text-indigo-700">{orden.nro_serie}</span>
+                                      </span>
+                                    </div>
+                                  )}
 
                                   {/* Campo de Número de Factura */}
                                   <div className="mt-3 pt-3 border-t border-gray-200">
@@ -2332,7 +2358,33 @@ export default function OrdenCompraPage() {
                                         Factura
                                       </span>
                                     )}
+                                    {orden.url_comprobante_retencion ? (
+                                      <a
+                                        href={orden.url_comprobante_retencion}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs hover:bg-indigo-200"
+                                      >
+                                        <FileText className="h-3 w-3" />
+                                        Comp. Retención
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-400 rounded text-xs cursor-not-allowed">
+                                        <FileText className="h-3 w-3" />
+                                        Comp. Retención
+                                      </span>
+                                    )}
                                   </div>
+
+                                  {/* Mostrar número de serie si existe */}
+                                  {orden.url_comprobante_retencion && orden.nro_serie && (
+                                    <div className="mt-2">
+                                      <span className="text-xs text-gray-600">
+                                        <span className="font-semibold">N° Serie:</span>{" "}
+                                        <span className="font-mono text-indigo-700">{orden.nro_serie}</span>
+                                      </span>
+                                    </div>
+                                  )}
 
                                   {/* Campo de Número de Factura */}
                                   <div className="mt-3 pt-3 border-t border-gray-200">

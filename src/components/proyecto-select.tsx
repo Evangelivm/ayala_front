@@ -115,7 +115,7 @@ export function ProyectoSelect({
   }
 
   return (
-    <Select value={value ? value.toString() : undefined} onValueChange={handleValueChange}>
+    <Select value={value ? value.toString() : ""} onValueChange={handleValueChange}>
       <SelectTrigger className={className}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

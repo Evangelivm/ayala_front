@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, FileText, CheckCircle, Search, Filter, ExternalLink, CalendarIcon, X } from "lucide-react";
+import { ClipboardList, FileText, CheckCircle, Search, Filter, ExternalLink, CalendarIcon, X, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -36,6 +36,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useWebSocket } from "@/lib/useWebSocket";
 
 export default function RegistroContabilidadPage() {
@@ -47,6 +54,13 @@ export default function RegistroContabilidadPage() {
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
   const [filtroContabilidad, setFiltroContabilidad] = useState<string>("TODOS");
   const [fechaFiltro, setFechaFiltro] = useState<Date | undefined>(undefined);
+
+  // Estados para subida de comprobante de retención
+  const [isUploadComprobanteDialogOpen, setIsUploadComprobanteDialogOpen] = useState(false);
+  const [selectedFileComprobante, setSelectedFileComprobante] = useState<File | null>(null);
+  const [currentOrdenIdForUpload, setCurrentOrdenIdForUpload] = useState<number | null>(null);
+  const [currentOrdenTypeForUpload, setCurrentOrdenTypeForUpload] = useState<"compra" | "servicio" | null>(null);
+  const [nroSerie, setNroSerie] = useState<string>("");
 
   // Funciones para cargar órdenes
   const loadOrdenesCompra = useCallback(async () => {
@@ -124,6 +138,74 @@ export default function RegistroContabilidadPage() {
       console.error("Error al aprobar orden de servicio:", error);
       toast.dismiss();
       toast.error("Error al aprobar la orden de servicio", {
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
+  // ===== HANDLERS PARA SUBIDA DE COMPROBANTE DE RETENCIÓN =====
+
+  // Función para abrir el diálogo de subida de comprobante
+  const handleOpenUploadComprobanteDialog = (ordenId: number, type: "compra" | "servicio") => {
+    setCurrentOrdenIdForUpload(ordenId);
+    setCurrentOrdenTypeForUpload(type);
+    setNroSerie("");
+    setIsUploadComprobanteDialogOpen(true);
+  };
+
+  // Función para cerrar el diálogo de subida de comprobante
+  const handleCloseUploadComprobanteDialog = () => {
+    setIsUploadComprobanteDialogOpen(false);
+    setSelectedFileComprobante(null);
+    setCurrentOrdenIdForUpload(null);
+    setCurrentOrdenTypeForUpload(null);
+    setNroSerie("");
+  };
+
+  // Función para manejar la selección de archivo de comprobante
+  const handleFileComprobanteSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFileComprobante(file);
+    }
+  };
+
+  // Función para confirmar la subida de comprobante
+  const handleConfirmUploadComprobante = async () => {
+    if (!selectedFileComprobante || !currentOrdenIdForUpload || !currentOrdenTypeForUpload) {
+      toast.error("No se ha seleccionado un archivo");
+      return;
+    }
+
+    if (!nroSerie.trim()) {
+      toast.error("Debe ingresar el número de serie");
+      return;
+    }
+
+    try {
+      toast.loading("Subiendo comprobante de retención...");
+
+      const formData = new FormData();
+      formData.append('file', selectedFileComprobante);
+      formData.append('nro_serie', nroSerie.trim());
+
+      if (currentOrdenTypeForUpload === "compra") {
+        await ordenesCompraApi.uploadComprobanteRetencion(currentOrdenIdForUpload, formData);
+      } else {
+        await ordenesServicioApi.uploadComprobanteRetencion(currentOrdenIdForUpload, formData);
+      }
+
+      toast.dismiss();
+      toast.success("Comprobante de retención subido exitosamente");
+      handleCloseUploadComprobanteDialog();
+
+      // Recargar las órdenes para actualizar los links
+      loadOrdenesCompra();
+      loadOrdenesServicio();
+    } catch (error) {
+      console.error("Error al subir comprobante de retención:", error);
+      toast.dismiss();
+      toast.error("Error al subir el comprobante de retención", {
         description: error instanceof Error ? error.message : "Error desconocido",
       });
     }
@@ -596,7 +678,34 @@ export default function RegistroContabilidadPage() {
                                         Factura
                                       </span>
                                     )}
+
+                                    {orden.url_comprobante_retencion ? (
+                                      <a
+                                        href={orden.url_comprobante_retencion}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg transition-colors"
+                                      >
+                                        <FileText className="h-3.5 w-3.5" />
+                                        Comp. Retención
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                        <FileText className="h-3.5 w-3.5" />
+                                        Comp. Retención
+                                      </span>
+                                    )}
                                   </div>
+
+                                  {/* Mostrar número de serie si existe */}
+                                  {orden.url_comprobante_retencion && orden.nro_serie && (
+                                    <div className="mt-2 pt-2 border-t border-gray-200">
+                                      <span className="text-xs text-gray-600">
+                                        <span className="font-semibold">N° Serie del Comprobante:</span>{" "}
+                                        <span className="font-mono text-indigo-700">{orden.nro_serie}</span>
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
@@ -611,6 +720,15 @@ export default function RegistroContabilidadPage() {
                                   <CheckCircle className="h-4 w-4" />
                                   Aprobar
                                 </button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => orden.id_orden_compra && handleOpenUploadComprobanteDialog(orden.id_orden_compra, "compra")}
+                                  disabled={!orden.id_orden_compra}
+                                  className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700"
+                                >
+                                  <Upload className="h-3 w-3" />
+                                  Subir Comprobante de Retención
+                                </Button>
                               </div>
                             </div>
                           </AccordionContent>
@@ -899,7 +1017,34 @@ export default function RegistroContabilidadPage() {
                                         Factura
                                       </span>
                                     )}
+
+                                    {orden.url_comprobante_retencion ? (
+                                      <a
+                                        href={orden.url_comprobante_retencion}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg transition-colors"
+                                      >
+                                        <FileText className="h-3.5 w-3.5" />
+                                        Comp. Retención
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                        <FileText className="h-3.5 w-3.5" />
+                                        Comp. Retención
+                                      </span>
+                                    )}
                                   </div>
+
+                                  {/* Mostrar número de serie si existe */}
+                                  {orden.url_comprobante_retencion && orden.nro_serie && (
+                                    <div className="mt-2 pt-2 border-t border-gray-200">
+                                      <span className="text-xs text-gray-600">
+                                        <span className="font-semibold">N° Serie del Comprobante:</span>{" "}
+                                        <span className="font-mono text-indigo-700">{orden.nro_serie}</span>
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
@@ -914,6 +1059,15 @@ export default function RegistroContabilidadPage() {
                                   <CheckCircle className="h-4 w-4" />
                                   Aprobar
                                 </button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => orden.id_orden_servicio && handleOpenUploadComprobanteDialog(orden.id_orden_servicio, "servicio")}
+                                  disabled={!orden.id_orden_servicio}
+                                  className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700"
+                                >
+                                  <Upload className="h-3 w-3" />
+                                  Subir Comprobante de Retención
+                                </Button>
                               </div>
                             </div>
                           </AccordionContent>
@@ -927,6 +1081,97 @@ export default function RegistroContabilidadPage() {
           </Tabs>
         </div>
       </div>
+
+      {/* Diálogo para subir Comprobante de Retención */}
+      <Dialog open={isUploadComprobanteDialogOpen} onOpenChange={setIsUploadComprobanteDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Subir Comprobante de Retención</DialogTitle>
+            <DialogDescription>
+              Seleccione un archivo de comprobante de retención para la orden {currentOrdenTypeForUpload === "compra" ? "de compra" : "de servicio"} #{currentOrdenIdForUpload}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Input de número de serie */}
+            <div>
+              <Label htmlFor="nro-serie" className="text-sm font-semibold mb-2 block">
+                Número de Serie *
+              </Label>
+              <Input
+                id="nro-serie"
+                placeholder="Ingrese el número de serie"
+                value={nroSerie}
+                onChange={(e) => setNroSerie(e.target.value)}
+                className="w-full"
+              />
+            </div>
+
+            {/* Input de archivo */}
+            <div className="border-2 border-dashed border-indigo-300 rounded-lg p-6 text-center hover:border-indigo-400 transition-colors">
+              <input
+                type="file"
+                id="file-upload-comprobante"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={handleFileComprobanteSelect}
+                className="hidden"
+              />
+              <label
+                htmlFor="file-upload-comprobante"
+                className="cursor-pointer flex flex-col items-center"
+              >
+                <Upload className="h-12 w-12 text-indigo-400 mb-3" />
+                <p className="text-sm font-semibold text-gray-700 mb-1">
+                  Haz clic para seleccionar un comprobante
+                </p>
+                <p className="text-xs text-gray-500">
+                  PDF o Imágenes (JPG, PNG)
+                </p>
+              </label>
+            </div>
+
+            {/* Previsualización del archivo seleccionado */}
+            {selectedFileComprobante && (
+              <div className="bg-indigo-50 rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-indigo-600" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">
+                      {selectedFileComprobante.name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {(selectedFileComprobante.size / 1024).toFixed(2)} KB
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedFileComprobante(null)}
+                  className="text-red-600 hover:text-red-700 p-1"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={handleCloseUploadComprobanteDialog}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmUploadComprobante}
+              disabled={!selectedFileComprobante || !nroSerie.trim()}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Confirmar Subida
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
