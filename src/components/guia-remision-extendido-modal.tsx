@@ -433,6 +433,65 @@ export function GuiaRemisionExtendidoModal({
     });
   }, [formData.peso_bruto_total]);
 
+  // Actualizar observaciones cuando cambian los nombres seleccionados
+  useEffect(() => {
+    let observacionesText = "";
+
+    // Si se seleccionó un proyecto
+    if (selectionType === "proyecto") {
+      if (selectedNames.proyecto) {
+        observacionesText += `Proyecto: ${selectedNames.proyecto}\n`;
+      }
+      if (selectedNames.etapa) {
+        observacionesText += `Etapa: ${selectedNames.etapa}\n`;
+      }
+      if (selectedNames.sector) {
+        observacionesText += `Sector: ${selectedNames.sector}\n`;
+      }
+      if (selectedNames.frente) {
+        observacionesText += `Frente: ${selectedNames.frente}\n`;
+      }
+      if (selectedNames.partida) {
+        observacionesText += `Partida: ${selectedNames.partida}`;
+      }
+    }
+    // Si se seleccionó un subproyecto
+    else if (selectionType === "subproyecto") {
+      if (selectedNames.subproyecto) {
+        observacionesText += `Subproyecto: ${selectedNames.subproyecto}\n`;
+      }
+      if (selectedNames.subetapa) {
+        observacionesText += `Sub-Etapa: ${selectedNames.subetapa}\n`;
+      }
+      if (selectedNames.subsector) {
+        observacionesText += `Subsector: ${selectedNames.subsector}\n`;
+      }
+      if (selectedNames.subfrente) {
+        observacionesText += `Subfrente: ${selectedNames.subfrente}\n`;
+      }
+      if (selectedNames.subpartida) {
+        observacionesText += `Subpartida: ${selectedNames.subpartida}`;
+      }
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      observaciones: observacionesText.trim(),
+    }));
+  }, [
+    selectionType,
+    selectedNames.proyecto,
+    selectedNames.etapa,
+    selectedNames.sector,
+    selectedNames.frente,
+    selectedNames.partida,
+    selectedNames.subproyecto,
+    selectedNames.subetapa,
+    selectedNames.subsector,
+    selectedNames.subfrente,
+    selectedNames.subpartida,
+  ]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -701,6 +760,25 @@ export function GuiaRemisionExtendidoModal({
                   </SelectContent>
                 </Select>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Observaciones */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Observaciones</CardTitle>
+              <CardDescription>
+                Se genera automáticamente con los datos del proyecto
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={formData.observaciones}
+                readOnly
+                placeholder="Seleccione un proyecto, etapa, sector, frente y partida para generar las observaciones automáticamente..."
+                rows={6}
+                className="bg-gray-50 dark:bg-gray-900"
+              />
             </CardContent>
           </Card>
 

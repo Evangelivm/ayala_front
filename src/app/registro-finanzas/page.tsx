@@ -595,7 +595,34 @@ export default function RegistroFinanzasPage() {
                                         Factura
                                       </span>
                                     )}
+
+                                    {orden.url_comprobante_retencion ? (
+                                      <a
+                                        href={orden.url_comprobante_retencion}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg transition-colors"
+                                      >
+                                        <FileText className="h-3.5 w-3.5" />
+                                        Comp. Retención
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                        <FileText className="h-3.5 w-3.5" />
+                                        Comp. Retención
+                                      </span>
+                                    )}
                                   </div>
+
+                                  {/* Mostrar número de serie si existe */}
+                                  {orden.url_comprobante_retencion && orden.nro_serie && (
+                                    <div className="mt-2">
+                                      <span className="text-xs text-gray-600">
+                                        <span className="font-semibold">N° Serie:</span>{" "}
+                                        <span className="font-mono text-indigo-700">{orden.nro_serie}</span>
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
@@ -903,7 +930,34 @@ export default function RegistroFinanzasPage() {
                                         Factura
                                       </span>
                                     )}
+
+                                    {orden.url_comprobante_retencion ? (
+                                      <a
+                                        href={orden.url_comprobante_retencion}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg transition-colors"
+                                      >
+                                        <FileText className="h-3.5 w-3.5" />
+                                        Comp. Retención
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                        <FileText className="h-3.5 w-3.5" />
+                                        Comp. Retención
+                                      </span>
+                                    )}
                                   </div>
+
+                                  {/* Mostrar número de serie si existe */}
+                                  {orden.url_comprobante_retencion && orden.nro_serie && (
+                                    <div className="mt-2">
+                                      <span className="text-xs text-gray-600">
+                                        <span className="font-semibold">N° Serie:</span>{" "}
+                                        <span className="font-mono text-indigo-700">{orden.nro_serie}</span>
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
