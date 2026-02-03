@@ -797,11 +797,12 @@ export default function OrdenCompraPage() {
     updatedItems[index] = { ...updatedItems[index], [field]: value };
 
     // Si cambia la cantidad, recalcular subtotal basado en precio unitario
-    if (field === "cantidad_solicitada") {
-      const cantidad = Number(value);
-      const precio = Number(updatedItems[index].precio_unitario);
-      updatedItems[index].subtotal = cantidad * precio;
-    }
+    // (deshabilitado: el subtotal solo se actualiza al presionar el botón →)
+    // if (field === "cantidad_solicitada") {
+    //   const cantidad = Number(value);
+    //   const precio = Number(updatedItems[index].precio_unitario);
+    //   updatedItems[index].subtotal = cantidad * precio;
+    // }
 
     // Si cambia el subtotal, recalcular precio unitario basado en cantidad
     if (field === "subtotal") {
@@ -1464,7 +1465,7 @@ export default function OrdenCompraPage() {
       });
     }
 
-    return filtered;
+    return filtered.sort((a, b) => b.numero_orden.localeCompare(a.numero_orden));
   }, [ordenesCompra, fechaFiltro, searchTerm]);
 
   const ordenesServicioFiltradas = useMemo(() => {
@@ -1489,7 +1490,7 @@ export default function OrdenCompraPage() {
       });
     }
 
-    return filtered;
+    return filtered.sort((a, b) => b.numero_orden.localeCompare(a.numero_orden));
   }, [ordenesServicio, fechaFiltro, searchTerm]);
 
   return (
