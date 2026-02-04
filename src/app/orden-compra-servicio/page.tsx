@@ -3684,10 +3684,10 @@ export default function OrdenCompraPage() {
                                 Precio Unitario
                               </TableHead>
                               <TableHead className="w-48 text-xs font-bold text-right">
-                                Valor Unitario (Precio sin IGV)
+                                Cantidad x Precio Unitario (Sin IGV)
                               </TableHead>
                               <TableHead className="w-48 text-xs font-bold text-right">
-                                Valor Unitario (Precio con IGV)
+                                Cantidad x Precio Unitario (Con IGV)
                               </TableHead>
                               <TableHead className="w-40 text-xs font-bold text-right">
                                 Subtotal
