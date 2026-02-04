@@ -1324,6 +1324,18 @@ export default function OrdenCompraPage() {
     }
   };
 
+  // Verificar si un número de factura ya existe en otra orden (compra o servicio)
+  const isNroFacturaDuplicado = useCallback((nroFactura: string, ordenId: number | null, tipo: "compra" | "servicio"): boolean => {
+    if (!nroFactura || !nroFactura.trim()) return false;
+    return ordenesCompra.some(o =>
+      o.nro_factura === nroFactura &&
+      !(tipo === "compra" && o.id_orden_compra === ordenId)
+    ) || ordenesServicio.some(o =>
+      o.nro_factura === nroFactura &&
+      !(tipo === "servicio" && o.id_orden_servicio === ordenId)
+    );
+  }, [ordenesCompra, ordenesServicio]);
+
   // ===== HANDLERS PARA SUBIDA DE COTIZACIÓN Y FACTURA =====
 
   // Función para abrir el diálogo de subida de cotización
@@ -1968,6 +1980,7 @@ export default function OrdenCompraPage() {
                                           setEditingFacturaTipo("compra");
                                           setNroFacturaEdit(orden.nro_factura || "");
                                         }}
+                                        disabled={!!orden.nro_factura}
                                         className="h-8 text-xs flex-1"
                                       />
                                       <Button
@@ -1977,12 +1990,15 @@ export default function OrdenCompraPage() {
                                             handleUpdateNroFactura(orden.id_orden_compra, "compra", nroFacturaEdit);
                                           }
                                         }}
-                                        disabled={editingFacturaOrdenId !== orden.id_orden_compra}
+                                        disabled={editingFacturaOrdenId !== orden.id_orden_compra || !!orden.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_compra || null, "compra")}
                                         className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
                                       >
                                         Guardar
                                       </Button>
                                     </div>
+                                    {editingFacturaOrdenId === orden.id_orden_compra && editingFacturaTipo === "compra" && isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_compra || null, "compra") && (
+                                      <p className="text-xs text-red-600 mt-1">Ya existe una factura con la serie, evite pagos duplicados</p>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -2411,6 +2427,7 @@ export default function OrdenCompraPage() {
                                           setEditingFacturaTipo("servicio");
                                           setNroFacturaEdit(orden.nro_factura || "");
                                         }}
+                                        disabled={!!orden.nro_factura}
                                         className="h-8 text-xs flex-1"
                                       />
                                       <Button
@@ -2420,12 +2437,15 @@ export default function OrdenCompraPage() {
                                             handleUpdateNroFactura(orden.id_orden_servicio, "servicio", nroFacturaEdit);
                                           }
                                         }}
-                                        disabled={editingFacturaOrdenId !== orden.id_orden_servicio}
+                                        disabled={editingFacturaOrdenId !== orden.id_orden_servicio || !!orden.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_servicio || null, "servicio")}
                                         className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
                                       >
                                         Guardar
                                       </Button>
                                     </div>
+                                    {editingFacturaOrdenId === orden.id_orden_servicio && editingFacturaTipo === "servicio" && isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_servicio || null, "servicio") && (
+                                      <p className="text-xs text-red-600 mt-1">Ya existe una factura con la serie, evite pagos duplicados</p>
+                                    )}
                                   </div>
                                 </div>
                               </div>
