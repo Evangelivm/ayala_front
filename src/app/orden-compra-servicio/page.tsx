@@ -3680,6 +3680,9 @@ export default function OrdenCompraPage() {
                               <TableHead className="w-24 text-xs font-bold text-center">
                                 Cantidad
                               </TableHead>
+                              <TableHead className="w-36 text-xs font-bold text-right">
+                                Precio Unitario
+                              </TableHead>
                               <TableHead className="w-48 text-xs font-bold text-right">
                                 Valor Unitario (Precio sin IGV)
                               </TableHead>
@@ -3733,6 +3736,22 @@ export default function OrdenCompraPage() {
                                     min="0"
                                     step="0.01"
                                     required
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    value={item.precio_unitario}
+                                    onChange={(e) =>
+                                      handleItemChange(
+                                        index,
+                                        "precio_unitario",
+                                        parseFloat(e.target.value) || 0
+                                      )
+                                    }
+                                    className="h-8 text-xs border border-gray-300 p-2 text-right rounded font-mono"
+                                    min="0"
+                                    step="0.01"
                                   />
                                 </TableCell>
                                 <TableCell>
