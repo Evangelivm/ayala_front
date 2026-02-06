@@ -1057,6 +1057,8 @@ export default function ProgramacionPage() {
                               }
                               currentPlaca={row.unidad}
                               buttonText="Seleccionar Unidad"
+                              empresas={empresas}
+                              onCamionUpdated={loadCamiones}
                             />
                           </TableCell>
                           <TableCell className="p-2">

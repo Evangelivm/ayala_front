@@ -20,7 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Truck, Search } from "lucide-react";
-import type { CamionData } from "@/lib/connections";
+import type { CamionData, EmpresaData } from "@/lib/connections";
+import { EditCamionDialog } from "@/components/edit-camion-dialog";
 
 interface CamionSelectDialogProps {
   camiones: CamionData[];
@@ -30,6 +31,8 @@ interface CamionSelectDialogProps {
   dialogTitle?: string;
   dialogDescription?: string;
   emptyMessage?: string;
+  empresas?: EmpresaData[];
+  onCamionUpdated?: () => void;
 }
 
 export function CamionSelectDialog({
@@ -40,6 +43,8 @@ export function CamionSelectDialog({
   dialogTitle = "Seleccionar Unidad (Camión)",
   dialogDescription = "Selecciona un camión de la lista. Puedes buscar por placa, DNI, nombre del chofer o proveedor.",
   emptyMessage = "camiones",
+  empresas = [],
+  onCamionUpdated,
 }: CamionSelectDialogProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -161,7 +166,7 @@ export function CamionSelectDialog({
                 <TableHead className="w-[120px]">DNI</TableHead>
                 <TableHead className="w-[240px]">Chofer</TableHead>
                 <TableHead className="min-w-[250px]">Proveedor</TableHead>
-                <TableHead className="w-[100px]">Acción</TableHead>
+                <TableHead className="w-[180px]">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -183,8 +188,7 @@ export function CamionSelectDialog({
                   return (
                     <TableRow
                       key={camion.id_camion}
-                      className="cursor-pointer hover:bg-blue-50"
-                      onClick={() => handleSelectCamion(camion)}
+                      className="hover:bg-blue-50"
                     >
                       <TableCell className="font-mono font-semibold">
                         {camion.placa}
@@ -219,15 +223,25 @@ export function CamionSelectDialog({
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectCamion(camion);
-                          }}
-                        >
-                          Seleccionar
-                        </Button>
+                        <div className="flex gap-2">
+                          {empresas.length > 0 && (
+                            <EditCamionDialog
+                              camion={camion}
+                              empresas={empresas}
+                              onCamionUpdated={onCamionUpdated}
+                              buttonText=""
+                            />
+                          )}
+                          <Button
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectCamion(camion);
+                            }}
+                          >
+                            Seleccionar
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

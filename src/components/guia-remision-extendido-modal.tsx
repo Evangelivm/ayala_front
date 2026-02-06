@@ -519,32 +519,53 @@ export function GuiaRemisionExtendidoModal({
                 Datos del Comprobante
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid md:grid-cols-4 gap-4">
-              <div>
-                <Label>Serie</Label>
-                <Input value={formData.serie} disabled />
+            <CardContent className="space-y-4">
+              <div className="grid md:grid-cols-4 gap-4">
+                <div>
+                  <Label>Serie</Label>
+                  <Input value={formData.serie} disabled />
+                </div>
+                <div>
+                  <Label>Número Inicial</Label>
+                  <Input value={formData.numero} disabled />
+                </div>
+                <div>
+                  <Label>Cantidad de Guías *</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={cantidadGuias}
+                    onChange={(e) => setCantidadGuias(parseInt(e.target.value) || 1)}
+                    placeholder="1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {cantidadGuias > 1 && `Se generarán ${cantidadGuias} guías: ${formData.serie}-${formData.numero.toString().padStart(4, '0')} a ${formData.serie}-${(formData.numero + cantidadGuias - 1).toString().padStart(4, '0')}`}
+                  </p>
+                </div>
+                <div>
+                  <Label>Fecha de Emisión *</Label>
+                  <Input
+                    type="date"
+                    value={formData.fecha_de_emision}
+                    onChange={(e) => handleInputChange("fecha_de_emision", e.target.value)}
+                    required
+                  />
+                </div>
               </div>
-              <div>
-                <Label>Número Inicial</Label>
-                <Input value={formData.numero} disabled />
-              </div>
-              <div>
-                <Label>Cantidad de Guías *</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={cantidadGuias}
-                  onChange={(e) => setCantidadGuias(parseInt(e.target.value) || 1)}
-                  placeholder="1"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {cantidadGuias > 1 && `Se generarán ${cantidadGuias} guías: ${formData.serie}-${formData.numero.toString().padStart(4, '0')} a ${formData.serie}-${(formData.numero + cantidadGuias - 1).toString().padStart(4, '0')}`}
-                </p>
-              </div>
-              <div>
-                <Label>Fecha de Emisión</Label>
-                <Input type="date" value={formData.fecha_de_emision} onChange={(e) => handleInputChange("fecha_de_emision", e.target.value)} />
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Fecha de Inicio de Traslado *</Label>
+                  <Input
+                    type="date"
+                    value={formData.fecha_de_inicio_de_traslado}
+                    onChange={(e) => handleInputChange("fecha_de_inicio_de_traslado", e.target.value)}
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Fecha en que se inicia el traslado de los bienes
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
