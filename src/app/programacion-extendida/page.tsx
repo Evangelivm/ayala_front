@@ -12,6 +12,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { toast } from "sonner";
+import JSZip from "jszip";
 import {
   FileText,
   ExternalLink,
@@ -24,7 +25,9 @@ import {
   Package,
   Download,
   Clock,
-  MapPin
+  MapPin,
+  Trash2,
+  Archive
 } from "lucide-react";
 import {
   programacionApi,
@@ -272,6 +275,108 @@ export default function ProgramacionExtendidaPage() {
       } else {
         toast.error(errorMessage);
       }
+    }
+  };
+
+  const handleEliminarGuia = async (guia: GuiaRemisionData, identificador: string) => {
+    try {
+      if (!guia.id_guia) {
+        toast.error("ID de guía no encontrado");
+        return;
+      }
+
+      if (!confirm(`¿Está seguro de eliminar la guía ${guia.serie}-${String(guia.numero).padStart(4, '0')}?`)) {
+        return;
+      }
+
+      toast.info(`Eliminando guía ${guia.serie}-${String(guia.numero).padStart(4, '0')}...`);
+      const result = await guiasRemisionExtendidoApi.delete(guia.id_guia);
+
+      toast.success(result.message || "Guía eliminada exitosamente");
+      // Recargar las guías del identificador
+      await fetchGuiasExtendidas(identificador);
+    } catch (error) {
+      console.error("Error eliminando guía:", error);
+      toast.error(error instanceof Error ? error.message : "Error al eliminar la guía");
+    }
+  };
+
+  const handleDescargarTodosArchivos = async (identificador: string) => {
+    try {
+      const guias = guiasExtendidas[identificador];
+      if (!guias || guias.length === 0) {
+        toast.error("No hay guías para descargar");
+        return;
+      }
+
+      // Filtrar solo las guías que tienen todos los archivos
+      const guiasCompletas = guias.filter(g => g.enlace_del_pdf && g.enlace_del_xml && g.enlace_del_cdr);
+
+      if (guiasCompletas.length === 0) {
+        toast.error("No hay guías con archivos completos para descargar");
+        return;
+      }
+
+      toast.info(`Descargando ${guiasCompletas.length} guía(s)...`);
+
+      const zip = new JSZip();
+      let archivosDescargados = 0;
+      const totalArchivos = guiasCompletas.length * 3;
+
+      for (const guia of guiasCompletas) {
+        const nombreGuia = `${guia.serie}-${String(guia.numero).padStart(4, '0')}`;
+
+        try {
+          // Descargar PDF
+          if (guia.enlace_del_pdf) {
+            const pdfResponse = await fetch(guia.enlace_del_pdf);
+            const pdfBlob = await pdfResponse.blob();
+            zip.file(`${nombreGuia}.pdf`, pdfBlob);
+            archivosDescargados++;
+          }
+
+          // Descargar XML
+          if (guia.enlace_del_xml) {
+            const xmlResponse = await fetch(guia.enlace_del_xml);
+            const xmlBlob = await xmlResponse.blob();
+            zip.file(`${nombreGuia}.xml`, xmlBlob);
+            archivosDescargados++;
+          }
+
+          // Descargar CDR
+          if (guia.enlace_del_cdr) {
+            const cdrResponse = await fetch(guia.enlace_del_cdr);
+            const cdrBlob = await cdrResponse.blob();
+            zip.file(`${nombreGuia}_CDR.zip`, cdrBlob);
+            archivosDescargados++;
+          }
+        } catch (error) {
+          console.error(`Error descargando archivos de guía ${nombreGuia}:`, error);
+        }
+      }
+
+      if (archivosDescargados === 0) {
+        toast.error("No se pudo descargar ningún archivo");
+        return;
+      }
+
+      // Generar el ZIP
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+
+      // Descargar el archivo ZIP
+      const url = window.URL.createObjectURL(zipBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `guias_${identificador}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`${archivosDescargados} archivos descargados en ZIP`);
+    } catch (error) {
+      console.error("Error descargando archivos:", error);
+      toast.error("Error al generar el archivo ZIP");
     }
   };
 
@@ -528,10 +633,25 @@ export default function ProgramacionExtendidaPage() {
 
                           {/* Archivos Generados - Guías Extendidas */}
                           <div className="bg-slate-50 rounded-lg p-3">
-                            <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
-                              <Download className="h-3 w-3" />
-                              Guías Generadas ({item.identificador_unico && guiasExtendidas[item.identificador_unico] ? guiasExtendidas[item.identificador_unico].length : 0})
-                            </h4>
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                                <Download className="h-3 w-3" />
+                                Guías Generadas ({item.identificador_unico && guiasExtendidas[item.identificador_unico] ? guiasExtendidas[item.identificador_unico].length : 0})
+                              </h4>
+                              {item.identificador_unico &&
+                               guiasExtendidas[item.identificador_unico] &&
+                               guiasExtendidas[item.identificador_unico].some(g => g.enlace_del_pdf && g.enlace_del_xml && g.enlace_del_cdr) && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDescargarTodosArchivos(item.identificador_unico!)}
+                                  className="h-6 px-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                                >
+                                  <Archive className="h-3 w-3 mr-1" />
+                                  Descargar Todo
+                                </Button>
+                              )}
+                            </div>
                             {item.identificador_unico && guiasExtendidas[item.identificador_unico] && guiasExtendidas[item.identificador_unico].length > 0 ? (
                               <div className="space-y-2 max-h-40 overflow-y-auto">
                                 {guiasExtendidas[item.identificador_unico].map((guia, index) => {
@@ -613,6 +733,15 @@ export default function ProgramacionExtendidaPage() {
                                             Recuperar
                                           </Button>
                                         )}
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleEliminarGuia(guia, item.identificador_unico!)}
+                                          className="h-6 px-2 text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200"
+                                        >
+                                          <Trash2 className="h-3 w-3 mr-1" />
+                                          Eliminar
+                                        </Button>
                                       </div>
                                     </div>
                                   );
