@@ -1632,6 +1632,20 @@ export const guiasRemisionExtendidoApi = {
       throw new Error("Error al recuperar archivos de la guía extendida");
     }
   },
+
+  // Descargar todos los archivos de un identificador como ZIP (proxy para evitar CORS)
+  descargarZip: async (identificador: string): Promise<ArrayBuffer> => {
+    try {
+      const response = await api.post(`/guias-remision-extendido/descargar-zip/${identificador}`, {}, {
+        responseType: 'arraybuffer',
+        timeout: 120000, // 2 minutos de timeout para dar tiempo a descargar todos los archivos
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Descargar ZIP API error:", error);
+      throw new Error("Error al descargar el archivo ZIP");
+    }
+  },
 };
 
 // Exportar la instancia de axios para uso directo si es necesario

@@ -12,7 +12,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { toast } from "sonner";
-import JSZip from "jszip";
 import {
   FileText,
   ExternalLink,
@@ -27,7 +26,8 @@ import {
   Clock,
   MapPin,
   Trash2,
-  Archive
+  Archive,
+  Loader2
 } from "lucide-react";
 import {
   programacionApi,
@@ -48,6 +48,7 @@ export default function ProgramacionExtendidaPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [guiasExtendidas, setGuiasExtendidas] = useState<Record<string, GuiaRemisionData[]>>({});
+  const [descargandoZip, setDescargandoZip] = useState<string | null>(null);
 
   const fetchGuiasExtendidas = async (identificador: string) => {
     try {
@@ -317,54 +318,23 @@ export default function ProgramacionExtendidaPage() {
         return;
       }
 
-      toast.info(`Descargando ${guiasCompletas.length} guía(s)...`);
-
-      const zip = new JSZip();
-      let archivosDescargados = 0;
       const totalArchivos = guiasCompletas.length * 3;
 
-      for (const guia of guiasCompletas) {
-        const nombreGuia = `${guia.serie}-${String(guia.numero).padStart(4, '0')}`;
+      // Activar indicador de carga
+      setDescargandoZip(identificador);
 
-        try {
-          // Descargar PDF
-          if (guia.enlace_del_pdf) {
-            const pdfResponse = await fetch(guia.enlace_del_pdf);
-            const pdfBlob = await pdfResponse.blob();
-            zip.file(`${nombreGuia}.pdf`, pdfBlob);
-            archivosDescargados++;
-          }
+      toast.info(`Descargando ${totalArchivos} archivos de ${guiasCompletas.length} guía(s)... Por favor espere, esto puede tomar un momento.`, {
+        duration: 5000
+      });
 
-          // Descargar XML
-          if (guia.enlace_del_xml) {
-            const xmlResponse = await fetch(guia.enlace_del_xml);
-            const xmlBlob = await xmlResponse.blob();
-            zip.file(`${nombreGuia}.xml`, xmlBlob);
-            archivosDescargados++;
-          }
+      // Llamar al endpoint del backend que actúa como proxy
+      const response = await guiasRemisionExtendidoApi.descargarZip(identificador);
 
-          // Descargar CDR
-          if (guia.enlace_del_cdr) {
-            const cdrResponse = await fetch(guia.enlace_del_cdr);
-            const cdrBlob = await cdrResponse.blob();
-            zip.file(`${nombreGuia}_CDR.zip`, cdrBlob);
-            archivosDescargados++;
-          }
-        } catch (error) {
-          console.error(`Error descargando archivos de guía ${nombreGuia}:`, error);
-        }
-      }
-
-      if (archivosDescargados === 0) {
-        toast.error("No se pudo descargar ningún archivo");
-        return;
-      }
-
-      // Generar el ZIP
-      const zipBlob = await zip.generateAsync({ type: "blob" });
+      // Crear un blob desde la respuesta
+      const blob = new Blob([response], { type: 'application/zip' });
 
       // Descargar el archivo ZIP
-      const url = window.URL.createObjectURL(zipBlob);
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       link.download = `guias_${identificador}.zip`;
@@ -373,10 +343,13 @@ export default function ProgramacionExtendidaPage() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      toast.success(`${archivosDescargados} archivos descargados en ZIP`);
+      toast.success(`✅ Descarga completada: ${totalArchivos} archivos en guias_${identificador}.zip`);
     } catch (error) {
       console.error("Error descargando archivos:", error);
-      toast.error("Error al generar el archivo ZIP");
+      toast.error("Error al descargar el archivo ZIP. Por favor intente nuevamente.");
+    } finally {
+      // Desactivar indicador de carga
+      setDescargandoZip(null);
     }
   };
 
@@ -645,10 +618,20 @@ export default function ProgramacionExtendidaPage() {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleDescargarTodosArchivos(item.identificador_unico!)}
-                                  className="h-6 px-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                                  disabled={descargandoZip === item.identificador_unico}
+                                  className="h-6 px-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
-                                  <Archive className="h-3 w-3 mr-1" />
-                                  Descargar Todo
+                                  {descargandoZip === item.identificador_unico ? (
+                                    <>
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                      Descargando...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Archive className="h-3 w-3 mr-1" />
+                                      Descargar Todo
+                                    </>
+                                  )}
                                 </Button>
                               )}
                             </div>
