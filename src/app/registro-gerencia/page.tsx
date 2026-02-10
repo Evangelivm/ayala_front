@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ClipboardList, FileText, CheckCircle, Search, Filter, Upload, X, ExternalLink, CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -53,6 +53,34 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+// Helper para parsear fechas DATE del backend sin conversión de zona horaria
+const parseDateSafe = (dateString: string): Date => {
+  // Si la fecha viene sin hora (DATE en SQL), agregamos T12:00:00 para evitar problemas de zona horaria
+  if (dateString && !dateString.includes('T')) {
+    return parseISO(dateString + 'T12:00:00');
+  }
+  return parseISO(dateString);
+};
+
+// Helper para formatear fecha string YYYY-MM-DD a dd/MM/yyyy sin usar Date
+const formatDateString = (dateString: string | null | undefined): string => {
+  if (!dateString) return '';
+
+  // Si la fecha ya está en formato YYYY-MM-DD, convertir a dd/MM/yyyy
+  const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const [, year, month, day] = match;
+    return `${day}/${month}/${year}`;
+  }
+
+  // Si no coincide, intentar parsear normalmente
+  try {
+    return format(parseDateSafe(dateString), "dd/MM/yyyy", { locale: es });
+  } catch {
+    return dateString;
+  }
+};
 
 export default function RegistroGerenciaPage() {
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
@@ -225,8 +253,7 @@ export default function RegistroGerenciaPage() {
       // Filtro por fecha
       const matchFecha = !fechaFiltro || (() => {
         const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
-        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
-        return fechaOrden === fechaFiltroStr;
+        return orden.fecha_orden === fechaFiltroStr;
       })();
 
       return matchSearch && matchEstado && matchAdministracion && matchFecha;
@@ -253,8 +280,7 @@ export default function RegistroGerenciaPage() {
       // Filtro por fecha
       const matchFecha = !fechaFiltro || (() => {
         const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
-        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
-        return fechaOrden === fechaFiltroStr;
+        return orden.fecha_orden === fechaFiltroStr;
       })();
 
       return matchSearch && matchEstado && matchAdministracion && matchFecha;
@@ -434,7 +460,7 @@ export default function RegistroGerenciaPage() {
                                 <div className="flex flex-col items-start min-w-[100px]">
                                   <span className="text-xs text-gray-500 font-medium">Fecha</span>
                                   <span className="text-sm font-medium">
-                                    {format(new Date(orden.fecha_orden), "dd/MM/yyyy", { locale: es })}
+                                    {formatDateString(orden.fecha_orden)}
                                   </span>
                                 </div>
 
@@ -782,7 +808,7 @@ export default function RegistroGerenciaPage() {
                                 <div className="flex flex-col items-start min-w-[100px]">
                                   <span className="text-xs text-gray-500 font-medium">Fecha</span>
                                   <span className="text-sm font-medium">
-                                    {format(new Date(orden.fecha_orden), "dd/MM/yyyy", { locale: es })}
+                                    {formatDateString(orden.fecha_orden)}
                                   </span>
                                 </div>
 
