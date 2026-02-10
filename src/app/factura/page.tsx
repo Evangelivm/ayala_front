@@ -44,6 +44,7 @@ import {
   RefreshCw,
   RotateCw,
   Info,
+  Search,
 } from "lucide-react";
 import { EstadoBadge } from "@/components/factura/EstadoBadge";
 import { EnlacesModal } from "@/components/factura/EnlacesModal";
@@ -1582,6 +1583,39 @@ export default function FacturaPage() {
     }
   };
 
+  const handleConsultarNubefact = async (id: number) => {
+    try {
+      toast.info("Consultando factura en NubeFact...");
+
+      const result = await facturaApi.consultarNubefact(id);
+
+      toast.success("Consulta realizada exitosamente", {
+        description: "La factura ha sido consultada en NubeFact",
+      });
+
+      // Recargar facturas para actualizar el estado
+      await loadFacturas();
+    } catch (error: unknown) {
+      console.error("Error consultando factura en NubeFact:", error);
+
+      let errorMessage = "Error desconocido";
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.error("Error al consultar la factura en NubeFact", {
+        description: errorMessage,
+      });
+    }
+  };
+
   const handleVerDetalles = async (id: number) => {
     try {
       console.log("📋 Ver detalles de factura ID:", id);
@@ -1983,6 +2017,19 @@ export default function FacturaPage() {
                                   title="Reintentar"
                                 >
                                   <RotateCw className="h-4 w-4" />
+                                </button>
+                              )}
+
+                              {/* Botón Consultar en NubeFact - Solo para facturas SIN PROCESAR */}
+                              {factura.estado === "SIN PROCESAR" && (
+                                <button
+                                  onClick={() =>
+                                    handleConsultarNubefact(factura.id)
+                                  }
+                                  className="inline-flex items-center justify-center w-8 h-8 text-indigo-600 hover:text-white hover:bg-indigo-600 rounded transition-colors"
+                                  title="Consultar en NubeFact"
+                                >
+                                  <Search className="h-4 w-4" />
                                 </button>
                               )}
 

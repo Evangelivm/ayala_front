@@ -4280,6 +4280,12 @@ export const facturaApi = {
     const response = await api.post("/factura/retry-failed");
     return response.data;
   },
+
+  // Consultar factura en NubeFact (operación: consultar)
+  consultarNubefact: async (id: number): Promise<unknown> => {
+    const response = await api.post(`/facturas/${id}/consultar`);
+    return response.data;
+  },
 };
 
 // ============ URL HELPERS ============
