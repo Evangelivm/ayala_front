@@ -15,11 +15,13 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Search,
 } from "lucide-react";
 
 interface EnlacesModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onConsultar?: (id: number) => void;
   factura: {
     id: number;
     numero_factura: string;
@@ -50,7 +52,7 @@ interface EnlacesModalProps {
   } | null;
 }
 
-export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
+export function EnlacesModal({ isOpen, onClose, onConsultar, factura }: EnlacesModalProps) {
   if (!factura) {
     console.log("⚠️ EnlacesModal: No hay factura para mostrar");
     return null;
@@ -257,6 +259,26 @@ export function EnlacesModal({ isOpen, onClose, factura }: EnlacesModalProps) {
                 <p className="text-sm text-gray-500 italic">
                   No hay información adicional de SUNAT disponible
                 </p>
+              )}
+
+              {/* Botón Consultar en NubeFact - Para facturas SIN PROCESAR, ERROR o FALLADO */}
+              {onConsultar && (factura.estado === "SIN PROCESAR" || factura.estado === "ERROR" || factura.estado === "FALLADO") && (
+                <div className="mt-4 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-300"
+                    onClick={() => {
+                      onConsultar(factura.id);
+                      onClose();
+                    }}
+                  >
+                    <Search className="h-4 w-4" />
+                    Consultar Estado en NubeFact
+                  </Button>
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    Consulta el estado actual de esta factura en NubeFact
+                  </p>
+                </div>
               )}
             </div>
           </div>

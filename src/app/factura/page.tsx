@@ -2020,8 +2020,10 @@ export default function FacturaPage() {
                                 </button>
                               )}
 
-                              {/* Botón Consultar en NubeFact - Solo para facturas SIN PROCESAR */}
-                              {factura.estado === "SIN PROCESAR" && (
+                              {/* Botón Consultar en NubeFact - Para facturas SIN PROCESAR, ERROR o FALLADO */}
+                              {(factura.estado === "SIN PROCESAR" ||
+                                factura.estado === "ERROR" ||
+                                factura.estado === "FALLADO") && (
                                 <button
                                   onClick={() =>
                                     handleConsultarNubefact(factura.id)
@@ -2042,8 +2044,9 @@ export default function FacturaPage() {
                                 <Info className="h-4 w-4" />
                               </button>
 
-                              {/* Botón Eliminar - Solo para sin procesar o falladas */}
+                              {/* Botón Eliminar - Para sin procesar, error o falladas */}
                               {(factura.estado === "SIN PROCESAR" ||
+                                factura.estado === "ERROR" ||
                                 factura.estado === "FALLADO") && (
                                 <button
                                   onClick={() =>
@@ -3208,6 +3211,7 @@ export default function FacturaPage() {
               setIsEnlacesModalOpen(false);
               setSelectedFacturaForModal(null);
             }}
+            onConsultar={handleConsultarNubefact}
             factura={selectedFacturaForModal}
           />
         </div>
