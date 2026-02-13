@@ -3519,6 +3519,20 @@ export const rubroApi = {
   },
 };
 
+// ============ MULTIFACTURAS ============
+export interface MultifacturaDetalle {
+  id_detalle?: number;
+  id_orden_compra?: number | null;
+  id_orden_servicio?: number | null;
+  nro_serie?: string | null;
+  nro_factura?: string | null;
+  galones?: string | null;
+  proyecto?: string | null;
+  url_factura?: string | null;
+  url_guia?: string | null;
+  fecha_registro?: string | null;
+}
+
 // ============ ORDENES COMPRA API ============
 export interface OrdenCompraData {
   id_orden_compra?: number; // Primary key returned from backend
@@ -3839,6 +3853,61 @@ export const ordenesCompraApi = {
       return response.json();
     } catch (error) {
       console.error("Error subiendo comprobante de retención de orden de compra:", error);
+      throw error;
+    }
+  },
+
+  // Multifacturas
+  getMultifacturas: async (id: number) => {
+    try {
+      const response = await api.get(`/ordenes-compra/${id}/multifacturas`);
+      return response.data as MultifacturaDetalle[];
+    } catch (error) {
+      console.error("Error obteniendo multifacturas de orden de compra:", error);
+      throw error;
+    }
+  },
+
+  saveMultifacturas: async (id: number, rows: Partial<MultifacturaDetalle>[]) => {
+    try {
+      const response = await api.post(`/ordenes-compra/${id}/multifacturas`, { rows });
+      return response.data as MultifacturaDetalle[];
+    } catch (error) {
+      console.error("Error guardando multifacturas de orden de compra:", error);
+      throw error;
+    }
+  },
+
+  uploadMultifacturaFactura: async (id: number, detalleId: number, formData: FormData): Promise<{ message: string; fileUrl: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-compra/${id}/multifacturas/${detalleId}/upload-factura`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir factura');
+      }
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo factura de multifactura:", error);
+      throw error;
+    }
+  },
+
+  uploadMultifacturaGuia: async (id: number, detalleId: number, formData: FormData): Promise<{ message: string; fileUrl: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-compra/${id}/multifacturas/${detalleId}/upload-guia`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir guía');
+      }
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo guía de multifactura:", error);
       throw error;
     }
   },
@@ -4164,6 +4233,61 @@ export const ordenesServicioApi = {
       return response.json();
     } catch (error) {
       console.error("Error subiendo comprobante de retención de orden de servicio:", error);
+      throw error;
+    }
+  },
+
+  // Multifacturas
+  getMultifacturas: async (id: number) => {
+    try {
+      const response = await api.get(`/ordenes-servicio/${id}/multifacturas`);
+      return response.data as MultifacturaDetalle[];
+    } catch (error) {
+      console.error("Error obteniendo multifacturas de orden de servicio:", error);
+      throw error;
+    }
+  },
+
+  saveMultifacturas: async (id: number, rows: Partial<MultifacturaDetalle>[]) => {
+    try {
+      const response = await api.post(`/ordenes-servicio/${id}/multifacturas`, { rows });
+      return response.data as MultifacturaDetalle[];
+    } catch (error) {
+      console.error("Error guardando multifacturas de orden de servicio:", error);
+      throw error;
+    }
+  },
+
+  uploadMultifacturaFactura: async (id: number, detalleId: number, formData: FormData): Promise<{ message: string; fileUrl: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-servicio/${id}/multifacturas/${detalleId}/upload-factura`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir factura');
+      }
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo factura de multifactura:", error);
+      throw error;
+    }
+  },
+
+  uploadMultifacturaGuia: async (id: number, detalleId: number, formData: FormData): Promise<{ message: string; fileUrl: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ordenes-servicio/${id}/multifacturas/${detalleId}/upload-guia`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al subir guía');
+      }
+      return response.json();
+    } catch (error) {
+      console.error("Error subiendo guía de multifactura:", error);
       throw error;
     }
   },
