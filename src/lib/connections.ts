@@ -2416,6 +2416,23 @@ export const programacionApi = {
     }
   },
 
+  // Eliminar registro de programacion_tecnica (y también de programacion por identificador_unico)
+  deleteTecnica: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.delete(`/programacion/tecnica/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Programación Técnica Delete API error:", error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        if (axiosError.response?.data?.message) {
+          throw new Error(axiosError.response.data.message);
+        }
+      }
+      throw new Error("Error al eliminar el registro");
+    }
+  },
+
   // ============ PROGRAMACIÓN EXTENDIDA - DUPLICACIÓN MASIVA ============
 
   // Obtener guías originales (no duplicadas) para programación extendida

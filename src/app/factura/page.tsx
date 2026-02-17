@@ -1262,9 +1262,11 @@ export default function FacturaPage() {
         const lockResource = LockResource.facturaCreate(nuevaFacturaData.serie);
 
         let facturaId: number | null = null;
+        let facturaEstadoInicial: string | null = null;
         await withLock(lockResource, async () => {
           const result = await facturaApi.create(finalDataParaBackend);
           facturaId = result.id_factura;
+          facturaEstadoInicial = result.estado_factura ?? null;
           toast.success("Factura creada exitosamente", {
             description: `Número: ${nuevaFacturaData.serie}-${nuevaFacturaData.nroDoc}`,
           });
@@ -1274,46 +1276,54 @@ export default function FacturaPage() {
         setIsNuevaFacturaModalOpen(false);
         handleNuevaFacturaCancel();
 
-        // Recargar la lista de facturas inmediatamente
+        // Recargar la lista de facturas
         await loadFacturas();
 
-        // Continuar recargando cada 2 segundos hasta que la factura tenga un estado final
-        let pollCount = 0;
-        const maxPolls = 30; // 30 veces x 2 segundos = 60 segundos máximo
-        const pollInterval = setInterval(async () => {
-          pollCount++;
-          console.log(
-            `🔄 Actualizando lista de facturas (${pollCount}/${maxPolls})...`
-          );
+        // Si el backend ya procesó NubeFact sincrónicamente, no necesitamos polling
+        const yaCompletado =
+          facturaEstadoInicial === "COMPLETADO" ||
+          facturaEstadoInicial === "FALLADO" ||
+          facturaEstadoInicial === "ERROR";
 
-          const facturas = await facturaApi.getAll();
-          const facturaCreada = facturas.find(
-            (f) => f.id_factura === facturaId
-          );
+        if (!yaCompletado) {
+          // Polling de respaldo: máximo 5 intentos × 3 segundos = 15 segundos
+          let pollCount = 0;
+          const maxPolls = 5;
+          const pollInterval = setInterval(async () => {
+            pollCount++;
+            console.log(
+              `🔄 Verificando estado factura (${pollCount}/${maxPolls})...`
+            );
 
-          if (facturaCreada) {
-            const estadoFinal =
-              facturaCreada.estado_factura === "COMPLETADO" ||
-              facturaCreada.estado_factura === "ERROR" ||
-              facturaCreada.aceptada_por_sunat === true;
+            const facturas = await facturaApi.getAll();
+            const facturaCreada = facturas.find(
+              (f) => f.id_factura === facturaId
+            );
 
-            if (estadoFinal) {
-              clearInterval(pollInterval);
-              console.log(
-                `✅ Factura ${facturaCreada.serie}-${facturaCreada.numero} procesada: ${facturaCreada.estado_factura}`
-              );
-              await loadFacturas(); // Recargar una última vez
-              return;
+            if (facturaCreada) {
+              const estadoFinal =
+                facturaCreada.estado_factura === "COMPLETADO" ||
+                facturaCreada.estado_factura === "ERROR" ||
+                facturaCreada.aceptada_por_sunat === true;
+
+              if (estadoFinal) {
+                clearInterval(pollInterval);
+                console.log(
+                  `✅ Factura ${facturaCreada.serie}-${facturaCreada.numero} procesada: ${facturaCreada.estado_factura}`
+                );
+                await loadFacturas();
+                return;
+              }
             }
-          }
 
-          await loadFacturas();
+            await loadFacturas();
 
-          if (pollCount >= maxPolls) {
-            clearInterval(pollInterval);
-            console.log("⏱️ Tiempo máximo de polling alcanzado");
-          }
-        }, 2000);
+            if (pollCount >= maxPolls) {
+              clearInterval(pollInterval);
+              console.log("⏱️ Polling de respaldo completado");
+            }
+          }, 3000);
+        }
       }
     } catch (error: unknown) {
       console.error("Error al guardar factura:", error);
