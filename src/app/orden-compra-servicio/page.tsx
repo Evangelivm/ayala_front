@@ -1351,14 +1351,16 @@ export default function OrdenCompraPage() {
     }
   };
 
-  // Verificar si un número de factura ya existe en otra orden (compra o servicio)
-  const isNroFacturaDuplicado = useCallback((nroFactura: string, ordenId: number | null, tipo: "compra" | "servicio"): boolean => {
+  // Verificar si un número de factura ya existe en otra orden del mismo proveedor (compra o servicio)
+  const isNroFacturaDuplicado = useCallback((nroFactura: string, ordenId: number | null, tipo: "compra" | "servicio", idProveedor: number | null): boolean => {
     if (!nroFactura || !nroFactura.trim()) return false;
     return ordenesCompra.some(o =>
       o.nro_factura === nroFactura &&
+      o.id_proveedor === idProveedor &&
       !(tipo === "compra" && o.id_orden_compra === ordenId)
     ) || ordenesServicio.some(o =>
       o.nro_factura === nroFactura &&
+      o.id_proveedor === idProveedor &&
       !(tipo === "servicio" && o.id_orden_servicio === ordenId)
     );
   }, [ordenesCompra, ordenesServicio]);
@@ -1738,6 +1740,7 @@ export default function OrdenCompraPage() {
                                     {orden.estado}
                                   </span>
                                 </div>
+
                               </div>
                             </div>
                           </AccordionTrigger>
@@ -2017,14 +2020,14 @@ export default function OrdenCompraPage() {
                                             handleUpdateNroFactura(orden.id_orden_compra, "compra", nroFacturaEdit);
                                           }
                                         }}
-                                        disabled={editingFacturaOrdenId !== orden.id_orden_compra || !!orden.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_compra || null, "compra")}
+                                        disabled={editingFacturaOrdenId !== orden.id_orden_compra || !!orden.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_compra || null, "compra", orden.id_proveedor || null)}
                                         className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
                                       >
                                         Guardar
                                       </Button>
                                     </div>
-                                    {editingFacturaOrdenId === orden.id_orden_compra && editingFacturaTipo === "compra" && isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_compra || null, "compra") && (
-                                      <p className="text-xs text-red-600 mt-1">Ya existe una factura con la serie, evite pagos duplicados</p>
+                                    {editingFacturaOrdenId === orden.id_orden_compra && editingFacturaTipo === "compra" && isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_compra || null, "compra", orden.id_proveedor || null) && (
+                                      <p className="text-xs text-red-600 mt-1">Este proveedor ya tiene una orden con ese número de factura, evite pagos duplicados</p>
                                     )}
                                   </div>
 
@@ -2068,6 +2071,31 @@ export default function OrdenCompraPage() {
                                   </div>
                                 </div>
                               </div>
+
+                              {/* Unidad */}
+                              {orden.placa_unidad && (
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">
+                                    Unidad
+                                  </h4>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Placa</p>
+                                      <p className="text-sm font-mono font-bold">{orden.placa_unidad}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Tipo</p>
+                                      <p className="text-sm font-medium">{orden.tipo_unidad || "-"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Chofer</p>
+                                      <p className="text-sm font-medium">
+                                        {[orden.nombre_chofer, orden.apellido_chofer].filter(Boolean).join(" ") || "-"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
 
                               {/* Observaciones */}
                               {orden.observaciones && (
@@ -2224,6 +2252,7 @@ export default function OrdenCompraPage() {
                                     {orden.estado}
                                   </span>
                                 </div>
+
                               </div>
                             </div>
                           </AccordionTrigger>
@@ -2503,14 +2532,14 @@ export default function OrdenCompraPage() {
                                             handleUpdateNroFactura(orden.id_orden_servicio, "servicio", nroFacturaEdit);
                                           }
                                         }}
-                                        disabled={editingFacturaOrdenId !== orden.id_orden_servicio || !!orden.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_servicio || null, "servicio")}
+                                        disabled={editingFacturaOrdenId !== orden.id_orden_servicio || !!orden.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_servicio || null, "servicio", orden.id_proveedor || null)}
                                         className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
                                       >
                                         Guardar
                                       </Button>
                                     </div>
-                                    {editingFacturaOrdenId === orden.id_orden_servicio && editingFacturaTipo === "servicio" && isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_servicio || null, "servicio") && (
-                                      <p className="text-xs text-red-600 mt-1">Ya existe una factura con la serie, evite pagos duplicados</p>
+                                    {editingFacturaOrdenId === orden.id_orden_servicio && editingFacturaTipo === "servicio" && isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_servicio || null, "servicio", orden.id_proveedor || null) && (
+                                      <p className="text-xs text-red-600 mt-1">Este proveedor ya tiene una orden con ese número de factura, evite pagos duplicados</p>
                                     )}
                                   </div>
 
@@ -2554,6 +2583,31 @@ export default function OrdenCompraPage() {
                                   </div>
                                 </div>
                               </div>
+
+                              {/* Unidad */}
+                              {orden.placa_unidad && (
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <h4 className="text-xs font-bold text-gray-700 mb-2">
+                                    Unidad
+                                  </h4>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Placa</p>
+                                      <p className="text-sm font-mono font-bold">{orden.placa_unidad}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Tipo</p>
+                                      <p className="text-sm font-medium">{orden.tipo_unidad || "-"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Chofer</p>
+                                      <p className="text-sm font-medium">
+                                        {[orden.nombre_chofer, orden.apellido_chofer].filter(Boolean).join(" ") || "-"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
 
                               {/* Observaciones */}
                               {orden.observaciones && (

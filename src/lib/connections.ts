@@ -3601,6 +3601,10 @@ export interface OrdenCompraData {
   nro_factura?: string | null; // Número de factura
   url_comprobante_retencion?: string | null; // URL del comprobante de retención
   nro_serie?: string | null; // Número de serie del comprobante de retención
+  placa_unidad?: string | null; // Placa del camión/unidad asignada
+  tipo_unidad?: string | null; // Tipo de unidad (CAMION o MAQUINARIA)
+  nombre_chofer?: string | null; // Nombre del chofer
+  apellido_chofer?: string | null; // Apellido del chofer
 }
 
 // Helper para decodificar HTML entities en órdenes de compra
@@ -3981,6 +3985,10 @@ export interface OrdenServicioData {
   nro_factura?: string | null; // Número de factura
   url_comprobante_retencion?: string | null; // URL del comprobante de retención
   nro_serie?: string | null; // Número de serie del comprobante de retención
+  placa_unidad?: string | null; // Placa del camión/unidad asignada
+  tipo_unidad?: string | null; // Tipo de unidad (CAMION o MAQUINARIA)
+  nombre_chofer?: string | null; // Nombre del chofer
+  apellido_chofer?: string | null; // Apellido del chofer
 }
 
 // Helper para decodificar HTML entities en órdenes de servicio
