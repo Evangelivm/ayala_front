@@ -2229,6 +2229,8 @@ export interface ProgramacionTecnicaData {
   id_subpartida?: number | null;
   // Peso bruto total
   peso_bruto_total?: number | null;
+  // Soft delete
+  deleted_at?: string | null;
 }
 
 // Extended type for getTecnicaById response
@@ -2581,6 +2583,28 @@ export const programacionApi = {
     } catch (error) {
       console.error("Eliminar Duplicados API error:", error);
       throw new Error("Error al eliminar duplicados");
+    }
+  },
+
+  // Obtener todos los registros de programación técnica (admin, incluye eliminados)
+  getAllTecnicaAdmin: async (): Promise<ProgramacionTecnicaData[]> => {
+    try {
+      const response = await api.get("/programacion/tecnica/admin");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Programación Técnica Admin API error:", error);
+      return [];
+    }
+  },
+
+  // Restaurar un registro de programación técnica eliminado
+  restoreTecnica: async (id: number): Promise<{ message: string }> => {
+    try {
+      const response = await api.patch(`/programacion/tecnica/${id}/restore`);
+      return response.data;
+    } catch (error) {
+      console.error("Programación Técnica Restore API error:", error);
+      throw new Error("Error al restaurar el registro");
     }
   },
 };
@@ -3605,6 +3629,7 @@ export interface OrdenCompraData {
   tipo_unidad?: string | null; // Tipo de unidad (CAMION o MAQUINARIA)
   nombre_chofer?: string | null; // Nombre del chofer
   apellido_chofer?: string | null; // Apellido del chofer
+  deleted_at?: string | null; // Soft delete
 }
 
 // Helper para decodificar HTML entities en órdenes de compra
@@ -3916,6 +3941,27 @@ export const ordenesCompraApi = {
     }
   },
 
+  // Obtener todas las órdenes de compra (admin, incluye eliminadas)
+  getAllAdmin: async (): Promise<OrdenCompraData[]> => {
+    try {
+      const response = await api.get("/ordenes-compra/admin");
+      return Array.isArray(response.data) ? response.data.map(decodeOrdenCompraData) : [];
+    } catch (error) {
+      console.error("Ordenes Compra Admin API error:", error);
+      return [];
+    }
+  },
+
+  // Restaurar una orden de compra eliminada
+  restore: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/restore`);
+    } catch (error) {
+      console.error("Error restaurando orden de compra:", error);
+      throw error;
+    }
+  },
+
   uploadMultifacturaGuia: async (id: number, detalleId: number, formData: FormData): Promise<{ message: string; fileUrl: string }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/ordenes-compra/${id}/multifacturas/${detalleId}/upload-guia`, {
@@ -3989,6 +4035,7 @@ export interface OrdenServicioData {
   tipo_unidad?: string | null; // Tipo de unidad (CAMION o MAQUINARIA)
   nombre_chofer?: string | null; // Nombre del chofer
   apellido_chofer?: string | null; // Apellido del chofer
+  deleted_at?: string | null; // Soft delete
 }
 
 // Helper para decodificar HTML entities en órdenes de servicio
@@ -4313,6 +4360,27 @@ export const ordenesServicioApi = {
       return response.json();
     } catch (error) {
       console.error("Error subiendo guía de multifactura:", error);
+      throw error;
+    }
+  },
+
+  // Obtener todas las órdenes de servicio (admin, incluye eliminadas)
+  getAllAdmin: async (): Promise<OrdenServicioData[]> => {
+    try {
+      const response = await api.get("/ordenes-servicio/admin");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("Ordenes Servicio Admin API error:", error);
+      return [];
+    }
+  },
+
+  // Restaurar una orden de servicio eliminada
+  restore: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/restore`);
+    } catch (error) {
+      console.error("Error restaurando orden de servicio:", error);
       throw error;
     }
   },

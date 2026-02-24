@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { PDFDocument } from "pdf-lib";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -94,7 +95,8 @@ export default function RegistroGerenciaPage() {
 
   // Estados para el diálogo de subida de archivos
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [currentOrdenId, setCurrentOrdenId] = useState<number | null>(null);
   const [currentOrdenType, setCurrentOrdenType] = useState<"compra" | "servicio" | null>(null);
 
@@ -189,31 +191,111 @@ export default function RegistroGerenciaPage() {
   // Función para cerrar el diálogo de subida
   const handleCloseUploadDialog = () => {
     setIsUploadDialogOpen(false);
-    setSelectedFile(null);
+    setSelectedFiles([]);
     setCurrentOrdenId(null);
     setCurrentOrdenType(null);
   };
 
-  // Función para manejar la selección de archivo
+  // Función para manejar la selección de archivos (hasta 4)
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+    setSelectedFiles(prev => {
+      const combined = [...prev, ...files];
+      return combined.slice(0, 4);
+    });
+    // Resetear el input para permitir re-seleccionar el mismo archivo
+    event.target.value = "";
+  };
+
+  // Función para eliminar un archivo de la lista
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Redimensiona una imagen via canvas (max 1400px, jpeg 85%)
+  const resizeImage = (file: File): Promise<ArrayBuffer> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const MAX = 1400;
+        const ratio = Math.min(1, MAX / img.width);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { URL.revokeObjectURL(url); reject(new Error("Canvas no disponible")); return; }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { reject(new Error("Error al comprimir imagen")); return; }
+            blob.arrayBuffer().then(resolve).catch(reject);
+          },
+          "image/jpeg",
+          0.85
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Error al cargar imagen")); };
+      img.src = url;
+    });
+  };
+
+  // Fusiona todos los archivos en un único PDF
+  const buildMergedPdf = async (files: File[]): Promise<File> => {
+    const merged = await PDFDocument.create();
+    for (const file of files) {
+      if (file.type === "application/pdf") {
+        // PDF: copiar páginas directamente
+        const bytes = await file.arrayBuffer();
+        const srcDoc = await PDFDocument.load(bytes);
+        const pages = await merged.copyPages(srcDoc, srcDoc.getPageIndices());
+        pages.forEach(p => merged.addPage(p));
+      } else {
+        // Imagen: redimensionar y embeber en página A4
+        const resized = await resizeImage(file);
+        const isPng = file.type === "image/png";
+        const image = isPng
+          ? await merged.embedPng(resized)
+          : await merged.embedJpg(resized);
+        const A4_W = 595, A4_H = 842;
+        const scale = Math.min(A4_W / image.width, A4_H / image.height);
+        const w = image.width * scale;
+        const h = image.height * scale;
+        const page = merged.addPage([A4_W, A4_H]);
+        page.drawImage(image, {
+          x: (A4_W - w) / 2,
+          y: (A4_H - h) / 2,
+          width: w,
+          height: h,
+        });
+      }
     }
+    const pdfBytes = await merged.save();
+    const blob = new Blob([pdfBytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
+    return new File([blob], "merged.pdf", { type: "application/pdf" });
   };
 
   // Función para confirmar la subida del archivo
   const handleConfirmUpload = async () => {
-    if (!selectedFile || !currentOrdenId || !currentOrdenType) {
-      toast.error("No se ha seleccionado un archivo");
+    if (selectedFiles.length === 0 || !currentOrdenId || !currentOrdenType) {
+      toast.error("No se ha seleccionado ningún archivo");
       return;
     }
 
     try {
-      toast.loading("Subiendo archivo...");
+      setIsProcessing(true);
+      toast.loading(selectedFiles.length > 1 ? "Procesando y fusionando archivos..." : "Subiendo archivo...");
+
+      const finalFile = selectedFiles.length > 1
+        ? await buildMergedPdf(selectedFiles)
+        : selectedFiles[0];
 
       const formData = new FormData();
-      formData.append('file', selectedFile);
+      formData.append('file', finalFile);
+
+      toast.loading("Subiendo archivo...");
 
       if (currentOrdenType === "compra") {
         await ordenesCompraApi.uploadFile(currentOrdenId, formData);
@@ -230,6 +312,8 @@ export default function RegistroGerenciaPage() {
       toast.error("Error al subir el archivo", {
         description: error instanceof Error ? error.message : "Error desconocido",
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -1129,52 +1213,82 @@ export default function RegistroGerenciaPage() {
               </DialogHeader>
 
               <div className="space-y-4 py-4">
-                {/* Input de archivo */}
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                  <input
-                    type="file"
-                    id="file-upload"
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className="cursor-pointer flex flex-col items-center"
-                  >
-                    <Upload className="h-12 w-12 text-gray-400 mb-3" />
-                    <p className="text-sm font-semibold text-gray-700 mb-1">
-                      Haz clic para seleccionar un archivo
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      PDF, Word, Excel, o Imágenes
-                    </p>
-                  </label>
-                </div>
+                {/* Zona de selección (visible si hay menos de 4 archivos) */}
+                {selectedFiles.length < 4 && (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-5 text-center hover:border-blue-400 transition-colors">
+                    <input
+                      type="file"
+                      id="file-upload"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      multiple
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      disabled={isProcessing}
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className="cursor-pointer flex flex-col items-center"
+                    >
+                      <Upload className="h-10 w-10 text-gray-400 mb-2" />
+                      <p className="text-sm font-semibold text-gray-700 mb-1">
+                        Haz clic para agregar archivos
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        PDF o Imágenes (JPG, PNG) · máx. 4 archivos
+                      </p>
+                    </label>
+                  </div>
+                )}
 
-                {/* Vista previa del archivo seleccionado */}
-                {selectedFile && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-8 w-8 text-blue-600" />
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            {selectedFile.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {(selectedFile.size / 1024).toFixed(2)} KB
+                {/* Lista de archivos seleccionados */}
+                {selectedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                        Archivos seleccionados
+                      </span>
+                      <span className={`text-xs font-bold ${selectedFiles.length === 4 ? "text-orange-600" : "text-blue-600"}`}>
+                        {selectedFiles.length}/4
+                      </span>
+                    </div>
+                    {selectedFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"
+                      >
+                        <span className="text-xs font-bold text-gray-400 w-4">{index + 1}</span>
+                        <FileText className={`h-5 w-5 flex-shrink-0 ${file.type === "application/pdf" ? "text-red-500" : "text-blue-500"}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
+                          <p className="text-xs text-gray-400">
+                            {file.type === "application/pdf" ? "PDF" : "Imagen"} · {(file.size / 1024).toFixed(0)} KB
                           </p>
                         </div>
+                        <button
+                          onClick={() => handleRemoveFile(index)}
+                          disabled={isProcessing}
+                          className="text-gray-300 hover:text-red-500 transition-colors disabled:opacity-50"
+                          title="Quitar archivo"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => setSelectedFile(null)}
-                        className="text-gray-400 hover:text-red-600 transition-colors"
-                        title="Eliminar archivo"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    </div>
+                    ))}
+
+                    {/* Nota de fusión si hay más de 1 archivo */}
+                    {selectedFiles.length > 1 && (
+                      <p className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2 mt-1">
+                        Los {selectedFiles.length} archivos se fusionarán en un único PDF antes de subir.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Indicador de procesamiento */}
+                {isProcessing && (
+                  <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
+                    <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    Procesando y fusionando archivos...
                   </div>
                 )}
               </div>
@@ -1183,16 +1297,17 @@ export default function RegistroGerenciaPage() {
                 <Button
                   variant="outline"
                   onClick={handleCloseUploadDialog}
+                  disabled={isProcessing}
                 >
                   Cancelar
                 </Button>
                 <Button
                   onClick={handleConfirmUpload}
-                  disabled={!selectedFile}
+                  disabled={selectedFiles.length === 0 || isProcessing}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  Confirmar Subida
+                  {isProcessing ? "Procesando..." : "Confirmar Subida"}
                 </Button>
               </DialogFooter>
             </DialogContent>
