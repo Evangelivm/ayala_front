@@ -981,9 +981,9 @@ export default function OrdenCompraPage() {
       const ordenParaEnviar = {
         id_proveedor: nuevaOrdenData.id_proveedor,
         numero_orden: numero_orden,
-        fecha_orden: nuevaOrdenData.fechaEmision.toISOString(),
+        fecha_orden: format(nuevaOrdenData.fechaEmision, "yyyy-MM-dd"),
         moneda: nuevaOrdenData.moneda,
-        fecha_registro: nuevaOrdenData.fechaServicio.toISOString(),
+        fecha_registro: format(nuevaOrdenData.fechaServicio, "yyyy-MM-dd"),
         estado: nuevaOrdenData.estado || "PENDIENTE", // Preservar estado al editar
         centro_costo_nivel1: nuevaOrdenData.centroCostoNivel1Codigo,
         centro_costo_nivel2: nuevaOrdenData.centroCostoNivel2Codigo,

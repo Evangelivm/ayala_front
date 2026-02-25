@@ -4505,6 +4505,70 @@ export const facturaApi = {
   },
 };
 
+// ============ SEARCH API (Elasticsearch + paginación) ============
+export interface SearchResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export const searchApi = {
+  programacionTecnica: async (
+    q: string,
+    page: number,
+    limit: number
+  ): Promise<SearchResult<ProgramacionTecnicaData>> => {
+    const params = new URLSearchParams({
+      q,
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    const response = await api.get(`/search/programacion-tecnica?${params}`);
+    return response.data;
+  },
+
+  ordenesCompra: async (
+    q: string,
+    page: number,
+    limit: number
+  ): Promise<SearchResult<OrdenCompraData>> => {
+    const params = new URLSearchParams({
+      q,
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    const response = await api.get(`/search/ordenes-compra?${params}`);
+    return response.data;
+  },
+
+  ordenesServicio: async (
+    q: string,
+    page: number,
+    limit: number
+  ): Promise<SearchResult<OrdenServicioData>> => {
+    const params = new URLSearchParams({
+      q,
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    const response = await api.get(`/search/ordenes-servicio?${params}`);
+    return response.data;
+  },
+
+  reindex: async (): Promise<{
+    message: string;
+    counts: {
+      programacion_tecnica: number;
+      ordenes_compra: number;
+      ordenes_servicio: number;
+    };
+  }> => {
+    const response = await api.post("/search/reindex");
+    return response.data;
+  },
+};
+
 // ============ URL HELPERS ============
 // Funciones helper para generar URLs que necesitan acceso directo a archivos (PDFs, etc.)
 export const urlHelpers = {

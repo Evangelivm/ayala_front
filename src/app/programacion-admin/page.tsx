@@ -29,11 +29,16 @@ import {
   RotateCcw,
   ShoppingCart,
   Wrench,
+  Settings,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import {
   programacionApi,
   ordenesCompraApi,
   ordenesServicioApi,
+  searchApi,
   type ProgramacionTecnicaData,
   type OrdenCompraData,
   type OrdenServicioData,
@@ -45,39 +50,41 @@ import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
 function ProgramacionTecnicaTab() {
   const router = useRouter();
   const [data, setData] = useState<ProgramacionTecnicaData[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [identificadoresConGuia, setIdentificadoresConGuia] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const [tecnicaData, idsConGuia] = await Promise.all([
-        programacionApi.getAllTecnicaAdmin(),
-        programacionApi.getIdentificadoresConGuia(),
-      ]);
-
-      const idsVistos = new Set();
-      const dataSinDuplicados = tecnicaData
-        .filter((item) => {
-          if (idsVistos.has(item.id)) return false;
-          idsVistos.add(item.id);
-          return true;
-        })
-        .sort((a, b) => b.id - a.id);
-
-      setData(dataSinDuplicados);
-      setIdentificadoresConGuia(idsConGuia);
-    } catch {
-      toast.error("Error al cargar los datos");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const LIMIT = 20;
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   useEffect(() => {
-    fetchData();
+    programacionApi
+      .getIdentificadoresConGuia()
+      .then(setIdentificadoresConGuia)
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(true);
+      searchApi
+        .programacionTecnica(searchTerm, page, LIMIT)
+        .then((result) => {
+          const seen = new Set<number>();
+          const deduped = result.data.filter((item) => {
+            if (seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+          });
+          setData(deduped);
+          setTotal(result.total);
+        })
+        .catch(() => toast.error("Error al cargar los datos"))
+        .finally(() => setIsLoading(false));
+    }, searchTerm ? 400 : 0);
+    return () => clearTimeout(timer);
+  }, [searchTerm, page]);
 
   const handleGenerarGuia = (id: number) => {
     router.push(`/guia-remision?id=${id}`);
@@ -152,30 +159,20 @@ function ProgramacionTecnicaTab() {
   const hasGuiaEnProceso = (item: ProgramacionTecnicaData) =>
     !!(item.identificador_unico && identificadoresConGuia.includes(item.identificador_unico));
 
-  const filteredData = data.filter((item) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      item.proveedor?.toLowerCase().includes(term) ||
-      item.apellidos_nombres?.toLowerCase().includes(term) ||
-      item.proyectos?.toLowerCase().includes(term) ||
-      item.id.toString().includes(term) ||
-      item.identificador_unico?.toLowerCase().includes(term)
-    );
-  });
-
-  const activos = filteredData.filter((i) => !i.deleted_at);
-  const eliminados = filteredData.filter((i) => i.deleted_at);
+  const activos = data.filter((i) => !i.deleted_at);
+  const eliminados = data.filter((i) => i.deleted_at);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Badge variant="secondary">{activos.length} activos</Badge>
           {eliminados.length > 0 && (
             <Badge variant="outline" className="text-red-600 border-red-300">
               {eliminados.length} eliminados
             </Badge>
           )}
+          <Badge variant="outline" className="text-slate-500">{total} total</Badge>
         </div>
         <div className="relative w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -183,7 +180,7 @@ function ProgramacionTecnicaTab() {
             type="text"
             placeholder="Buscar por proveedor, conductor, proyecto..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
             className="pl-10 bg-white"
           />
         </div>
@@ -193,7 +190,7 @@ function ProgramacionTecnicaTab() {
         <div className="flex justify-center items-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
         </div>
-      ) : filteredData.length === 0 ? (
+      ) : data.length === 0 ? (
         <div className="text-center py-12">
           <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500">
@@ -202,7 +199,7 @@ function ProgramacionTecnicaTab() {
         </div>
       ) : (
         <Accordion type="single" collapsible className="space-y-2">
-          {filteredData.map((item) => {
+          {data.map((item) => {
             const isDeleted = !!item.deleted_at;
             return (
               <AccordionItem
@@ -401,6 +398,31 @@ function ProgramacionTecnicaTab() {
           })}
         </Accordion>
       )}
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || isLoading}
+          >
+            ← Anterior
+          </Button>
+          <span className="text-sm text-slate-600">
+            Página {page} de {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || isLoading}
+          >
+            Siguiente →
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -409,24 +431,27 @@ function ProgramacionTecnicaTab() {
 
 function OrdenesCompraTab() {
   const [data, setData] = useState<OrdenCompraData[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const ordenes = await ordenesCompraApi.getAllAdmin();
-      setData(ordenes.sort((a, b) => (b.id_orden_compra ?? 0) - (a.id_orden_compra ?? 0)));
-    } catch {
-      toast.error("Error al cargar las órdenes de compra");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const LIMIT = 20;
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    const timer = setTimeout(() => {
+      setIsLoading(true);
+      searchApi
+        .ordenesCompra(searchTerm, page, LIMIT)
+        .then((result) => {
+          setData(result.data);
+          setTotal(result.total);
+        })
+        .catch(() => toast.error("Error al cargar las órdenes de compra"))
+        .finally(() => setIsLoading(false));
+    }, searchTerm ? 400 : 0);
+    return () => clearTimeout(timer);
+  }, [searchTerm, page]);
 
   const handleEliminar = async (item: OrdenCompraData) => {
     const label = item.numero_orden;
@@ -463,29 +488,20 @@ function OrdenesCompraTab() {
     }
   };
 
-  const filtered = data.filter((item) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      item.numero_orden?.toLowerCase().includes(term) ||
-      item.nombre_proveedor?.toLowerCase().includes(term) ||
-      item.estado?.toLowerCase().includes(term) ||
-      item.id_orden_compra?.toString().includes(term)
-    );
-  });
-
-  const activos = filtered.filter((i) => !i.deleted_at);
-  const eliminados = filtered.filter((i) => i.deleted_at);
+  const activos = data.filter((i) => !i.deleted_at);
+  const eliminados = data.filter((i) => i.deleted_at);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Badge variant="secondary">{activos.length} activas</Badge>
           {eliminados.length > 0 && (
             <Badge variant="outline" className="text-red-600 border-red-300">
               {eliminados.length} eliminadas
             </Badge>
           )}
+          <Badge variant="outline" className="text-slate-500">{total} total</Badge>
         </div>
         <div className="relative w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -493,7 +509,7 @@ function OrdenesCompraTab() {
             type="text"
             placeholder="Buscar por número, proveedor, estado..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
             className="pl-10 bg-white"
           />
         </div>
@@ -503,7 +519,7 @@ function OrdenesCompraTab() {
         <div className="flex justify-center items-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : data.length === 0 ? (
         <div className="text-center py-12">
           <ShoppingCart className="h-12 w-12 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500">
@@ -512,7 +528,7 @@ function OrdenesCompraTab() {
         </div>
       ) : (
         <Accordion type="single" collapsible className="space-y-2">
-          {filtered.map((item) => {
+          {data.map((item) => {
             const isDeleted = !!item.deleted_at;
             return (
               <AccordionItem
@@ -616,6 +632,31 @@ function OrdenesCompraTab() {
           })}
         </Accordion>
       )}
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || isLoading}
+          >
+            ← Anterior
+          </Button>
+          <span className="text-sm text-slate-600">
+            Página {page} de {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || isLoading}
+          >
+            Siguiente →
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -624,24 +665,27 @@ function OrdenesCompraTab() {
 
 function OrdenesServicioTab() {
   const [data, setData] = useState<OrdenServicioData[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const ordenes = await ordenesServicioApi.getAllAdmin();
-      setData(ordenes.sort((a, b) => (b.id_orden_servicio ?? 0) - (a.id_orden_servicio ?? 0)));
-    } catch {
-      toast.error("Error al cargar las órdenes de servicio");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const LIMIT = 20;
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    const timer = setTimeout(() => {
+      setIsLoading(true);
+      searchApi
+        .ordenesServicio(searchTerm, page, LIMIT)
+        .then((result) => {
+          setData(result.data);
+          setTotal(result.total);
+        })
+        .catch(() => toast.error("Error al cargar las órdenes de servicio"))
+        .finally(() => setIsLoading(false));
+    }, searchTerm ? 400 : 0);
+    return () => clearTimeout(timer);
+  }, [searchTerm, page]);
 
   const handleEliminar = async (item: OrdenServicioData) => {
     const label = item.numero_orden;
@@ -678,29 +722,20 @@ function OrdenesServicioTab() {
     }
   };
 
-  const filtered = data.filter((item) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      item.numero_orden?.toLowerCase().includes(term) ||
-      item.nombre_proveedor?.toLowerCase().includes(term) ||
-      item.estado?.toLowerCase().includes(term) ||
-      item.id_orden_servicio?.toString().includes(term)
-    );
-  });
-
-  const activos = filtered.filter((i) => !i.deleted_at);
-  const eliminados = filtered.filter((i) => i.deleted_at);
+  const activos = data.filter((i) => !i.deleted_at);
+  const eliminados = data.filter((i) => i.deleted_at);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Badge variant="secondary">{activos.length} activas</Badge>
           {eliminados.length > 0 && (
             <Badge variant="outline" className="text-red-600 border-red-300">
               {eliminados.length} eliminadas
             </Badge>
           )}
+          <Badge variant="outline" className="text-slate-500">{total} total</Badge>
         </div>
         <div className="relative w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -708,7 +743,7 @@ function OrdenesServicioTab() {
             type="text"
             placeholder="Buscar por número, proveedor, estado..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
             className="pl-10 bg-white"
           />
         </div>
@@ -718,7 +753,7 @@ function OrdenesServicioTab() {
         <div className="flex justify-center items-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : data.length === 0 ? (
         <div className="text-center py-12">
           <Wrench className="h-12 w-12 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500">
@@ -727,7 +762,7 @@ function OrdenesServicioTab() {
         </div>
       ) : (
         <Accordion type="single" collapsible className="space-y-2">
-          {filtered.map((item) => {
+          {data.map((item) => {
             const isDeleted = !!item.deleted_at;
             return (
               <AccordionItem
@@ -831,6 +866,114 @@ function OrdenesServicioTab() {
           })}
         </Accordion>
       )}
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || isLoading}
+          >
+            ← Anterior
+          </Button>
+          <span className="text-sm text-slate-600">
+            Página {page} de {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || isLoading}
+          >
+            Siguiente →
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tab: Configuración ──────────────────────────────────────────────────────
+
+function ConfiguracionTab() {
+  const [isReindexing, setIsReindexing] = useState(false);
+  const [lastResult, setLastResult] = useState<{
+    counts: { programacion_tecnica: number; ordenes_compra: number; ordenes_servicio: number };
+    at: string;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleReindex = async () => {
+    if (!confirm("¿Sincronizar Elasticsearch ahora?\n\nEsto reindexará todos los registros desde la base de datos.")) return;
+    setIsReindexing(true);
+    setError(null);
+    setLastResult(null);
+    try {
+      const result = await searchApi.reindex();
+      setLastResult({ counts: result.counts, at: new Date().toLocaleString("es-PE") });
+      toast.success(
+        `Elasticsearch sincronizado: ${result.counts.programacion_tecnica} prog. técnica, ${result.counts.ordenes_compra} ó. compra, ${result.counts.ordenes_servicio} ó. servicio`
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error al sincronizar";
+      setError(msg);
+      toast.error(`Error al sincronizar: ${msg}`);
+    } finally {
+      setIsReindexing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-xl">
+      <div>
+        <h3 className="text-sm font-semibold text-slate-700 mb-1">Sincronización de Elasticsearch</h3>
+        <p className="text-sm text-slate-500">
+          Reindexar todos los registros desde la base de datos hacia Elasticsearch.
+          Necesario la primera vez o cuando ES estuvo caído y se crearon registros nuevos.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium text-slate-700">Reindexar todo</p>
+            <p className="text-xs text-slate-500">Programación técnica · Órdenes de compra · Órdenes de servicio</p>
+          </div>
+          <Button
+            onClick={handleReindex}
+            disabled={isReindexing}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isReindexing ? "animate-spin" : ""}`} />
+            {isReindexing ? "Sincronizando..." : "Sincronizar ES"}
+          </Button>
+        </div>
+
+        {lastResult && (
+          <div className="flex items-start gap-2 rounded-md bg-green-50 border border-green-200 p-3">
+            <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+            <div className="text-xs text-green-700 space-y-0.5">
+              <p className="font-medium">Sincronizado el {lastResult.at}</p>
+              <p>· Programación técnica: <span className="font-mono font-bold">{lastResult.counts.programacion_tecnica}</span></p>
+              <p>· Órdenes de compra: <span className="font-mono font-bold">{lastResult.counts.ordenes_compra}</span></p>
+              <p>· Órdenes de servicio: <span className="font-mono font-bold">{lastResult.counts.ordenes_servicio}</span></p>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-md bg-red-50 border border-red-200 p-3">
+            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+            <div className="text-xs text-red-700">
+              <p className="font-medium">Error al sincronizar</p>
+              <p className="font-mono">{error}</p>
+              <p className="mt-1 text-red-500">Verifica que Elasticsearch esté activo: <code>docker compose up -d</code> en <code>ayala_back/elasticsearch/</code></p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -858,7 +1001,7 @@ export default function ProgramacionAdminPage() {
       {/* Tabs */}
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="programacion" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 bg-white shadow-sm">
+          <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm">
             <TabsTrigger value="programacion" className="flex items-center gap-2">
               <Truck className="h-4 w-4" />
               Programación Técnica
@@ -870,6 +1013,10 @@ export default function ProgramacionAdminPage() {
             <TabsTrigger value="servicio" className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
               Órdenes de Servicio
+            </TabsTrigger>
+            <TabsTrigger value="configuracion" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Configuración
             </TabsTrigger>
           </TabsList>
 
@@ -902,6 +1049,17 @@ export default function ProgramacionAdminPage() {
               </CardHeader>
               <CardContent>
                 <OrdenesServicioTab />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="configuracion">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Configuración</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ConfiguracionTab />
               </CardContent>
             </Card>
           </TabsContent>
