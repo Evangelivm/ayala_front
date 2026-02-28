@@ -33,6 +33,7 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
+  Edit,
 } from "lucide-react";
 import {
   programacionApi,
@@ -43,6 +44,7 @@ import {
   type OrdenCompraData,
   type OrdenServicioData,
 } from "@/lib/connections";
+import { OrdenEditDialog } from "@/components/orden-edit-dialog";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
 
 // ─── Tab: Programación Técnica ──────────────────────────────────────────────
@@ -431,6 +433,8 @@ function ProgramacionTecnicaTab() {
 
 function OrdenesCompraTab() {
   const [data, setData] = useState<OrdenCompraData[]>([]);
+  const [editOrden, setEditOrden] = useState<OrdenCompraData | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -615,6 +619,11 @@ function OrdenesCompraTab() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
+                      {!isDeleted && (
+                        <Button size="sm" variant="outline" onClick={() => { setEditOrden(item); setIsEditOpen(true); }} className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300">
+                          <Edit className="h-4 w-4 mr-2" /> Editar Orden
+                        </Button>
+                      )}
                       {!isDeleted ? (
                         <Button size="sm" variant="outline" onClick={() => handleEliminar(item)} className="bg-white hover:bg-red-50 text-red-700 border-red-300 ml-auto">
                           <Trash2 className="h-4 w-4 mr-2" /> Eliminar Orden
@@ -657,6 +666,17 @@ function OrdenesCompraTab() {
           </Button>
         </div>
       )}
+
+      <OrdenEditDialog
+        orden={editOrden}
+        tipo="compra"
+        open={isEditOpen}
+        onOpenChange={(v) => { setIsEditOpen(v); if (!v) setEditOrden(null); }}
+        onSaved={() => {
+          // Recargar la página actual de búsqueda
+          setData((prev) => [...prev]);
+        }}
+      />
     </div>
   );
 }
@@ -665,6 +685,8 @@ function OrdenesCompraTab() {
 
 function OrdenesServicioTab() {
   const [data, setData] = useState<OrdenServicioData[]>([]);
+  const [editOrden, setEditOrden] = useState<OrdenServicioData | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -849,6 +871,11 @@ function OrdenesServicioTab() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
+                      {!isDeleted && (
+                        <Button size="sm" variant="outline" onClick={() => { setEditOrden(item); setIsEditOpen(true); }} className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300">
+                          <Edit className="h-4 w-4 mr-2" /> Editar Orden
+                        </Button>
+                      )}
                       {!isDeleted ? (
                         <Button size="sm" variant="outline" onClick={() => handleEliminar(item)} className="bg-white hover:bg-red-50 text-red-700 border-red-300 ml-auto">
                           <Trash2 className="h-4 w-4 mr-2" /> Eliminar Orden
@@ -891,6 +918,16 @@ function OrdenesServicioTab() {
           </Button>
         </div>
       )}
+
+      <OrdenEditDialog
+        orden={editOrden}
+        tipo="servicio"
+        open={isEditOpen}
+        onOpenChange={(v) => { setIsEditOpen(v); if (!v) setEditOrden(null); }}
+        onSaved={() => {
+          setData((prev) => [...prev]);
+        }}
+      />
     </div>
   );
 }
