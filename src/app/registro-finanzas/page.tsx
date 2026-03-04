@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ClipboardList, FileText, CheckCircle, Search, Filter, ExternalLink, CalendarIcon, X } from "lucide-react";
+import { MultifacturasDialog } from "@/components/multifacturas-dialog";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -68,6 +69,9 @@ const formatDateString = (dateString: string | null | undefined): string => {
 
 export default function RegistroFinanzasPage() {
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
+  const [isMultifacturasOpen, setIsMultifacturasOpen] = useState(false);
+  const [multifacturasOrdenId, setMultifacturasOrdenId] = useState<number | null>(null);
+  const [multifacturasOrdenTipo, setMultifacturasOrdenTipo] = useState<"compra" | "servicio" | null>(null);
   const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
 
   // Estados para filtros y búsqueda
@@ -668,6 +672,13 @@ export default function RegistroFinanzasPage() {
                                   <CheckCircle className="h-4 w-4" />
                                   Pagar
                                 </button>
+                                <button
+                                  onClick={() => { setMultifacturasOrdenId(orden.id_orden_compra || null); setMultifacturasOrdenTipo("compra"); setIsMultifacturasOpen(true); }}
+                                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                  disabled={!orden.id_orden_compra}
+                                >
+                                  Multifacturas
+                                </button>
                               </div>
                             </div>
                           </AccordionContent>
@@ -1003,6 +1014,13 @@ export default function RegistroFinanzasPage() {
                                   <CheckCircle className="h-4 w-4" />
                                   Pagar
                                 </button>
+                                <button
+                                  onClick={() => { setMultifacturasOrdenId(orden.id_orden_servicio || null); setMultifacturasOrdenTipo("servicio"); setIsMultifacturasOpen(true); }}
+                                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                  disabled={!orden.id_orden_servicio}
+                                >
+                                  Multifacturas
+                                </button>
                               </div>
                             </div>
                           </AccordionContent>
@@ -1016,6 +1034,12 @@ export default function RegistroFinanzasPage() {
           </Tabs>
         </div>
       </div>
+      <MultifacturasDialog
+        ordenId={multifacturasOrdenId}
+        tipo={multifacturasOrdenTipo}
+        open={isMultifacturasOpen}
+        onOpenChange={setIsMultifacturasOpen}
+      />
     </div>
   );
 }
