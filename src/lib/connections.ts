@@ -2231,6 +2231,8 @@ export interface ProgramacionTecnicaData {
   peso_bruto_total?: number | null;
   // Soft delete
   deleted_at?: string | null;
+  // Logs del backend persistidos
+  backend_logs?: string | null;
 }
 
 // Extended type for getTecnicaById response
@@ -2606,6 +2608,10 @@ export const programacionApi = {
       console.error("Programación Técnica Restore API error:", error);
       throw new Error("Error al restaurar el registro");
     }
+  },
+
+  saveBackendLogs: async (id: number, logs: string): Promise<void> => {
+    await api.patch(`/programacion/tecnica/${id}/backend-logs`, { logs });
   },
 };
 
@@ -3630,6 +3636,7 @@ export interface OrdenCompraData {
   nombre_chofer?: string | null; // Nombre del chofer
   apellido_chofer?: string | null; // Apellido del chofer
   deleted_at?: string | null; // Soft delete
+  backend_logs?: string | null; // Logs del backend persistidos
 }
 
 // Helper para decodificar HTML entities en órdenes de compra
@@ -3962,6 +3969,10 @@ export const ordenesCompraApi = {
     }
   },
 
+  saveBackendLogs: async (id: number, logs: string): Promise<void> => {
+    await api.patch(`/ordenes-compra/${id}/backend-logs`, { logs });
+  },
+
   uploadMultifacturaGuia: async (id: number, detalleId: number, formData: FormData): Promise<{ message: string; fileUrl: string }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/ordenes-compra/${id}/multifacturas/${detalleId}/upload-guia`, {
@@ -4036,6 +4047,7 @@ export interface OrdenServicioData {
   nombre_chofer?: string | null; // Nombre del chofer
   apellido_chofer?: string | null; // Apellido del chofer
   deleted_at?: string | null; // Soft delete
+  backend_logs?: string | null; // Logs del backend persistidos
 }
 
 // Helper para decodificar HTML entities en órdenes de servicio
@@ -4384,6 +4396,10 @@ export const ordenesServicioApi = {
       throw error;
     }
   },
+
+  saveBackendLogs: async (id: number, logs: string): Promise<void> => {
+    await api.patch(`/ordenes-servicio/${id}/backend-logs`, { logs });
+  },
 };
 
 // ============================================================================
@@ -4412,6 +4428,7 @@ export interface FacturaData {
   sunat_note?: string | null;
   created_at?: string;
   updated_at?: string;
+  backend_logs?: string | null;
   proveedores?: {
     nombre_proveedor: string;
     ruc: string;
@@ -4502,6 +4519,28 @@ export const facturaApi = {
   consultarNubefact: async (id: number): Promise<unknown> => {
     const response = await api.post(`/facturas/${id}/consultar`);
     return response.data;
+  },
+
+  saveBackendLogs: async (id: number, logs: string): Promise<void> => {
+    await api.patch(`/facturas/${id}/backend-logs`, { logs });
+  },
+};
+
+// ============ ADMIN LOGS API ============
+export interface NestLogEntry {
+  timestamp: string;
+  level: 'log' | 'warn' | 'error' | 'debug' | 'verbose';
+  context: string;
+  message: string;
+}
+
+export const adminLogsApi = {
+  get: async (last = 300, level = 'all'): Promise<{ logs: NestLogEntry[]; total: number }> => {
+    const response = await api.get(`/admin/logs`, { params: { last, level } });
+    return response.data;
+  },
+  clear: async (): Promise<void> => {
+    await api.delete(`/admin/logs`);
   },
 };
 

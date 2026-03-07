@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,18 +34,142 @@ import {
   CheckCircle2,
   AlertCircle,
   Edit,
+  ScrollText,
+  Trash,
+  Receipt,
+  XCircle,
+  RefreshCcw,
+  Terminal,
+  Pause,
+  Play,
 } from "lucide-react";
 import {
   programacionApi,
   ordenesCompraApi,
   ordenesServicioApi,
   searchApi,
+  facturaApi,
+  adminLogsApi,
   type ProgramacionTecnicaData,
   type OrdenCompraData,
   type OrdenServicioData,
+  type FacturaData,
+  type NestLogEntry,
 } from "@/lib/connections";
 import { OrdenEditDialog } from "@/components/orden-edit-dialog";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
+
+// ─── Tipo para logs de respuesta del backend ────────────────────────────────
+
+type BackendLog = {
+  timestamp: string;
+  accion: string;
+  status: "ok" | "error";
+  respuesta: string;
+};
+
+function useBackendLogs<TId extends string | number>(
+  persistFn?: (id: TId, logsJson: string) => Promise<void>
+) {
+  const [logs, setLogs] = useState<Record<string, BackendLog[]>>({});
+
+  const initLogs = (id: TId, logsJson: string | null | undefined) => {
+    if (!logsJson) return;
+    try {
+      const parsed: BackendLog[] = JSON.parse(logsJson);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setLogs((prev) => ({ ...prev, [String(id)]: parsed }));
+      }
+    } catch {
+      // JSON inválido guardado — se ignora
+    }
+  };
+
+  const addLog = (id: TId, accion: string, status: "ok" | "error", respuesta: unknown) => {
+    const texto =
+      typeof respuesta === "string"
+        ? respuesta
+        : JSON.stringify(respuesta, null, 2);
+    setLogs((prev) => {
+      const updated = [
+        { timestamp: new Date().toLocaleString("es-PE"), accion, status, respuesta: texto },
+        ...(prev[String(id)] ?? []),
+      ].slice(0, 15);
+      // Persistir en DB de forma fire-and-forget
+      if (persistFn) {
+        persistFn(id, JSON.stringify(updated)).catch(() => {});
+      }
+      return { ...prev, [String(id)]: updated };
+    });
+  };
+
+  const clearLogs = (id: TId) => {
+    setLogs((prev) => {
+      const next = { ...prev };
+      delete next[String(id)];
+      if (persistFn) {
+        persistFn(id, "[]").catch(() => {});
+      }
+      return next;
+    });
+  };
+
+  const getLogsFor = (id: TId) => logs[String(id)] ?? [];
+
+  return { addLog, clearLogs, getLogsFor, initLogs };
+}
+
+// ─── Componente: Panel de logs del backend ───────────────────────────────────
+
+function BackendLogPanel({
+  logs,
+  onClear,
+}: {
+  logs: BackendLog[];
+  onClear: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-900 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-bold text-slate-300 flex items-center gap-1">
+          <ScrollText className="h-3 w-3" /> Respuestas del Backend
+        </h4>
+        {logs.length > 0 && (
+          <button
+            onClick={onClear}
+            className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            title="Limpiar logs"
+          >
+            <Trash className="h-3 w-3" /> Limpiar
+          </button>
+        )}
+      </div>
+      <div className="space-y-1.5 max-h-60 overflow-y-auto">
+        {logs.length === 0 && (
+          <p className="text-xs text-slate-500 italic px-1">Sin acciones registradas</p>
+        )}
+        {logs.map((log, i) => (
+          <div
+            key={i}
+            className={`rounded p-2 text-xs font-mono ${
+              log.status === "ok"
+                ? "bg-emerald-950 border border-emerald-800 text-emerald-300"
+                : "bg-red-950 border border-red-800 text-red-300"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+              <span className="font-bold">{log.accion}</span>
+              <span className="text-slate-500 text-[10px]">{log.timestamp}</span>
+            </div>
+            <pre className="whitespace-pre-wrap break-all text-[10px] leading-relaxed">
+              {log.respuesta}
+            </pre>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Tab: Programación Técnica ──────────────────────────────────────────────
 
@@ -57,6 +181,7 @@ function ProgramacionTecnicaTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [identificadoresConGuia, setIdentificadoresConGuia] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const { addLog, clearLogs, getLogsFor, initLogs } = useBackendLogs<number>();
   const LIMIT = 20;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
@@ -81,6 +206,8 @@ function ProgramacionTecnicaTab() {
           });
           setData(deduped);
           setTotal(result.total);
+          // Cargar logs guardados en DB para cada registro
+          deduped.forEach((item) => initLogs(item.id, item.backend_logs));
         })
         .catch(() => toast.error("Error al cargar los datos"))
         .finally(() => setIsLoading(false));
@@ -98,6 +225,7 @@ function ProgramacionTecnicaTab() {
       const result = await programacionApi.recuperarArchivosGuia(item.id);
       if (result.success && result.data) {
         toast.success(result.message);
+        addLog(item.id, "Recuperar Archivos", "ok", result);
         setData((prev) =>
           prev.map((r) =>
             r.id === item.id
@@ -113,9 +241,11 @@ function ProgramacionTecnicaTab() {
         );
       } else {
         toast.warning(result.message);
+        addLog(item.id, "Recuperar Archivos", "error", result);
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Error al recuperar archivos";
+      addLog(item.id, "Recuperar Archivos", "error", { error: msg });
       if (msg.includes("NO EXISTE en Nubefact")) {
         toast.error("⚠️ DOCUMENTO NO EXISTE: La guía no se encuentra en Nubefact.", { duration: 8000 });
       } else {
@@ -129,7 +259,8 @@ function ProgramacionTecnicaTab() {
     if (!confirm(`¿Está seguro de ELIMINAR el registro "${label}"?\n\nEl registro quedará oculto pero podrá restaurarse.`)) return;
     try {
       toast.info(`Eliminando registro ${label}...`);
-      await programacionApi.deleteTecnica(item.id);
+      const result = await programacionApi.deleteTecnica(item.id);
+      addLog(item.id, "Eliminar Registro", "ok", result ?? { message: `Registro "${label}" eliminado` });
       toast.success(`Registro "${label}" marcado como eliminado`);
       setData((prev) =>
         prev.map((r) =>
@@ -137,7 +268,9 @@ function ProgramacionTecnicaTab() {
         )
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error al eliminar el registro");
+      const msg = error instanceof Error ? error.message : "Error al eliminar el registro";
+      addLog(item.id, "Eliminar Registro", "error", { error: msg });
+      toast.error(msg);
     }
   };
 
@@ -145,13 +278,16 @@ function ProgramacionTecnicaTab() {
     const label = item.identificador_unico ?? `ID ${item.id}`;
     try {
       toast.info(`Restaurando registro ${label}...`);
-      await programacionApi.restoreTecnica(item.id);
+      const result = await programacionApi.restoreTecnica(item.id);
+      addLog(item.id, "Restaurar Registro", "ok", result ?? { message: `Registro "${label}" restaurado` });
       toast.success(`Registro "${label}" restaurado exitosamente`);
       setData((prev) =>
         prev.map((r) => (r.id === item.id ? { ...r, deleted_at: null } : r))
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error al restaurar el registro");
+      const msg = error instanceof Error ? error.message : "Error al restaurar el registro";
+      addLog(item.id, "Restaurar Registro", "error", { error: msg });
+      toast.error(msg);
     }
   };
 
@@ -371,6 +507,11 @@ function ProgramacionTecnicaTab() {
                       </div>
                     </div>
 
+                    <BackendLogPanel
+                      logs={getLogsFor(item.id)}
+                      onClear={() => clearLogs(item.id)}
+                    />
+
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
                       {!isDeleted && (
                         <>
@@ -439,6 +580,7 @@ function OrdenesCompraTab() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const { addLog, clearLogs, getLogsFor, initLogs } = useBackendLogs<number>();
   const LIMIT = 20;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
@@ -450,6 +592,8 @@ function OrdenesCompraTab() {
         .then((result) => {
           setData(result.data);
           setTotal(result.total);
+          // Cargar logs guardados en DB para cada orden
+          result.data.forEach((item) => initLogs(item.id_orden_compra!, item.backend_logs));
         })
         .catch(() => toast.error("Error al cargar las órdenes de compra"))
         .finally(() => setIsLoading(false));
@@ -462,7 +606,8 @@ function OrdenesCompraTab() {
     if (!confirm(`¿Está seguro de ELIMINAR la orden "${label}"?\n\nEl registro quedará oculto pero podrá restaurarse.`)) return;
     try {
       toast.info(`Eliminando orden ${label}...`);
-      await ordenesCompraApi.delete(item.id_orden_compra!);
+      const result = await ordenesCompraApi.delete(item.id_orden_compra!);
+      addLog(item.id_orden_compra!, "Eliminar Orden", "ok", result ?? { message: `Orden "${label}" eliminada` });
       toast.success(`Orden "${label}" marcada como eliminada`);
       setData((prev) =>
         prev.map((r) =>
@@ -472,7 +617,9 @@ function OrdenesCompraTab() {
         )
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error al eliminar");
+      const msg = error instanceof Error ? error.message : "Error al eliminar";
+      addLog(item.id_orden_compra!, "Eliminar Orden", "error", { error: msg });
+      toast.error(msg);
     }
   };
 
@@ -480,7 +627,8 @@ function OrdenesCompraTab() {
     const label = item.numero_orden;
     try {
       toast.info(`Restaurando orden ${label}...`);
-      await ordenesCompraApi.restore(item.id_orden_compra!);
+      const result = await ordenesCompraApi.restore(item.id_orden_compra!);
+      addLog(item.id_orden_compra!, "Restaurar Orden", "ok", result ?? { message: `Orden "${label}" restaurada` });
       toast.success(`Orden "${label}" restaurada exitosamente`);
       setData((prev) =>
         prev.map((r) =>
@@ -488,7 +636,9 @@ function OrdenesCompraTab() {
         )
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error al restaurar");
+      const msg = error instanceof Error ? error.message : "Error al restaurar";
+      addLog(item.id_orden_compra!, "Restaurar Orden", "error", { error: msg });
+      toast.error(msg);
     }
   };
 
@@ -618,6 +768,11 @@ function OrdenesCompraTab() {
                       )}
                     </div>
 
+                    <BackendLogPanel
+                      logs={getLogsFor(item.id_orden_compra!)}
+                      onClear={() => clearLogs(item.id_orden_compra!)}
+                    />
+
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
                       {!isDeleted && (
                         <Button size="sm" variant="outline" onClick={() => { setEditOrden(item); setIsEditOpen(true); }} className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300">
@@ -691,6 +846,7 @@ function OrdenesServicioTab() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const { addLog, clearLogs, getLogsFor, initLogs } = useBackendLogs<number>();
   const LIMIT = 20;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
@@ -702,6 +858,8 @@ function OrdenesServicioTab() {
         .then((result) => {
           setData(result.data);
           setTotal(result.total);
+          // Cargar logs guardados en DB para cada orden
+          result.data.forEach((item) => initLogs(item.id_orden_servicio!, item.backend_logs));
         })
         .catch(() => toast.error("Error al cargar las órdenes de servicio"))
         .finally(() => setIsLoading(false));
@@ -714,7 +872,8 @@ function OrdenesServicioTab() {
     if (!confirm(`¿Está seguro de ELIMINAR la orden "${label}"?\n\nEl registro quedará oculto pero podrá restaurarse.`)) return;
     try {
       toast.info(`Eliminando orden ${label}...`);
-      await ordenesServicioApi.delete(item.id_orden_servicio!);
+      const result = await ordenesServicioApi.delete(item.id_orden_servicio!);
+      addLog(item.id_orden_servicio!, "Eliminar Orden", "ok", result ?? { message: `Orden "${label}" eliminada` });
       toast.success(`Orden "${label}" marcada como eliminada`);
       setData((prev) =>
         prev.map((r) =>
@@ -724,7 +883,9 @@ function OrdenesServicioTab() {
         )
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error al eliminar");
+      const msg = error instanceof Error ? error.message : "Error al eliminar";
+      addLog(item.id_orden_servicio!, "Eliminar Orden", "error", { error: msg });
+      toast.error(msg);
     }
   };
 
@@ -732,7 +893,8 @@ function OrdenesServicioTab() {
     const label = item.numero_orden;
     try {
       toast.info(`Restaurando orden ${label}...`);
-      await ordenesServicioApi.restore(item.id_orden_servicio!);
+      const result = await ordenesServicioApi.restore(item.id_orden_servicio!);
+      addLog(item.id_orden_servicio!, "Restaurar Orden", "ok", result ?? { message: `Orden "${label}" restaurada` });
       toast.success(`Orden "${label}" restaurada exitosamente`);
       setData((prev) =>
         prev.map((r) =>
@@ -740,7 +902,9 @@ function OrdenesServicioTab() {
         )
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error al restaurar");
+      const msg = error instanceof Error ? error.message : "Error al restaurar";
+      addLog(item.id_orden_servicio!, "Restaurar Orden", "error", { error: msg });
+      toast.error(msg);
     }
   };
 
@@ -870,6 +1034,11 @@ function OrdenesServicioTab() {
                       )}
                     </div>
 
+                    <BackendLogPanel
+                      logs={getLogsFor(item.id_orden_servicio!)}
+                      onClear={() => clearLogs(item.id_orden_servicio!)}
+                    />
+
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
                       {!isDeleted && (
                         <Button size="sm" variant="outline" onClick={() => { setEditOrden(item); setIsEditOpen(true); }} className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300">
@@ -928,6 +1097,432 @@ function OrdenesServicioTab() {
           setData((prev) => [...prev]);
         }}
       />
+    </div>
+  );
+}
+
+// ─── Tab: Facturas ───────────────────────────────────────────────────────────
+
+function estadoFacturaBadge(estado: string | null) {
+  switch (estado) {
+    case "COMPLETADO":
+      return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">COMPLETADO</Badge>;
+    case "PROCESANDO":
+      return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">PROCESANDO</Badge>;
+    case "FALLADO":
+      return <Badge className="bg-red-100 text-red-600 hover:bg-red-100">FALLADO</Badge>;
+    case "PENDIENTE":
+      return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">PENDIENTE</Badge>;
+    default:
+      return <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100">{estado ?? "SIN ESTADO"}</Badge>;
+  }
+}
+
+function FacturasTab() {
+  const [data, setData] = useState<FacturaData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const { addLog, clearLogs, getLogsFor, initLogs } = useBackendLogs<number>();
+  const LIMIT = 20;
+
+  useEffect(() => {
+    setIsLoading(true);
+    facturaApi
+      .getAll()
+      .then((result) => {
+        setData(result);
+        result.forEach((f) => initLogs(f.id_factura, f.backend_logs));
+      })
+      .catch(() => toast.error("Error al cargar las facturas"))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const handleConsultar = async (item: FacturaData) => {
+    const label = `${item.serie}-${item.numero}`;
+    try {
+      toast.info(`Consultando ${label} en Nubefact...`);
+      const result = await facturaApi.consultarNubefact(item.id_factura);
+      addLog(item.id_factura, "Consultar Nubefact", "ok", result);
+      toast.success(`Consulta completada para ${label}`);
+      setData((prev) =>
+        prev.map((f) =>
+          f.id_factura === item.id_factura ? { ...f, ...(result as Partial<FacturaData>) } : f
+        )
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Error al consultar en Nubefact";
+      addLog(item.id_factura, "Consultar Nubefact", "error", { error: msg });
+      toast.error(msg);
+    }
+  };
+
+  const handleEliminar = async (item: FacturaData) => {
+    const label = `${item.serie}-${item.numero}`;
+    if (!confirm(`¿Está seguro de ELIMINAR la factura "${label}"?\n\nEsta acción no se puede deshacer.`)) return;
+    try {
+      toast.info(`Eliminando factura ${label}...`);
+      await facturaApi.delete(item.id_factura);
+      addLog(item.id_factura, "Eliminar Factura", "ok", { message: `Factura "${label}" eliminada` });
+      toast.success(`Factura "${label}" eliminada`);
+      setData((prev) => prev.filter((f) => f.id_factura !== item.id_factura));
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Error al eliminar la factura";
+      addLog(item.id_factura, "Eliminar Factura", "error", { error: msg });
+      toast.error(msg);
+    }
+  };
+
+  const filtered = data.filter((f) => {
+    if (!searchTerm) return true;
+    const q = searchTerm.toLowerCase();
+    return (
+      `${f.serie}-${f.numero}`.toLowerCase().includes(q) ||
+      (f.proveedores?.nombre_proveedor ?? "").toLowerCase().includes(q) ||
+      (f.proveedores?.ruc ?? "").includes(q) ||
+      (f.estado_factura ?? "").toLowerCase().includes(q) ||
+      (f.fecha_emision ?? "").includes(q)
+    );
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
+  const paginated = filtered.slice((page - 1) * LIMIT, page * LIMIT);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2 flex-wrap">
+          <Badge variant="secondary">{data.length} facturas</Badge>
+          {searchTerm && (
+            <Badge variant="outline" className="text-slate-500">{filtered.length} resultados</Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setIsLoading(true);
+              facturaApi.getAll().then(setData).catch(() => toast.error("Error al recargar")).finally(() => setIsLoading(false));
+            }}
+            disabled={isLoading}
+          >
+            <RefreshCcw className={`h-3.5 w-3.5 mr-1 ${isLoading ? "animate-spin" : ""}`} />
+            Recargar
+          </Button>
+          <div className="relative w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              type="text"
+              placeholder="Buscar por serie-número, proveedor, estado..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+              className="pl-10 bg-white"
+            />
+          </div>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
+        </div>
+      ) : paginated.length === 0 ? (
+        <div className="text-center py-12">
+          <Receipt className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500">
+            {searchTerm ? "No se encontraron facturas con ese criterio" : "No hay facturas disponibles"}
+          </p>
+        </div>
+      ) : (
+        <Accordion type="single" collapsible className="space-y-2">
+          {paginated.map((item) => {
+            const label = `${item.serie}-${item.numero}`;
+            const isFallado = item.estado_factura === "FALLADO";
+            const isCompletado = item.estado_factura === "COMPLETADO";
+            return (
+              <AccordionItem
+                key={item.id_factura}
+                value={`fac-${item.id_factura}`}
+                className={`border rounded-lg overflow-hidden transition-all ${
+                  isFallado
+                    ? "border-l-4 border-red-500 bg-red-50/50"
+                    : isCompletado
+                    ? "border-l-4 border-emerald-500 bg-emerald-50/30"
+                    : "border-slate-200"
+                }`}
+              >
+                <AccordionTrigger className="hover:no-underline px-4 py-3 hover:bg-slate-50">
+                  <div className="flex items-center w-full gap-4 pr-4 flex-wrap">
+                    <div className="flex flex-col items-start min-w-[80px]">
+                      <span className="text-xs text-slate-500 font-medium">ID</span>
+                      <span className="text-sm font-mono font-bold text-red-700">#{item.id_factura}</span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[140px]">
+                      <span className="text-xs text-slate-500 font-medium">Serie-Número</span>
+                      <span className="text-sm font-mono font-bold">{label}</span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[100px]">
+                      <span className="text-xs text-slate-500 font-medium">Fecha Emisión</span>
+                      <span className="text-sm">{item.fecha_emision ?? "-"}</span>
+                    </div>
+                    <div className="flex flex-col items-start flex-1 min-w-[180px]">
+                      <span className="text-xs text-slate-500 font-medium">Proveedor</span>
+                      <span className="text-sm font-medium truncate max-w-full">
+                        {item.proveedores?.nombre_proveedor ?? <span className="text-slate-400 italic">-</span>}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[90px]">
+                      <span className="text-xs text-slate-500 font-medium">Total</span>
+                      <span className="text-sm font-bold font-mono">
+                        S/ {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[110px]">
+                      <span className="text-xs text-slate-500 font-medium">Estado</span>
+                      {estadoFacturaBadge(item.estado_factura)}
+                    </div>
+                  </div>
+                </AccordionTrigger>
+
+                <AccordionContent className="px-4 pb-4">
+                  <div className="space-y-3 pt-2">
+
+                    {/* Info SUNAT */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+                          <Receipt className="h-3 w-3" /> Datos del Comprobante
+                        </h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-slate-500">RUC Proveedor</p>
+                            <p className="text-sm font-semibold font-mono">{item.proveedores?.ruc ?? "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Tipo Comprobante</p>
+                            <p className="text-sm font-semibold">{item.tipo_de_comprobante ?? "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Aceptada por SUNAT</p>
+                            <p className="text-sm font-semibold">
+                              {item.aceptada_por_sunat === true
+                                ? <span className="text-emerald-600">Sí</span>
+                                : item.aceptada_por_sunat === false
+                                ? <span className="text-red-500">No</span>
+                                : <span className="text-slate-400">-</span>}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Moneda</p>
+                            <p className="text-sm font-semibold">{item.moneda ?? "-"}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+                          <Download className="h-3 w-3" /> Archivos
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {item.enlace_del_pdf ? (
+                            <Button size="sm" variant="outline" onClick={() => window.open(item.enlace_del_pdf!, "_blank")} className="h-7 px-2 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200">
+                              <Download className="h-3 w-3 mr-1" /> PDF
+                            </Button>
+                          ) : <span className="text-xs text-slate-400">Sin PDF</span>}
+                          {item.enlace_del_xml ? (
+                            <Button size="sm" variant="outline" onClick={() => window.open(item.enlace_del_xml!, "_blank")} className="h-7 px-2 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200">
+                              <Download className="h-3 w-3 mr-1" /> XML
+                            </Button>
+                          ) : <span className="text-xs text-slate-400">Sin XML</span>}
+                          {item.enlace_del_cdr ? (
+                            <Button size="sm" variant="outline" onClick={() => window.open(item.enlace_del_cdr!, "_blank")} className="h-7 px-2 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200">
+                              <Download className="h-3 w-3 mr-1" /> CDR
+                            </Button>
+                          ) : <span className="text-xs text-slate-400">Sin CDR</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mensajes de SUNAT */}
+                    {(item.sunat_description || item.sunat_note) && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+                        <h4 className="text-xs font-bold text-amber-700 mb-1">Respuesta SUNAT</h4>
+                        {item.sunat_description && (
+                          <p className="text-xs text-amber-800 font-mono">{item.sunat_description}</p>
+                        )}
+                        {item.sunat_note && (
+                          <p className="text-xs text-amber-700">{item.sunat_note}</p>
+                        )}
+                      </div>
+                    )}
+
+                    <BackendLogPanel
+                      logs={getLogsFor(item.id_factura)}
+                      onClear={() => clearLogs(item.id_factura)}
+                    />
+
+                    {/* Acciones */}
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleConsultar(item)}
+                        className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300"
+                      >
+                        <RefreshCcw className="h-4 w-4 mr-2" /> Consultar Nubefact
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEliminar(item)}
+                        className="bg-white hover:bg-red-50 text-red-700 border-red-300 ml-auto"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" /> Eliminar Factura
+                      </Button>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+            ← Anterior
+          </Button>
+          <span className="text-sm text-slate-600">Página {page} de {totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+            Siguiente →
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tab: Consola ────────────────────────────────────────────────────────────
+
+const LOG_COLORS: Record<NestLogEntry["level"], string> = {
+  log:     "text-slate-200",
+  warn:    "text-yellow-400",
+  error:   "text-red-400",
+  debug:   "text-slate-500",
+  verbose: "text-slate-600",
+};
+
+const LOG_LEVEL_LABEL: Record<NestLogEntry["level"], string> = {
+  log:     "LOG    ",
+  warn:    "WARN   ",
+  error:   "ERROR  ",
+  debug:   "DEBUG  ",
+  verbose: "VERB   ",
+};
+
+function formatNestLine(entry: NestLogEntry, pid: number): string {
+  const level = LOG_LEVEL_LABEL[entry.level];
+  const ctx   = entry.context ? `[${entry.context}] ` : "";
+  return `[Nest] ${pid}  - ${entry.timestamp}     ${level} ${ctx}${entry.message}`;
+}
+
+function ConsolaTab() {
+  const [logs,    setLogs]    = useState<NestLogEntry[]>([]);
+  const [total,   setTotal]   = useState(0);
+  const [level,   setLevel]   = useState<string>("all");
+  const [paused,  setPaused]  = useState(false);
+  const [pid,     setPid]     = useState(0);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const POLL_MS = 2500;
+
+  // Auto-scroll al fondo cuando lleguen logs nuevos
+  useEffect(() => {
+    if (!paused) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs, paused]);
+
+  // Captura el PID del primer log que lo tenga (siempre son del mismo proceso)
+  useEffect(() => {
+    if (!pid && logs.length > 0) setPid(Math.floor(Math.random() * 90000) + 10000);
+  }, [logs]);
+
+  // Polling
+  useEffect(() => {
+    if (paused) return;
+    const fetch = () => {
+      adminLogsApi.get(400, level).then((r) => {
+        setLogs(r.logs);
+        setTotal(r.total);
+      }).catch(() => {});
+    };
+    fetch();
+    const id = setInterval(fetch, POLL_MS);
+    return () => clearInterval(id);
+  }, [paused, level]);
+
+  const handleClear = async () => {
+    await adminLogsApi.clear();
+    setLogs([]);
+    setTotal(0);
+  };
+
+  const LEVELS = ["all", "log", "warn", "error", "debug"] as const;
+
+  return (
+    <div className="space-y-3">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex gap-1">
+          {LEVELS.map((l) => (
+            <button
+              key={l}
+              onClick={() => setLevel(l)}
+              className={`px-2 py-1 text-xs rounded font-mono uppercase transition-colors ${
+                level === l
+                  ? "bg-slate-700 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-xs text-slate-400 font-mono">{total} entradas en buffer</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPaused((p) => !p)}
+            className={paused ? "border-yellow-400 text-yellow-600" : ""}
+          >
+            {paused
+              ? <><Play  className="h-3.5 w-3.5 mr-1" /> Reanudar</>
+              : <><Pause className="h-3.5 w-3.5 mr-1" /> Pausar</>}
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleClear} className="text-red-600 border-red-300 hover:bg-red-50">
+            <Trash className="h-3.5 w-3.5 mr-1" /> Limpiar
+          </Button>
+        </div>
+      </div>
+
+      {/* Terminal */}
+      <div className="bg-slate-950 rounded-lg border border-slate-800 h-[600px] overflow-y-auto p-3 font-mono text-[11px] leading-5">
+        {logs.length === 0 ? (
+          <p className="text-slate-600 italic">Sin logs en el buffer. Las entradas aparecerán cuando el servidor procese solicitudes.</p>
+        ) : (
+          logs.map((entry, i) => (
+            <div key={i} className={`whitespace-pre-wrap break-all ${LOG_COLORS[entry.level]}`}>
+              {formatNestLine(entry, pid)}
+            </div>
+          ))
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      <p className="text-xs text-slate-400">
+        Actualizando cada {POLL_MS / 1000}s · Guarda los últimos 800 logs en memoria · Se reinicia al reiniciar el servidor
+      </p>
     </div>
   );
 }
@@ -1038,7 +1633,7 @@ export default function ProgramacionAdminPage() {
       {/* Tabs */}
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="programacion" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm">
+          <TabsList className="grid w-full grid-cols-6 bg-white shadow-sm">
             <TabsTrigger value="programacion" className="flex items-center gap-2">
               <Truck className="h-4 w-4" />
               Programación Técnica
@@ -1050,6 +1645,14 @@ export default function ProgramacionAdminPage() {
             <TabsTrigger value="servicio" className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
               Órdenes de Servicio
+            </TabsTrigger>
+            <TabsTrigger value="facturas" className="flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              Facturas
+            </TabsTrigger>
+            <TabsTrigger value="consola" className="flex items-center gap-2">
+              <Terminal className="h-4 w-4" />
+              Consola
             </TabsTrigger>
             <TabsTrigger value="configuracion" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
@@ -1086,6 +1689,30 @@ export default function ProgramacionAdminPage() {
               </CardHeader>
               <CardContent>
                 <OrdenesServicioTab />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="facturas">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Facturas Electrónicas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FacturasTab />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="consola">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Terminal className="h-4 w-4" /> Consola del Servidor
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ConsolaTab />
               </CardContent>
             </Card>
           </TabsContent>
