@@ -175,6 +175,48 @@ export default function RegistroContabilidadPage() {
     }
   };
 
+  // Función para pagar orden de compra
+  const handlePagarOrdenCompra = async (id: number) => {
+    if (!confirm("¿Está seguro de que desea pagar esta orden de compra?")) {
+      return;
+    }
+
+    try {
+      toast.loading("Pagando orden de compra...");
+      await ordenesCompraApi.pagar(id);
+      toast.dismiss();
+      toast.success("Orden de compra pagada exitosamente");
+      loadOrdenesCompra();
+    } catch (error) {
+      console.error("Error al pagar orden de compra:", error);
+      toast.dismiss();
+      toast.error("Error al pagar la orden de compra", {
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
+  // Función para pagar orden de servicio
+  const handlePagarOrdenServicio = async (id: number) => {
+    if (!confirm("¿Está seguro de que desea pagar esta orden de servicio?")) {
+      return;
+    }
+
+    try {
+      toast.loading("Pagando orden de servicio...");
+      await ordenesServicioApi.pagar(id);
+      toast.dismiss();
+      toast.success("Orden de servicio pagada exitosamente");
+      loadOrdenesServicio();
+    } catch (error) {
+      console.error("Error al pagar orden de servicio:", error);
+      toast.dismiss();
+      toast.error("Error al pagar la orden de servicio", {
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
   // ===== HANDLERS PARA SUBIDA DE COMPROBANTE DE RETENCIÓN =====
 
   // Función para abrir el diálogo de subida de comprobante
@@ -750,6 +792,20 @@ export default function RegistroContabilidadPage() {
                                   <CheckCircle className="h-4 w-4" />
                                   Aprobar
                                 </button>
+                                <button
+                                  onClick={() => orden.id_orden_compra && handlePagarOrdenCompra(orden.id_orden_compra)}
+                                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Pagar"
+                                  disabled={
+                                    !orden.id_orden_compra ||
+                                    orden.procede_pago === "PAGAR" ||
+                                    orden.procede_pago === "TRANSFERIR" ||
+                                    [orden.auto_administrador, orden.jefe_proyecto, orden.auto_contabilidad].filter(Boolean).length < 2
+                                  }
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  Pagar
+                                </button>
                                 <Button
                                   size="sm"
                                   onClick={() => orden.id_orden_compra && handleOpenUploadComprobanteDialog(orden.id_orden_compra, "compra")}
@@ -1095,6 +1151,20 @@ export default function RegistroContabilidadPage() {
                                 >
                                   <CheckCircle className="h-4 w-4" />
                                   Aprobar
+                                </button>
+                                <button
+                                  onClick={() => orden.id_orden_servicio && handlePagarOrdenServicio(orden.id_orden_servicio)}
+                                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Pagar"
+                                  disabled={
+                                    !orden.id_orden_servicio ||
+                                    orden.procede_pago === "PAGAR" ||
+                                    orden.procede_pago === "TRANSFERIR" ||
+                                    [orden.auto_administrador, orden.jefe_proyecto, orden.auto_contabilidad].filter(Boolean).length < 2
+                                  }
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  Pagar
                                 </button>
                                 <Button
                                   size="sm"
