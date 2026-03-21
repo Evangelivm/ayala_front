@@ -141,6 +141,9 @@ export default function OrdenCompraPage() {
   const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
   const [fechaFiltro, setFechaFiltro] = useState<Date | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filtroPlaca, setFiltroPlaca] = useState<string>("todos");
+  const [filtroChofer, setFiltroChofer] = useState<string>("todos");
+  const [filtroTipo, setFiltroTipo] = useState<string>("todos");
 
   // Estados para subida de archivos (Cotización y Factura)
   const [isUploadCotizacionDialogOpen, setIsUploadCotizacionDialogOpen] = useState(false);
@@ -1502,12 +1505,31 @@ export default function OrdenCompraPage() {
       filtered = filtered.filter((orden) => {
         const numero = orden.numero_orden?.toString().toLowerCase() || '';
         const proveedor = orden.nombre_proveedor?.toLowerCase() || '';
-        return numero.includes(searchLower) || proveedor.includes(searchLower);
+        const placa = orden.placa_unidad?.toLowerCase() || '';
+        return numero.includes(searchLower) || proveedor.includes(searchLower) || placa.includes(searchLower);
       });
     }
 
+    // Filtrar por placa
+    if (filtroPlaca !== "todos") {
+      filtered = filtered.filter((orden) => orden.placa_unidad === filtroPlaca);
+    }
+
+    // Filtrar por chofer
+    if (filtroChofer !== "todos") {
+      filtered = filtered.filter((orden) => {
+        const chofer = [orden.nombre_chofer, orden.apellido_chofer].filter(Boolean).join(" ");
+        return chofer === filtroChofer;
+      });
+    }
+
+    // Filtrar por tipo de unidad
+    if (filtroTipo !== "todos") {
+      filtered = filtered.filter((orden) => orden.tipo_unidad === filtroTipo);
+    }
+
     return filtered.sort((a, b) => b.numero_orden.localeCompare(a.numero_orden));
-  }, [ordenesCompra, fechaFiltro, searchTerm]);
+  }, [ordenesCompra, fechaFiltro, searchTerm, filtroPlaca, filtroChofer, filtroTipo]);
 
   const ordenesServicioFiltradas = useMemo(() => {
     let filtered = ordenesServicio;
@@ -1527,12 +1549,31 @@ export default function OrdenCompraPage() {
       filtered = filtered.filter((orden) => {
         const numero = orden.numero_orden?.toString().toLowerCase() || '';
         const proveedor = orden.nombre_proveedor?.toLowerCase() || '';
-        return numero.includes(searchLower) || proveedor.includes(searchLower);
+        const placa = orden.placa_unidad?.toLowerCase() || '';
+        return numero.includes(searchLower) || proveedor.includes(searchLower) || placa.includes(searchLower);
       });
     }
 
+    // Filtrar por placa
+    if (filtroPlaca !== "todos") {
+      filtered = filtered.filter((orden) => orden.placa_unidad === filtroPlaca);
+    }
+
+    // Filtrar por chofer
+    if (filtroChofer !== "todos") {
+      filtered = filtered.filter((orden) => {
+        const chofer = [orden.nombre_chofer, orden.apellido_chofer].filter(Boolean).join(" ");
+        return chofer === filtroChofer;
+      });
+    }
+
+    // Filtrar por tipo de unidad
+    if (filtroTipo !== "todos") {
+      filtered = filtered.filter((orden) => orden.tipo_unidad === filtroTipo);
+    }
+
     return filtered.sort((a, b) => b.numero_orden.localeCompare(a.numero_orden));
-  }, [ordenesServicio, fechaFiltro, searchTerm]);
+  }, [ordenesServicio, fechaFiltro, searchTerm, filtroPlaca, filtroChofer, filtroTipo]);
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -1630,32 +1671,106 @@ export default function OrdenCompraPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-4">
-              <Label htmlFor="search-term" className="text-sm font-medium">
-                Buscar:
-              </Label>
-              <div className="relative w-[300px]">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search-term"
-                  type="text"
-                  placeholder="Buscar por código o nombre"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="search-term" className="text-sm font-medium whitespace-nowrap">
+                  Buscar:
+                </Label>
+                <div className="relative w-[280px]">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="search-term"
+                    type="text"
+                    placeholder="Buscar por código o proveedor"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchTerm("")}
+                    className="h-8 px-2"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Limpiar
+                  </Button>
+                )}
               </div>
-              {searchTerm && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSearchTerm("")}
-                  className="h-8 px-2"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Limpiar
-                </Button>
-              )}
+
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium whitespace-nowrap">Placa:</Label>
+                <Select value={filtroPlaca} onValueChange={setFiltroPlaca}>
+                  <SelectTrigger className="w-[140px] h-9">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas</SelectItem>
+                    {Array.from(new Set(
+                      [...ordenesCompra, ...ordenesServicio]
+                        .map((o) => o.placa_unidad)
+                        .filter(Boolean)
+                    )).sort().map((placa) => (
+                      <SelectItem key={placa} value={placa!}>{placa}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {filtroPlaca !== "todos" && (
+                  <Button variant="ghost" size="sm" onClick={() => setFiltroPlaca("todos")} className="h-8 px-2">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium whitespace-nowrap">Chofer:</Label>
+                <Select value={filtroChofer} onValueChange={setFiltroChofer}>
+                  <SelectTrigger className="w-[180px] h-9">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    {Array.from(new Set(
+                      [...ordenesCompra, ...ordenesServicio]
+                        .map((o) => [o.nombre_chofer, o.apellido_chofer].filter(Boolean).join(" "))
+                        .filter(Boolean)
+                    )).sort().map((chofer) => (
+                      <SelectItem key={chofer} value={chofer}>{chofer}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {filtroChofer !== "todos" && (
+                  <Button variant="ghost" size="sm" onClick={() => setFiltroChofer("todos")} className="h-8 px-2">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium whitespace-nowrap">Tipo:</Label>
+                <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                  <SelectTrigger className="w-[160px] h-9">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    {Array.from(new Set(
+                      [...ordenesCompra, ...ordenesServicio]
+                        .map((o) => o.tipo_unidad)
+                        .filter(Boolean)
+                    )).sort().map((tipo) => (
+                      <SelectItem key={tipo} value={tipo!}>{tipo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {filtroTipo !== "todos" && (
+                  <Button variant="ghost" size="sm" onClick={() => setFiltroTipo("todos")} className="h-8 px-2">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 
