@@ -13,6 +13,12 @@ services:
       HOSTNAME: 0.0.0.0
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3002 || exit 1"]
+      interval: 30s   # Verificar cada 30 segundos
+      timeout: 10s    # Si no responde en 10s, cuenta como fallo
+      retries: 3      # 3 fallos consecutivos = contenedor unhealthy → reinicio
+      start_period: 60s # Dar 60s al arranque antes de empezar a verificar
     networks:
       - shared_network
 

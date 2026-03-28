@@ -13,7 +13,7 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('Obtener código') {
             steps {
                 echo '🔹 STAGE 2: Obteniendo última versión del código'
@@ -24,7 +24,7 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('Construir imagen') {
             steps {
                 echo '🔹 STAGE 3: Construyendo imagen Docker con variables de entorno'
@@ -36,7 +36,7 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('Desplegar') {
             steps {
                 echo '🔹 STAGE 4: Iniciando contenedores'
