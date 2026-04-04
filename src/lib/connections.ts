@@ -2165,6 +2165,7 @@ export interface ProgramacionData {
   peso?: string; // Capacidad del tanque del camión
   id_proyecto?: number; // ID del proyecto (solo se guarda en programacion_tecnica)
   id_subproyecto?: number; // ID del subproyecto (solo se guarda en programacion_tecnica)
+  numero_orden?: string; // Número de orden para viaje activo
 }
 
 export interface ProgramacionTecnicaData {
@@ -2233,6 +2234,8 @@ export interface ProgramacionTecnicaData {
   deleted_at?: string | null;
   // Logs del backend persistidos
   backend_logs?: string | null;
+  // Viaje activo
+  numero_orden?: string | null;
 }
 
 // Extended type for getTecnicaById response

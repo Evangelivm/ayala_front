@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Upload, Trash2, Save, Plus, X, MapPin, Folder, GitBranch, FileText, Download, CheckSquare } from "lucide-react";
+import { Upload, Trash2, Save, Plus, X, MapPin, Folder, GitBranch, FileText, Download, CheckSquare, Truck } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
 import {
@@ -81,6 +81,23 @@ export default function ProgramacionPage() {
 
   // Estados para selección de PDFs
   const [selectedPdfs, setSelectedPdfs] = useState<Set<number>>(new Set());
+
+  // Estado para filas con viaje activo (muestra input numero_orden)
+  const [viajeActivoRows, setViajeActivoRows] = useState<Set<string>>(new Set());
+
+  const toggleViajeActivo = (rowId: string) => {
+    setViajeActivoRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) {
+        next.delete(rowId);
+        // Limpiar numero_orden al desactivar
+        updateManualRow(rowId, "numero_orden", "");
+      } else {
+        next.add(rowId);
+      }
+      return next;
+    });
+  };
   const [isCombiningPdfs, setIsCombiningPdfs] = useState(false);
 
   // Cargar datos de IndexedDB al montar el componente
@@ -262,6 +279,7 @@ export default function ProgramacionPage() {
       proyecto: "",
       proyecto_id: 0,
       subproyecto_id: 0,
+      numero_orden: "",
     };
     setManualRows([newRow, ...manualRows]);
   };
@@ -480,6 +498,7 @@ export default function ProgramacionPage() {
           peso: row.peso,
           id_proyecto: row.proyecto_id > 0 ? row.proyecto_id : undefined,
           id_subproyecto: row.subproyecto_id > 0 ? row.subproyecto_id : undefined,
+          numero_orden: row.numero_orden || undefined,
         };
       });
 
@@ -551,6 +570,7 @@ export default function ProgramacionPage() {
         peso: row.peso,
         id_proyecto: row.proyecto_id > 0 ? row.proyecto_id : undefined,
         id_subproyecto: row.subproyecto_id > 0 ? row.subproyecto_id : undefined,
+        numero_orden: row.numero_orden || undefined,
       }];
 
       const result = await programacionApi.createBatch(dataToSend);
@@ -984,7 +1004,7 @@ export default function ProgramacionPage() {
                   <Table className="w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[100px]">Acciones</TableHead>
+                        <TableHead className="w-[130px]">Acciones</TableHead>
                         <TableHead className="w-[180px]">Fecha</TableHead>
                         <TableHead className="w-[140px]">Unidad</TableHead>
                         <TableHead className="w-[280px]">Proveedor</TableHead>
@@ -1016,27 +1036,48 @@ export default function ProgramacionPage() {
                           }
                         >
                           <TableCell className="p-2">
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleSaveIndividualRow(row.id)}
-                                disabled={isLoading || !isRowComplete(row)}
-                                className="h-9 w-9 p-0"
-                                title="Guardar este registro"
-                              >
-                                <CheckSquare className={`h-4 w-4 ${isRowComplete(row) ? 'text-green-600' : 'text-gray-400'}`} />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeManualRow(row.id)}
-                                disabled={isLoading}
-                                className="h-9 w-9 p-0"
-                                title="Eliminar fila"
-                              >
-                                <X className="h-4 w-4 text-red-500" />
-                              </Button>
+                            <div className="flex flex-col gap-1">
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleSaveIndividualRow(row.id)}
+                                  disabled={isLoading || !isRowComplete(row)}
+                                  className="h-9 w-9 p-0"
+                                  title="Guardar este registro"
+                                >
+                                  <CheckSquare className={`h-4 w-4 ${isRowComplete(row) ? 'text-green-600' : 'text-gray-400'}`} />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeManualRow(row.id)}
+                                  disabled={isLoading}
+                                  className="h-9 w-9 p-0"
+                                  title="Eliminar fila"
+                                >
+                                  <X className="h-4 w-4 text-red-500" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleViajeActivo(row.id)}
+                                  disabled={isLoading}
+                                  className={`h-9 w-9 p-0 ${viajeActivoRows.has(row.id) ? 'text-orange-600 bg-orange-50' : 'text-gray-400'}`}
+                                  title="Activar viaje"
+                                >
+                                  <Truck className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              {viajeActivoRows.has(row.id) && (
+                                <Input
+                                  placeholder="N° Orden"
+                                  value={row.numero_orden || ""}
+                                  onChange={(e) => updateManualRow(row.id, "numero_orden", e.target.value)}
+                                  className="h-7 text-xs w-28"
+                                  disabled={isLoading}
+                                />
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="p-2">
