@@ -85,6 +85,40 @@ export default function ProgramacionPage() {
   // Estado para filas con viaje activo (muestra input numero_orden)
   const [viajeActivoRows, setViajeActivoRows] = useState<Set<string>>(new Set());
 
+  // Estado para viaje activo en la pestaña de Registros
+  const [viajeActivoRegistros, setViajeActivoRegistros] = useState<Set<number>>(new Set());
+  const [numeroOrdenRegistros, setNumeroOrdenRegistros] = useState<Map<number, string>>(new Map());
+
+  const toggleViajeActivoRegistro = (id: number, currentNumeroOrden: string | null) => {
+    setViajeActivoRegistros((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        // Pre-cargar el valor existente si lo hay
+        if (currentNumeroOrden) {
+          setNumeroOrdenRegistros((m) => new Map(m).set(id, currentNumeroOrden));
+        }
+      }
+      return next;
+    });
+  };
+
+  const saveNumeroOrdenRegistro = async (id: number) => {
+    const numeroOrden = numeroOrdenRegistros.get(id) || null;
+    try {
+      await programacionApi.updateNumeroOrden(id, numeroOrden);
+      setDataTecnica((prev) =>
+        prev.map((item) => item.id === id ? { ...item, numero_orden: numeroOrden } : item)
+      );
+      toast.success("N° Orden guardado");
+      setViajeActivoRegistros((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    } catch {
+      toast.error("Error al guardar N° Orden");
+    }
+  };
+
   const toggleViajeActivo = (rowId: string) => {
     setViajeActivoRows((prev) => {
       const next = new Set(prev);
@@ -1337,6 +1371,9 @@ export default function ProgramacionPage() {
                         <TableHead className="w-[100px] text-center">
                           Archivo
                         </TableHead>
+                        <TableHead className="w-[130px] text-center">
+                          Viaje
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1467,6 +1504,39 @@ export default function ProgramacionPage() {
                             ) : (
                               <span className="text-xs text-gray-400">-</span>
                             )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex flex-col items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleViajeActivoRegistro(item.id, item.numero_orden ?? null)}
+                                className={`h-7 w-7 p-0 ${viajeActivoRegistros.has(item.id) ? 'text-orange-600 bg-orange-50' : item.numero_orden ? 'text-orange-400' : 'text-gray-400'}`}
+                                title={item.numero_orden ? `N° Orden: ${item.numero_orden}` : "Activar viaje"}
+                              >
+                                <Truck className="h-4 w-4" />
+                              </Button>
+                              {viajeActivoRegistros.has(item.id) && (
+                                <div className="flex gap-1">
+                                  <Input
+                                    placeholder="N° Orden"
+                                    value={numeroOrdenRegistros.get(item.id) ?? item.numero_orden ?? ""}
+                                    onChange={(e) => setNumeroOrdenRegistros((m) => new Map(m).set(item.id, e.target.value))}
+                                    className="h-6 text-xs w-20 px-1"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    className="h-6 px-2 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+                                    onClick={() => saveNumeroOrdenRegistro(item.id)}
+                                  >
+                                    OK
+                                  </Button>
+                                </div>
+                              )}
+                              {!viajeActivoRegistros.has(item.id) && item.numero_orden && (
+                                <span className="text-xs text-orange-600 font-mono">{item.numero_orden}</span>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

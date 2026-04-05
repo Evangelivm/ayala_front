@@ -2616,6 +2616,10 @@ export const programacionApi = {
   saveBackendLogs: async (id: number, logs: string): Promise<void> => {
     await api.patch(`/programacion/tecnica/${id}/backend-logs`, { logs });
   },
+
+  updateNumeroOrden: async (id: number, numeroOrden: string | null): Promise<void> => {
+    await api.patch(`/programacion/tecnica/${id}/numero-orden`, { numero_orden: numeroOrden });
+  },
 };
 
 // ============ ACARREO INTERFACES ============
