@@ -46,6 +46,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ClipboardList, Plus, Trash2, FileText, X, ExternalLink, Edit, Upload, Search, RefreshCw } from "lucide-react";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
+import { LoginConfirmDialog } from "@/components/login-confirm-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { DetraccionSelectDialog } from "@/components/detraccion-select-dialog";
@@ -155,6 +156,9 @@ export default function OrdenCompraPage() {
 
   // Estado para bloquear el botón de guardar mientras se está guardando
   const [isSavingOrden, setIsSavingOrden] = useState(false);
+
+  // Estado para el diálogo de confirmación de identidad antes de guardar
+  const [isLoginConfirmOpen, setIsLoginConfirmOpen] = useState(false);
 
   // Estados para edición de número de factura
   const [editingFacturaOrdenId, setEditingFacturaOrdenId] = useState<number | null>(null);
@@ -915,49 +919,43 @@ export default function OrdenCompraPage() {
     handleOpenItemsModal();
   };
 
-  const handleNuevaOrdenSave = async () => {
-    // Validaciones básicas
+  // Valida campos y abre el diálogo de confirmación de identidad
+  const handleNuevaOrdenSave = () => {
     if (!nuevaOrdenData.id_proveedor) {
       toast.error("Debe seleccionar un proveedor");
       return;
     }
-
     if (!nuevaOrdenData.serie || !nuevaOrdenData.nroDoc) {
       toast.error("Debe ingresar la serie y número de documento");
       return;
     }
-
     if (nuevaOrdenData.items.length === 0) {
       toast.error("Debe agregar al menos un item a la orden");
       return;
     }
+    if (isSavingOrden) return;
 
-    // Prevenir doble envío bloqueando el botón
-    if (isSavingOrden) {
-      return;
-    }
+    setIsLoginConfirmOpen(true);
+  };
 
+  // Ejecuta el guardado real después de que el usuario se autentique
+  const executeOrdenSave = async (usuarioAuth: { id: number; nombre: string; rol: string }) => {
     setIsSavingOrden(true);
 
     try {
-      // Preparar datos para enviar al backend
       const numero_orden = `${nuevaOrdenData.serie}-${nuevaOrdenData.nroDoc}`;
 
-      // Validar que el número de orden no exista ya
+      // Validar duplicados
       const ordenesExistentes = tipoOrden === "compra" ? ordenesCompra : ordenesServicio;
       const ordenDuplicada = ordenesExistentes.find(
         (orden) => orden.numero_orden === numero_orden
       );
 
-      // Si encontramos una orden duplicada, verificar si es la misma que estamos editando
       if (ordenDuplicada && ordenEditandoId !== null) {
         const idOrdenDuplicada = tipoOrden === "compra"
           ? (ordenDuplicada as OrdenCompraData).id_orden_compra
           : (ordenDuplicada as OrdenServicioData).id_orden_servicio;
-
-        // Comparar convirtiendo ambos a número para evitar problemas de tipos
         const esLaMismaOrden = Number(idOrdenDuplicada) === Number(ordenEditandoId);
-
         if (!esLaMismaOrden) {
           toast.error("Este número de orden ya existe", {
             description: `El número ${numero_orden} ya está registrado en el sistema. Por favor, use otro número.`,
@@ -965,14 +963,12 @@ export default function OrdenCompraPage() {
           return;
         }
       } else if (ordenDuplicada && ordenEditandoId === null) {
-        // Si no estamos editando (nuevo registro) y existe duplicado, mostrar error
         toast.error("Este número de orden ya existe", {
           description: `El número ${numero_orden} ya está registrado en el sistema. Por favor, use otro número.`,
         });
         return;
       }
 
-      // Transformar items al formato del backend
       const itemsParaBackend = nuevaOrdenData.items.map((item) => ({
         codigo_item: item.codigo_item,
         descripcion_item: item.descripcion_item,
@@ -987,16 +983,14 @@ export default function OrdenCompraPage() {
         fecha_orden: format(nuevaOrdenData.fechaEmision, "yyyy-MM-dd"),
         moneda: nuevaOrdenData.moneda,
         fecha_registro: nuevaOrdenData.fechaServicio.toISOString(),
-        estado: nuevaOrdenData.estado || "PENDIENTE", // Preservar estado al editar
+        estado: nuevaOrdenData.estado || "PENDIENTE",
         centro_costo_nivel1: nuevaOrdenData.centroCostoNivel1Codigo,
         centro_costo_nivel2: nuevaOrdenData.centroCostoNivel2Codigo,
         centro_costo_nivel3: nuevaOrdenData.centroCostoNivel3Codigo,
         unidad_id: nuevaOrdenData.unidad_id > 0 ? nuevaOrdenData.unidad_id : null,
-        // Campos de retención (para ambos tipos de orden)
         retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
         porcentaje_valor_retencion: nuevaOrdenData.retencion.porcentaje.toString(),
         valor_retencion: nuevaOrdenData.retencion.monto,
-        // Campos de detracción (para ambos tipos de orden)
         detraccion: nuevaOrdenData.aplicarDetraccion ? "SI" : "NO",
         porcentaje_valor_detraccion: nuevaOrdenData.detraccion.porcentaje.toString(),
         tipo_detraccion: nuevaOrdenData.detraccion.tipo_detraccion,
@@ -1009,40 +1003,30 @@ export default function OrdenCompraPage() {
         igv: nuevaOrdenData.igv,
         total: nuevaOrdenData.total,
         observaciones: nuevaOrdenData.observacion,
+        registrado_por: usuarioAuth.id,
       };
 
       console.log("Datos para enviar al backend:", ordenParaEnviar);
 
-      // Seleccionar la API correcta según el tipo de orden
       const api = tipoOrden === "compra" ? ordenesCompraApi : ordenesServicioApi;
       const tipoTexto = tipoOrden === "compra" ? "compra" : "servicio";
-
-      // Determinar si es creación o actualización
       const esEdicion = ordenEditandoId !== null;
 
-      // Mostrar toast de carga
       toast.loading(`${esEdicion ? 'Actualizando' : 'Creando'} orden de ${tipoTexto}...`);
 
-      // Enviar al backend usando la API configurada
       const result = esEdicion
         ? await api.update(ordenEditandoId, ordenParaEnviar)
         : await api.create(ordenParaEnviar);
 
-      // Cerrar el toast de carga
       toast.dismiss();
-
       console.log("Respuesta del servidor:", result);
 
-      // Mostrar toast de éxito
       toast.success(`Orden de ${tipoTexto} ${esEdicion ? 'actualizada' : 'creada'} exitosamente`, {
-        description: `Número de orden: ${numero_orden}`,
+        description: `Número de orden: ${numero_orden} — Registrado por: ${usuarioAuth.nombre}`,
       });
 
-      // Recargar la lista de órdenes
       loadOrdenesCompra();
       loadOrdenesServicio();
-
-      // Cerrar el modal y limpiar el formulario
       setIsNuevaOrdenModalOpen(false);
       handleNuevaOrdenCancel();
     } catch (error) {
@@ -1051,13 +1035,17 @@ export default function OrdenCompraPage() {
       console.error(`Error al ${esEdicion ? 'actualizar' : 'guardar'} orden de ${tipoTexto}:`, error);
       toast.dismiss();
 
-      // Extraer el mensaje de error del objeto de error de Axios
       let errorMessage = "Error desconocido";
       if (error && typeof error === 'object') {
         // @ts-expect-error - Acceder a la respuesta de error de Axios
-        if (error.response?.data?.message) {
-          // @ts-expect-error - Acceso a propiedad de respuesta de Axios
-          errorMessage = error.response.data.message;
+        const responseData = error.response?.data;
+        if (responseData) {
+          console.error("Detalle del error del servidor:", JSON.stringify(responseData, null, 2));
+          if (responseData.errors?.length > 0) {
+            errorMessage = responseData.errors.map((e: { path: string; message: string }) => `${e.path}: ${e.message}`).join(", ");
+          } else if (responseData.message) {
+            errorMessage = responseData.message;
+          }
         } else if (error instanceof Error) {
           errorMessage = error.message;
         }
@@ -1065,10 +1053,9 @@ export default function OrdenCompraPage() {
 
       toast.error(`Error al ${esEdicion ? 'actualizar' : 'crear'} la orden de ${tipoTexto}`, {
         description: errorMessage,
-        duration: 7000, // Mostrar el toast por más tiempo para que el usuario pueda leerlo
+        duration: 7000,
       });
     } finally {
-      // Desbloquear el botón después de guardar (exitoso o con error)
       setIsSavingOrden(false);
     }
   };
@@ -5067,6 +5054,21 @@ export default function OrdenCompraPage() {
                   </div>
                 </DialogContent>
               </Dialog>
+
+              {/* Diálogo de confirmación de identidad antes de guardar */}
+              <LoginConfirmDialog
+                open={isLoginConfirmOpen}
+                onOpenChange={(open) => {
+                  setIsLoginConfirmOpen(open);
+                  if (!open) setIsSavingOrden(false);
+                }}
+                titulo="Confirmar identidad"
+                descripcion={`Ingrese sus credenciales para ${ordenEditandoId ? 'actualizar' : 'guardar'} la orden de ${tipoOrden}.`}
+                onSuccess={(usuario) => {
+                  setIsLoginConfirmOpen(false);
+                  executeOrdenSave(usuario);
+                }}
+              />
         </div>
       </div>
     </div>

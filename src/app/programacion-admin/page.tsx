@@ -42,7 +42,26 @@ import {
   Terminal,
   Pause,
   Play,
+  Users,
+  UserPlus,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   programacionApi,
   ordenesCompraApi,
@@ -50,11 +69,13 @@ import {
   searchApi,
   facturaApi,
   adminLogsApi,
+  usuariosApi,
   type ProgramacionTecnicaData,
   type OrdenCompraData,
   type OrdenServicioData,
   type FacturaData,
   type NestLogEntry,
+  type UsuarioSistema,
 } from "@/lib/connections";
 import { OrdenEditDialog } from "@/components/orden-edit-dialog";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
@@ -1610,6 +1631,341 @@ function ConfiguracionTab() {
   );
 }
 
+// ─── Tab: Usuarios del sistema ───────────────────────────────────────────────
+
+const ROL_LABELS: Record<string, string> = {
+  ADMIN: "Administrador",
+  ALMACENERO: "Almacenero",
+  AUXILIAR: "Auxiliar",
+  USER: "Usuario",
+};
+
+function UsuariosTab() {
+  const [data, setData] = useState<UsuarioSistema[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Estado para crear/editar usuario
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UsuarioSistema | null>(null);
+  const [formData, setFormData] = useState({
+    usuario: "",
+    nombre: "",
+    password: "",
+    rol: "USER",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const loadData = () => {
+    setIsLoading(true);
+    usuariosApi
+      .getAll()
+      .then(setData)
+      .catch(() => toast.error("Error al cargar usuarios"))
+      .finally(() => setIsLoading(false));
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const openCreate = () => {
+    setEditingUser(null);
+    setFormData({ usuario: "", nombre: "", password: "", rol: "USER" });
+    setFormError("");
+    setShowPassword(false);
+    setIsFormOpen(true);
+  };
+
+  const openEdit = (user: UsuarioSistema) => {
+    setEditingUser(user);
+    setFormData({ usuario: user.usuario, nombre: user.nombre, password: "", rol: user.rol });
+    setFormError("");
+    setShowPassword(false);
+    setIsFormOpen(true);
+  };
+
+  const handleSave = async () => {
+    setFormError("");
+    if (!formData.nombre.trim()) { setFormError("El nombre es requerido"); return; }
+    if (!editingUser && !formData.usuario.trim()) { setFormError("El usuario es requerido"); return; }
+    if (!editingUser && formData.password.length < 6) { setFormError("La contraseña debe tener al menos 6 caracteres"); return; }
+    if (editingUser && formData.password && formData.password.length < 6) { setFormError("La contraseña debe tener al menos 6 caracteres"); return; }
+
+    setIsSaving(true);
+    try {
+      if (editingUser) {
+        const updatePayload: Parameters<typeof usuariosApi.update>[1] = {
+          nombre: formData.nombre,
+          rol: formData.rol as UsuarioSistema["rol"],
+        };
+        if (formData.password) updatePayload.password = formData.password;
+        await usuariosApi.update(editingUser.id, updatePayload);
+        toast.success(`Usuario "${editingUser.usuario}" actualizado`);
+      } else {
+        await usuariosApi.create({
+          usuario: formData.usuario,
+          nombre: formData.nombre,
+          password: formData.password,
+          rol: formData.rol,
+        });
+        toast.success(`Usuario "${formData.usuario}" creado exitosamente`);
+      }
+      setIsFormOpen(false);
+      loadData();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Error al guardar";
+      // @ts-expect-error - Axios error shape
+      setFormError(error?.response?.data?.message || msg);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleActivo = async (user: UsuarioSistema) => {
+    const accion = user.activo ? "desactivar" : "activar";
+    if (!confirm(`¿Está seguro de ${accion} al usuario "${user.usuario}"?`)) return;
+    try {
+      if (user.activo) {
+        await usuariosApi.deactivate(user.id);
+        toast.success(`Usuario "${user.usuario}" desactivado`);
+      } else {
+        await usuariosApi.update(user.id, { activo: true });
+        toast.success(`Usuario "${user.usuario}" activado`);
+      }
+      loadData();
+    } catch {
+      toast.error(`Error al ${accion} el usuario`);
+    }
+  };
+
+  const filtered = data.filter((u) => {
+    if (!searchTerm) return true;
+    const q = searchTerm.toLowerCase();
+    return (
+      u.usuario.toLowerCase().includes(q) ||
+      u.nombre.toLowerCase().includes(q) ||
+      u.rol.toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2 flex-wrap">
+          <Badge variant="secondary">{data.filter((u) => u.activo).length} activos</Badge>
+          {data.filter((u) => !u.activo).length > 0 && (
+            <Badge variant="outline" className="text-slate-500">
+              {data.filter((u) => !u.activo).length} inactivos
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={openCreate} className="flex items-center gap-2">
+            <UserPlus className="h-4 w-4" /> Nuevo Usuario
+          </Button>
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              type="text"
+              placeholder="Buscar usuario..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-white"
+            />
+          </div>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12">
+          <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500">
+            {searchTerm ? "No se encontraron usuarios con ese criterio" : "No hay usuarios registrados"}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold text-slate-700">Usuario</th>
+                <th className="text-left px-4 py-3 font-semibold text-slate-700">Nombre</th>
+                <th className="text-left px-4 py-3 font-semibold text-slate-700">Rol</th>
+                <th className="text-left px-4 py-3 font-semibold text-slate-700">Estado</th>
+                <th className="text-left px-4 py-3 font-semibold text-slate-700">Creado</th>
+                <th className="px-4 py-3 font-semibold text-slate-700 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtered.map((user) => (
+                <tr key={user.id} className={`transition-colors ${!user.activo ? "opacity-50 bg-slate-50" : "hover:bg-slate-50"}`}>
+                  <td className="px-4 py-3 font-mono text-sm font-medium text-slate-800">
+                    {user.usuario}
+                  </td>
+                  <td className="px-4 py-3 text-slate-700">{user.nombre}</td>
+                  <td className="px-4 py-3">
+                    <Badge
+                      className={
+                        user.rol === "ADMIN"
+                          ? "bg-red-100 text-red-700 hover:bg-red-100"
+                          : user.rol === "ALMACENERO"
+                          ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-100"
+                      }
+                    >
+                      {ROL_LABELS[user.rol] ?? user.rol}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    {user.activo ? (
+                      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Activo</Badge>
+                    ) : (
+                      <Badge className="bg-red-100 text-red-600 hover:bg-red-100">Inactivo</Badge>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">
+                    {user.fecha_creacion
+                      ? new Date(user.fecha_creacion).toLocaleDateString("es-PE")
+                      : "-"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEdit(user)}
+                        className="h-7 px-2 text-xs bg-white hover:bg-blue-50 text-blue-700 border-blue-300"
+                      >
+                        <Edit className="h-3.5 w-3.5 mr-1" /> Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleToggleActivo(user)}
+                        className={`h-7 px-2 text-xs ${
+                          user.activo
+                            ? "bg-white hover:bg-red-50 text-red-700 border-red-300"
+                            : "bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300"
+                        }`}
+                      >
+                        {user.activo ? (
+                          <><XCircle className="h-3.5 w-3.5 mr-1" /> Desactivar</>
+                        ) : (
+                          <><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Activar</>
+                        )}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal crear/editar usuario */}
+      <Dialog open={isFormOpen} onOpenChange={(v) => { setIsFormOpen(v); if (!v) setFormError(""); }}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-blue-600" />
+              {editingUser ? `Editar: ${editingUser.usuario}` : "Nuevo Usuario"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {!editingUser && (
+              <div className="space-y-1.5">
+                <Label htmlFor="u-usuario">Usuario</Label>
+                <Input
+                  id="u-usuario"
+                  placeholder="nombre_usuario"
+                  value={formData.usuario}
+                  onChange={(e) => setFormData((p) => ({ ...p, usuario: e.target.value }))}
+                  autoComplete="off"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="u-nombre">Nombre completo</Label>
+              <Input
+                id="u-nombre"
+                placeholder="Juan Pérez"
+                value={formData.nombre}
+                onChange={(e) => setFormData((p) => ({ ...p, nombre: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="u-password">
+                Contraseña {editingUser && <span className="text-slate-400 text-xs">(dejar vacío para no cambiar)</span>}
+              </Label>
+              <div className="relative">
+                <Input
+                  id="u-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder={editingUser ? "Nueva contraseña (opcional)" : "Mínimo 6 caracteres"}
+                  value={formData.password}
+                  onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
+                  autoComplete="new-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((p) => !p)}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="u-rol">Rol</Label>
+              <Select
+                value={formData.rol}
+                onValueChange={(v) => setFormData((p) => ({ ...p, rol: v }))}
+              >
+                <SelectTrigger id="u-rol">
+                  <SelectValue placeholder="Seleccionar rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ADMIN">Administrador</SelectItem>
+                  <SelectItem value="ALMACENERO">Almacenero</SelectItem>
+                  <SelectItem value="AUXILIAR">Auxiliar</SelectItem>
+                  <SelectItem value="USER">Usuario</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formError && (
+              <div className="flex items-center gap-2 rounded-md bg-red-50 border border-red-200 px-3 py-2">
+                <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                <p className="text-sm text-red-700">{formError}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setIsFormOpen(false)} disabled={isSaving}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? "Guardando..." : editingUser ? "Actualizar" : "Crear usuario"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ─── Página principal ────────────────────────────────────────────────────────
 
 export default function ProgramacionAdminPage() {
@@ -1633,7 +1989,7 @@ export default function ProgramacionAdminPage() {
       {/* Tabs */}
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="programacion" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6 bg-white shadow-sm">
+          <TabsList className="grid w-full grid-cols-7 bg-white shadow-sm">
             <TabsTrigger value="programacion" className="flex items-center gap-2">
               <Truck className="h-4 w-4" />
               Programación Técnica
@@ -1657,6 +2013,10 @@ export default function ProgramacionAdminPage() {
             <TabsTrigger value="configuracion" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               Configuración
+            </TabsTrigger>
+            <TabsTrigger value="usuarios" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Usuarios
             </TabsTrigger>
           </TabsList>
 
@@ -1713,6 +2073,17 @@ export default function ProgramacionAdminPage() {
               </CardHeader>
               <CardContent>
                 <ConsolaTab />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="usuarios">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Gestión de Usuarios</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <UsuariosTab />
               </CardContent>
             </Card>
           </TabsContent>

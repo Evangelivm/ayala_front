@@ -65,6 +65,7 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { DetraccionSelectDialog } from "@/components/detraccion-select-dialog";
+import { LoginConfirmDialog } from "@/components/login-confirm-dialog";
 
 const parseDateSafe = (dateString: string): Date => {
   if (dateString && !dateString.includes("T")) {
@@ -129,6 +130,7 @@ export function OrdenEditDialog({
 }: OrdenEditDialogProps) {
   const [formData, setFormData] = useState({ ...emptyFormData });
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
 
   // Sub-modal: Proveedores
   const [isProveedoresOpen, setIsProveedoresOpen] = useState(false);
@@ -340,14 +342,20 @@ export function OrdenEditDialog({
     setProveedorSearchQuery("");
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!orden) return;
     if (!formData.id_proveedor) { toast.error("Debe seleccionar un proveedor"); return; }
     if (!formData.serie || !formData.nroDoc) { toast.error("Debe ingresar la serie y número de documento"); return; }
     if (formData.items.length === 0) { toast.error("Debe agregar al menos un item"); return; }
     if (isSaving) return;
+    setIsLoginOpen(true);
+  };
 
+  const executeSave = async (usuarioAuth: { id: number; nombre: string; rol: string }) => {
+    if (!orden) return;
+    setIsLoginOpen(false);
     setIsSaving(true);
+
     const numero_orden = `${formData.serie}-${formData.nroDoc}`;
     const ordenId = tipo === "compra"
       ? (orden as OrdenCompraData).id_orden_compra!
@@ -376,6 +384,7 @@ export function OrdenEditDialog({
         almacen_central: formData.almacenCentral ? "SI" : "NO",
         has_anticipo: formData.anticipo ? 1 : 0,
         tiene_anticipo: formData.anticipo ? "SI" : "NO",
+        editado_por: usuarioAuth.id,
         items: formData.items.map((i) => ({
           codigo_item: i.codigo_item,
           descripcion_item: i.descripcion_item,
@@ -852,6 +861,15 @@ export function OrdenEditDialog({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de confirmación de identidad */}
+      <LoginConfirmDialog
+        open={isLoginOpen}
+        onOpenChange={setIsLoginOpen}
+        titulo="Confirmar edición"
+        descripcion="Ingrese sus credenciales para guardar los cambios en la orden."
+        onSuccess={executeSave}
+      />
 
       {/* Sub-modal: Proveedores */}
       <Dialog open={isProveedoresOpen} onOpenChange={setIsProveedoresOpen}>

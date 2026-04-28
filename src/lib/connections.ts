@@ -3642,6 +3642,8 @@ export interface OrdenCompraData {
   tipo_unidad?: string | null; // Tipo de unidad (CAMION o MAQUINARIA)
   nombre_chofer?: string | null; // Nombre del chofer
   apellido_chofer?: string | null; // Apellido del chofer
+  nombre_registrador?: string | null; // Nombre del usuario que registró la orden
+  registrado_por?: number; // ID del usuario que registró
   deleted_at?: string | null; // Soft delete
   backend_logs?: string | null; // Logs del backend persistidos
 }
@@ -4053,6 +4055,8 @@ export interface OrdenServicioData {
   tipo_unidad?: string | null; // Tipo de unidad (CAMION o MAQUINARIA)
   nombre_chofer?: string | null; // Nombre del chofer
   apellido_chofer?: string | null; // Apellido del chofer
+  nombre_registrador?: string | null; // Nombre del usuario que registró la orden
+  registrado_por?: number; // ID del usuario que registró
   deleted_at?: string | null; // Soft delete
   backend_logs?: string | null; // Logs del backend persistidos
 }
@@ -4611,6 +4615,68 @@ export const searchApi = {
     };
   }> => {
     const response = await api.post("/search/reindex");
+    return response.data;
+  },
+};
+
+// ============ AUTH API ============
+export interface AuthUsuario {
+  id: number;
+  nombre: string;
+  rol: string;
+}
+
+export const authApi = {
+  login: async (credentials: {
+    usuario: string;
+    password: string;
+  }): Promise<AuthUsuario> => {
+    const response = await api.post("/auth/login", credentials);
+    return response.data;
+  },
+};
+
+// ============ USUARIOS API ============
+export interface UsuarioSistema {
+  id: number;
+  usuario: string;
+  nombre: string;
+  rol: "ADMIN" | "ALMACENERO" | "AUXILIAR" | "USER";
+  activo: boolean;
+  fecha_creacion?: string | null;
+}
+
+export const usuariosApi = {
+  getAll: async (): Promise<UsuarioSistema[]> => {
+    const response = await api.get("/usuarios");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  create: async (data: {
+    usuario: string;
+    nombre: string;
+    password: string;
+    rol?: string;
+  }): Promise<UsuarioSistema> => {
+    const response = await api.post("/usuarios", data);
+    return response.data;
+  },
+
+  update: async (
+    id: number,
+    data: {
+      nombre?: string;
+      password?: string;
+      rol?: string;
+      activo?: boolean;
+    }
+  ): Promise<UsuarioSistema> => {
+    const response = await api.put(`/usuarios/${id}`, data);
+    return response.data;
+  },
+
+  deactivate: async (id: number): Promise<UsuarioSistema> => {
+    const response = await api.delete(`/usuarios/${id}`);
     return response.data;
   },
 };
