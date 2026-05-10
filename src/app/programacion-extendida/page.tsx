@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Accordion,
   AccordionContent,
@@ -27,7 +29,8 @@ import {
   MapPin,
   Trash2,
   Archive,
-  Loader2
+  Loader2,
+  FileDown
 } from "lucide-react";
 import {
   programacionApi,
@@ -49,6 +52,9 @@ export default function ProgramacionExtendidaPage() {
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [guiasExtendidas, setGuiasExtendidas] = useState<Record<string, GuiaRemisionData[]>>({});
   const [descargandoZip, setDescargandoZip] = useState<string | null>(null);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [selectedExportProveedores, setSelectedExportProveedores] = useState<Set<string>>(new Set());
+  const [exportando, setExportando] = useState(false);
 
   const fetchGuiasExtendidas = async (identificador: string) => {
     try {
@@ -353,6 +359,47 @@ export default function ProgramacionExtendidaPage() {
     }
   };
 
+  const uniqueProveedores = useMemo(() => {
+    const set = new Set<string>();
+    data.forEach(item => { if (item.proveedor) set.add(item.proveedor); });
+    return Array.from(set).sort();
+  }, [data]);
+
+  const handleAbrirExportModal = () => {
+    setSelectedExportProveedores(new Set(uniqueProveedores));
+    setExportModalOpen(true);
+  };
+
+  const handleExportExcel = async () => {
+    setExportando(true);
+    try {
+      const proveedoresFiltro = selectedExportProveedores.size === uniqueProveedores.length
+        ? undefined
+        : Array.from(selectedExportProveedores);
+
+      const buffer = await guiasRemisionExtendidoApi.exportarExcel(proveedoresFiltro);
+
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `programacion_extendida_${new Date().toISOString().split("T")[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("Excel exportado exitosamente");
+      setExportModalOpen(false);
+    } catch {
+      toast.error("Error al exportar el archivo Excel");
+    } finally {
+      setExportando(false);
+    }
+  };
+
   const filteredData = data.filter((item) => {
     // Filtrar por búsqueda
     const matchesSearch =
@@ -390,16 +437,26 @@ export default function ProgramacionExtendidaPage() {
             </div>
           </div>
 
-          {/* Buscador */}
-          <div className="relative w-80">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
-              type="text"
-              placeholder="Buscar por proveedor, conductor, proyecto..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-white"
-            />
+          {/* Buscador + Exportar */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={handleAbrirExportModal}
+              className="bg-white hover:bg-green-50 text-green-700 border-green-300"
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              Exportar Excel
+            </Button>
+            <div className="relative w-80">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Buscar por proveedor, conductor, proyecto..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-white"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -767,6 +824,93 @@ export default function ProgramacionExtendidaPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Exportar a Excel */}
+      <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileDown className="h-5 w-5 text-green-600" />
+              Exportar a Excel
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Selecciona las empresas que deseas incluir en el reporte:
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedExportProveedores(new Set(uniqueProveedores))}
+              >
+                Todas
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedExportProveedores(new Set())}
+              >
+                Ninguna
+              </Button>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-3 bg-slate-50">
+              {uniqueProveedores.length === 0 ? (
+                <p className="text-sm text-slate-400 italic text-center py-2">No hay empresas cargadas</p>
+              ) : (
+                uniqueProveedores.map((proveedor) => (
+                  <div key={proveedor} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`exp-${proveedor}`}
+                      checked={selectedExportProveedores.has(proveedor)}
+                      onCheckedChange={(checked) => {
+                        setSelectedExportProveedores((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(proveedor);
+                          else next.delete(proveedor);
+                          return next;
+                        });
+                      }}
+                    />
+                    <label htmlFor={`exp-${proveedor}`} className="text-sm cursor-pointer flex-1 leading-tight">
+                      {proveedor}
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="text-xs text-slate-500">
+              {selectedExportProveedores.size === 0
+                ? "⚠️ No hay empresas seleccionadas"
+                : selectedExportProveedores.size === uniqueProveedores.length
+                ? "Se exportarán todas las empresas"
+                : `${selectedExportProveedores.size} de ${uniqueProveedores.length} empresa(s) seleccionada(s)`}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportModalOpen(false)} disabled={exportando}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleExportExcel}
+              disabled={exportando || selectedExportProveedores.size === 0}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {exportando ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Exportar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Guía de Remisión Extendida */}
       {selectedItemId && (

@@ -1646,6 +1646,20 @@ export const guiasRemisionExtendidoApi = {
       throw new Error("Error al descargar el archivo ZIP");
     }
   },
+
+  exportarExcel: async (proveedores?: string[]): Promise<ArrayBuffer> => {
+    try {
+      const response = await api.post(
+        "/guias-remision-extendido/exportar-excel",
+        { proveedores: proveedores && proveedores.length > 0 ? proveedores : undefined },
+        { responseType: "arraybuffer", timeout: 60000 },
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Exportar Excel API error:", error);
+      throw new Error("Error al exportar el archivo Excel");
+    }
+  },
 };
 
 // Exportar la instancia de axios para uso directo si es necesario

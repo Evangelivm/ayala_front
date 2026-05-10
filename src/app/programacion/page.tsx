@@ -293,13 +293,14 @@ export default function ProgramacionPage() {
 
   // Funciones para entrada manual
   const addManualRow = () => {
+    const besco = empresas.find((e) => e.nro_documento === "20416162299");
     const newRow: ManualRow = {
       id: Date.now().toString(),
       fecha: new Date().toISOString().split("T")[0],
       unidad: "",
       unidad_id: 0,
-      proveedor: "",
-      proveedor_id: "",
+      proveedor: besco?.razon_social || "",
+      proveedor_id: besco?.codigo || "",
       apellidos_nombres: "",
       programacion: "",
       hora_partida: "08:00",
