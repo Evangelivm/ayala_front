@@ -113,6 +113,8 @@ const emptyFormData = {
     unidadMed: string;
     precio_unitario: number;
     subtotal: number;
+    centro_costo: string;
+    prorrateo: number | null;
   }>,
   subtotal: 0,
   igv: 0,
@@ -216,6 +218,8 @@ export function OrdenEditDialog({
         unidadMed: "UNIDAD",
         precio_unitario: Number(item.precio_unitario) || 0,
         subtotal: Number(item.subtotal) || 0,
+        centro_costo: item.centro_costo || "",
+        prorrateo: item.prorrateo != null ? Number(item.prorrateo) : null,
       })),
       subtotal: Number(o.subtotal) || 0,
       igv: Number(o.igv) || 0,
@@ -269,7 +273,7 @@ export function OrdenEditDialog({
   );
 
   const handleItemChange = useCallback(
-    (index: number, field: string, value: string | number) => {
+    (index: number, field: string, value: string | number | null) => {
       const updated = [...formData.items];
       updated[index] = { ...updated[index], [field]: value };
       if (field === "subtotal") {
@@ -310,6 +314,8 @@ export function OrdenEditDialog({
       unidadMed: item.u_m || "UNIDAD",
       precio_unitario: Number(item.precio_unitario) || 0,
       subtotal: Number(item.precio_unitario) || 0,
+      centro_costo: "",
+      prorrateo: null,
     };
     let updated: typeof formData.items;
     if (replacingItemIndex !== null) {
@@ -391,6 +397,8 @@ export function OrdenEditDialog({
           cantidad_solicitada: i.cantidad_solicitada,
           precio_unitario: i.precio_unitario,
           subtotal: i.subtotal,
+          centro_costo: i.centro_costo || undefined,
+          prorrateo: i.prorrateo ?? undefined,
         })),
         subtotal: formData.subtotal,
         igv: formData.igv,
@@ -631,8 +639,8 @@ export function OrdenEditDialog({
               </div>
             </div>
 
-            {/* Centro de Costos */}
-            <div className="grid grid-cols-12 gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            {/* Centro de Costos (oculto: movido a columnas de ítem) */}
+            <div className="hidden grid grid-cols-12 gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="col-span-12">
                 <h3 className="text-sm font-bold text-blue-800 mb-2">Centro de Costos</h3>
               </div>
@@ -708,7 +716,9 @@ export function OrdenEditDialog({
                     <TableRow className="bg-blue-50">
                       <TableHead className="w-12 text-xs font-bold text-center">Ítem</TableHead>
                       <TableHead className="w-32 text-xs font-bold text-center">Código</TableHead>
-                      <TableHead className="min-w-[200px] text-xs font-bold">Nombre</TableHead>
+                      <TableHead className="min-w-[160px] text-xs font-bold">Nombre</TableHead>
+                      <TableHead className="w-36 text-xs font-bold">Centro Costo</TableHead>
+                      <TableHead className="w-24 text-xs font-bold text-center">Prorrateo (%)</TableHead>
                       <TableHead className="w-24 text-xs font-bold text-center">Cantidad</TableHead>
                       <TableHead className="w-36 text-xs font-bold text-right">Precio Unit.</TableHead>
                       <TableHead className="w-40 text-xs font-bold text-right">Subtotal</TableHead>
@@ -721,6 +731,27 @@ export function OrdenEditDialog({
                         <TableCell className="text-center text-xs font-semibold">{index + 1}</TableCell>
                         <TableCell className="text-xs text-center bg-gray-50 p-2 font-mono">{item.codigo_item || <span className="text-gray-400 italic">-</span>}</TableCell>
                         <TableCell className="text-xs bg-gray-50 p-2">{item.descripcion_item || <span className="text-gray-400 italic">Sin seleccionar</span>}</TableCell>
+                        <TableCell className="p-1">
+                          <Input
+                            type="text"
+                            value={item.centro_costo || ""}
+                            onChange={(e) => handleItemChange(index, "centro_costo", e.target.value)}
+                            className="h-8 text-xs border border-gray-300 p-2 rounded"
+                            placeholder="Centro costo"
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input
+                            type="number"
+                            value={item.prorrateo ?? ""}
+                            onChange={(e) => handleItemChange(index, "prorrateo", e.target.value === "" ? null : parseFloat(e.target.value))}
+                            className="h-8 text-xs border border-gray-300 p-2 text-center rounded"
+                            placeholder="0"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                          />
+                        </TableCell>
                         <TableCell>
                           <Input type="number" value={item.cantidad_solicitada} onChange={(e) => handleItemChange(index, "cantidad_solicitada", parseFloat(e.target.value) || 0)} className="h-8 text-xs text-center" min="0" step="0.01" />
                         </TableCell>
@@ -744,7 +775,7 @@ export function OrdenEditDialog({
                     ))}
                     {formData.items.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-gray-400">
+                        <TableCell colSpan={9} className="text-center py-8 text-gray-400">
                           <div className="flex flex-col items-center gap-2">
                             <ClipboardList className="h-8 w-8 opacity-50" />
                             <p className="text-sm">No hay items agregados</p>
