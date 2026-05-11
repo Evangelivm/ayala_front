@@ -3641,6 +3641,8 @@ export interface OrdenCompraData {
     cantidad_solicitada: number;
     precio_unitario: number;
     subtotal: number;
+    centro_costo?: string | null;
+    prorrateo?: number | null;
   }>;
   subtotal: number;
   igv: number;
@@ -4054,6 +4056,8 @@ export interface OrdenServicioData {
     cantidad_solicitada: number;
     precio_unitario: number;
     subtotal: number;
+    centro_costo?: string | null;
+    prorrateo?: number | null;
   }>;
   subtotal: number;
   igv: number;

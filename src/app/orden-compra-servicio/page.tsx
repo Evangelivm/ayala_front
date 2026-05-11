@@ -216,6 +216,8 @@ export default function OrdenCompraPage() {
       unidadMed: string;
       precio_unitario: number;
       subtotal: number;
+      centro_costo: string;
+      prorrateo: number | null;
     }>,
     subtotal: 0,
     igv: 0,
@@ -825,7 +827,7 @@ export default function OrdenCompraPage() {
   const handleItemChange = useCallback((
     index: number,
     field: string,
-    value: string | number
+    value: string | number | null
   ) => {
     const updatedItems = [...nuevaOrdenData.items];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
@@ -877,6 +879,8 @@ export default function OrdenCompraPage() {
           unidadMed: item.u_m || "UNIDAD",
           precio_unitario: Number(item.precio_unitario) || 0,
           subtotal: Number(item.precio_unitario) || 0,
+          centro_costo: "",
+          prorrateo: null,
         };
 
         // Si estamos reemplazando un item existente
@@ -975,6 +979,8 @@ export default function OrdenCompraPage() {
         cantidad_solicitada: item.cantidad_solicitada,
         precio_unitario: item.precio_unitario,
         subtotal: item.subtotal,
+        centro_costo: item.centro_costo || undefined,
+        prorrateo: item.prorrateo ?? undefined,
       }));
 
       const ordenParaEnviar = {
@@ -1099,6 +1105,8 @@ export default function OrdenCompraPage() {
         unidadMed: string;
         precio_unitario: number;
         subtotal: number;
+        centro_costo: string;
+        prorrateo: number | null;
       }>,
       subtotal: 0,
       igv: 0,
@@ -1167,9 +1175,11 @@ export default function OrdenCompraPage() {
           codigo_item: item.codigo_item,
           descripcion_item: item.descripcion_item,
           cantidad_solicitada: Number(item.cantidad_solicitada) || 0,
-          unidadMed: "UNIDAD", // Valor por defecto, actualizar si está disponible
+          unidadMed: "UNIDAD",
           precio_unitario: Number(item.precio_unitario) || 0,
           subtotal: Number(item.subtotal) || 0,
+          centro_costo: item.centro_costo || "",
+          prorrateo: item.prorrateo != null ? Number(item.prorrateo) : null,
         })),
         subtotal: Number(orden.subtotal) || 0,
         igv: Number(orden.igv) || 0,
@@ -1247,6 +1257,8 @@ export default function OrdenCompraPage() {
           unidadMed: "UNIDAD",
           precio_unitario: Number(item.precio_unitario) || 0,
           subtotal: Number(item.subtotal) || 0,
+          centro_costo: item.centro_costo || "",
+          prorrateo: item.prorrateo != null ? Number(item.prorrateo) : null,
         })),
         subtotal: Number(orden.subtotal) || 0,
         igv: Number(orden.igv) || 0,
@@ -3780,8 +3792,8 @@ export default function OrdenCompraPage() {
                       </div>
                     </div>
 
-                    {/* Centro de Costos - 3 Niveles */}
-                    <div className="grid grid-cols-12 gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    {/* Centro de Costos - 3 Niveles (oculto: movido a columnas de ítem) */}
+                    <div className="hidden grid grid-cols-12 gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="col-span-12">
                         <h3 className="text-sm font-bold text-blue-800 mb-2">
                           Centro de Costos
@@ -3954,8 +3966,14 @@ export default function OrdenCompraPage() {
                               <TableHead className="w-32 text-xs font-bold text-center">
                                 Código
                               </TableHead>
-                              <TableHead className="min-w-[300px] text-xs font-bold">
+                              <TableHead className="min-w-[200px] text-xs font-bold">
                                 Nombre
+                              </TableHead>
+                              <TableHead className="w-36 text-xs font-bold">
+                                Centro Costo
+                              </TableHead>
+                              <TableHead className="w-24 text-xs font-bold text-center">
+                                Prorrateo (%)
                               </TableHead>
                               <TableHead className="w-24 text-xs font-bold text-center">
                                 U.M.
@@ -4000,6 +4018,35 @@ export default function OrdenCompraPage() {
                                       Sin seleccionar
                                     </span>
                                   )}
+                                </TableCell>
+                                <TableCell className="p-1">
+                                  <Input
+                                    type="text"
+                                    value={item.centro_costo || ""}
+                                    onChange={(e) =>
+                                      handleItemChange(index, "centro_costo", e.target.value)
+                                    }
+                                    className="h-8 text-xs border border-gray-300 p-2 rounded"
+                                    placeholder="Centro costo"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-1">
+                                  <Input
+                                    type="number"
+                                    value={item.prorrateo ?? ""}
+                                    onChange={(e) =>
+                                      handleItemChange(
+                                        index,
+                                        "prorrateo",
+                                        e.target.value === "" ? null : parseFloat(e.target.value)
+                                      )
+                                    }
+                                    className="h-8 text-xs border border-gray-300 p-2 text-center rounded"
+                                    placeholder="0"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                  />
                                 </TableCell>
                                 <TableCell className="text-xs text-center bg-gray-50 p-2">
                                   {item.unidadMed}
