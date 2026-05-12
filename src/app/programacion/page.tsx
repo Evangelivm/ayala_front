@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,11 +23,13 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Upload, Trash2, Save, Plus, X, MapPin, Folder, GitBranch, FileText, Download, CheckSquare, Truck } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Upload, Trash2, Save, Plus, X, MapPin, Folder, GitBranch, FileText, Download, CheckSquare, Truck, FileDown, Loader2, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
 import {
   programacionApi,
+  searchApi,
   type ProgramacionData,
   type ProgramacionTecnicaData,
   camionesApi,
@@ -134,6 +136,21 @@ export default function ProgramacionPage() {
   };
   const [isCombiningPdfs, setIsCombiningPdfs] = useState(false);
 
+  // Estados para exportar Excel
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [selectedExportProveedores, setSelectedExportProveedores] = useState<Set<string>>(new Set());
+  const [selectedExportUnidades, setSelectedExportUnidades] = useState<Set<string>>(new Set());
+  const [exportFechaDesde, setExportFechaDesde] = useState("");
+  const [exportFechaHasta, setExportFechaHasta] = useState("");
+  const [exportando, setExportando] = useState(false);
+
+  // Estados para búsqueda y paginación de Registros
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const PAGE_SIZE = 20;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+
   // Cargar datos de IndexedDB al montar el componente
   useEffect(() => {
     const loadData = async () => {
@@ -214,65 +231,36 @@ export default function ProgramacionPage() {
     loadProyectos();
   }, []);
 
-  // Cargar datos técnicos y configurar polling para la pestaña de Registros
+  // Fetch con búsqueda y paginación (debounce 400ms en búsqueda, inmediato en cambio de página)
   useEffect(() => {
-    // Cargar datos inicialmente
-    fetchDataTecnica();
+    const timer = setTimeout(() => {
+      fetchDataTecnica(searchTerm, currentPage);
+    }, searchTerm ? 400 : 0);
+    return () => clearTimeout(timer);
+  }, [searchTerm, currentPage]);
 
-    // Polling ligero: consultar cada 10 segundos si hay registros recién completados
+  // Polling ligero: actualizar registros de la página actual que recibieron guía
+  useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        // Consultar datos completos de registros completados en los últimos 15 segundos
         const registrosRecientes = await programacionApi.getRecienCompletados(15);
-
         if (registrosRecientes.length > 0) {
-          // Actualizar solo los registros que cambiaron en lugar de recargar toda la tabla
           setDataTecnica((prevData) => {
-            // Crear un mapa con los IDs de los registros recientes para búsqueda rápida
-            const registrosMap = new Map(
-              registrosRecientes.map((reg) => [reg.id, reg])
-            );
-
-            // Actualizar los registros existentes o agregarlos si son nuevos
-            const dataActualizada = prevData.map((item) => {
-              const registroActualizado = registrosMap.get(item.id);
-              if (registroActualizado) {
-                // Eliminar del mapa para saber cuáles son nuevos después
-                registrosMap.delete(item.id);
-                return registroActualizado;
-              }
-              return item;
-            });
-
-            // Agregar registros nuevos que no existían en la tabla
-            const registrosNuevos = Array.from(registrosMap.values());
-
-            // Combinar y deduplicar por ID para evitar duplicados
-            const combined = [...registrosNuevos, ...dataActualizada];
-            const uniqueMap = new Map(combined.map((item) => [item.id, item]));
-            return Array.from(uniqueMap.values());
+            const registrosMap = new Map(registrosRecientes.map((reg) => [reg.id, reg]));
+            return prevData.map((item) => registrosMap.get(item.id) ?? item);
           });
-
-          // Actualizar también la lista de identificadores con guía
-          const nuevosIdentificadores = registrosRecientes
+          const nuevosIds = registrosRecientes
             .map((reg) => reg.identificador_unico)
             .filter((id): id is string => id !== null);
-
-          setIdentificadoresConGuia((prev) => {
-            const set = new Set([...prev, ...nuevosIdentificadores]);
-            return Array.from(set);
-          });
-
+          setIdentificadoresConGuia((prev) => Array.from(new Set([...prev, ...nuevosIds])));
           toast.success(
             `${registrosRecientes.length} guía${registrosRecientes.length > 1 ? 's' : ''} procesada${registrosRecientes.length > 1 ? 's' : ''}`
           );
         }
       } catch (error) {
-        // Silenciar errores de polling para no molestar al usuario
         console.error("Error en polling:", error);
       }
-    }, 10000); // Cada 10 segundos
-
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -547,8 +535,7 @@ export default function ProgramacionPage() {
       clearManualData();
 
       // Actualizar la pestaña de Registros con los nuevos datos
-      console.log('📊 Actualizando pestaña de Registros...');
-      await fetchDataTecnica();
+      await fetchDataTecnica(searchTerm, currentPage);
 
       toast.success("¡Información subida exitosamente!");
     } catch (error) {
@@ -617,8 +604,7 @@ export default function ProgramacionPage() {
       setManualRows(manualRows.filter((r) => r.id !== rowId));
 
       // Actualizar la pestaña de Registros con los nuevos datos
-      console.log('📊 Actualizando pestaña de Registros...');
-      await fetchDataTecnica();
+      await fetchDataTecnica(searchTerm, currentPage);
 
     } catch (error) {
       toast.error("Error al guardar el registro");
@@ -812,8 +798,7 @@ export default function ProgramacionPage() {
       handleDiscard();
 
       // Actualizar la pestaña de Registros con los nuevos datos
-      console.log('📊 Actualizando pestaña de Registros...');
-      await fetchDataTecnica();
+      await fetchDataTecnica(searchTerm, currentPage);
 
       toast.success("¡Información subida exitosamente!");
     } catch (error) {
@@ -825,19 +810,21 @@ export default function ProgramacionPage() {
   };
 
   // Funciones para la pestaña de Registros
-  const fetchDataTecnica = async () => {
+  const fetchDataTecnica = async (q: string = "", page: number = 1) => {
     setIsLoadingTecnica(true);
     try {
-      const [tecnicaData, idsConGuia] = await Promise.all([
-        programacionApi.getAllTecnica(),
+      const [result, idsConGuia] = await Promise.all([
+        searchApi.programacionTecnica(q, page, PAGE_SIZE),
         programacionApi.getIdentificadoresConGuia(),
       ]);
-
-      // Deduplicar por ID para evitar duplicados
-      const uniqueMap = new Map(tecnicaData.map((item) => [item.id, item]));
-      const uniqueData = Array.from(uniqueMap.values());
-
-      setDataTecnica(uniqueData);
+      const seen = new Set<number>();
+      const deduped = result.data.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+      setDataTecnica(deduped);
+      setTotalItems(result.total);
       setIdentificadoresConGuia(idsConGuia);
     } catch (error) {
       toast.error("Error al cargar los datos técnicos");
@@ -938,6 +925,59 @@ export default function ProgramacionPage() {
       toast.error("Error al combinar los PDFs");
     } finally {
       setIsCombiningPdfs(false);
+    }
+  };
+
+  const uniqueExportProveedores = useMemo(() =>
+    empresas.map(e => e.razon_social || '').filter(Boolean).sort()
+  , [empresas]);
+
+  const uniqueExportUnidades = useMemo(() =>
+    camiones.map(c => c.placa || '').filter(Boolean).sort()
+  , [camiones]);
+
+  const handleAbrirExportModal = () => {
+    setSelectedExportProveedores(new Set(uniqueExportProveedores));
+    setSelectedExportUnidades(new Set(uniqueExportUnidades));
+    setExportFechaDesde("");
+    setExportFechaHasta("");
+    setExportModalOpen(true);
+  };
+
+  const handleExportExcel = async () => {
+    setExportando(true);
+    try {
+      const filtros = {
+        proveedores: selectedExportProveedores.size === uniqueExportProveedores.length
+          ? undefined
+          : Array.from(selectedExportProveedores),
+        unidades: selectedExportUnidades.size === uniqueExportUnidades.length
+          ? undefined
+          : Array.from(selectedExportUnidades),
+        fechaDesde: exportFechaDesde || undefined,
+        fechaHasta: exportFechaHasta || undefined,
+      };
+
+      const buffer = await programacionApi.exportarExcel(filtros);
+
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `programacion_${new Date().toISOString().split("T")[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("Excel exportado exitosamente");
+      setExportModalOpen(false);
+    } catch {
+      toast.error("Error al exportar el archivo Excel");
+    } finally {
+      setExportando(false);
     }
   };
 
@@ -1315,22 +1355,45 @@ export default function ProgramacionPage() {
         {/* Pestaña de Registros */}
         <TabsContent value="registros" className="space-y-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle>
-                {dataTecnica.length > 0
-                  ? `${dataTecnica.length} registros encontrados`
-                  : "Registros de Programación"}
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 flex-wrap gap-3">
+              <CardTitle className="flex items-center gap-2">
+                <span>Registros de Programación</span>
+                {totalItems > 0 && (
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {totalItems} total
+                  </span>
+                )}
               </CardTitle>
-              {selectedPdfs.size > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar por proveedor, conductor, proyecto..."
+                    value={searchTerm}
+                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                    className="pl-10 bg-white w-72"
+                  />
+                </div>
                 <Button
-                  onClick={handleCombinePdfs}
-                  disabled={isCombiningPdfs}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  variant="outline"
+                  onClick={handleAbrirExportModal}
+                  className="bg-white hover:bg-green-50 text-green-700 border-green-300"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Combinar {selectedPdfs.size} PDF{selectedPdfs.size > 1 ? 's' : ''}
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Exportar Excel
                 </Button>
-              )}
+                {selectedPdfs.size > 0 && (
+                  <Button
+                    onClick={handleCombinePdfs}
+                    disabled={isCombiningPdfs}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Combinar {selectedPdfs.size} PDF{selectedPdfs.size > 1 ? 's' : ''}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {isLoadingTecnica ? (
@@ -1339,7 +1402,7 @@ export default function ProgramacionPage() {
                 </div>
               ) : dataTecnica.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No hay registros disponibles
+                  {searchTerm ? "No se encontraron registros con ese criterio" : "No hay registros disponibles"}
                 </div>
               ) : (
                 <div className="rounded-md border overflow-x-auto">
@@ -1545,11 +1608,164 @@ export default function ProgramacionPage() {
                   </Table>
                 </div>
               )}
+
+              {/* Paginación */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1 || isLoadingTecnica}
+                  >
+                    ← Anterior
+                  </Button>
+                  <span className="text-sm text-slate-600">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages || isLoadingTecnica}
+                  >
+                    Siguiente →
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modal de Exportar a Excel */}
+      <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileDown className="h-5 w-5 text-green-600" />
+              Exportar Registros a Excel
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+            {/* Filtro por Proveedor */}
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-1">Proveedor</p>
+              <div className="flex gap-2 mb-2">
+                <Button size="sm" variant="outline" onClick={() => setSelectedExportProveedores(new Set(uniqueExportProveedores))}>Todas</Button>
+                <Button size="sm" variant="outline" onClick={() => setSelectedExportProveedores(new Set())}>Ninguna</Button>
+              </div>
+              <div className="space-y-1 max-h-36 overflow-y-auto border rounded-md p-3 bg-slate-50">
+                {uniqueExportProveedores.length === 0 ? (
+                  <p className="text-sm text-slate-400 italic text-center py-1">Sin datos cargados</p>
+                ) : (
+                  uniqueExportProveedores.map(p => (
+                    <div key={p} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`exp-prov-${p}`}
+                        checked={selectedExportProveedores.has(p)}
+                        onCheckedChange={(checked) => {
+                          setSelectedExportProveedores(prev => {
+                            const next = new Set(prev);
+                            if (checked) next.add(p); else next.delete(p);
+                            return next;
+                          });
+                        }}
+                      />
+                      <label htmlFor={`exp-prov-${p}`} className="text-sm cursor-pointer flex-1 leading-tight">{p}</label>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Filtro por Unidad */}
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-1">Unidad (Placa)</p>
+              <div className="flex gap-2 mb-2">
+                <Button size="sm" variant="outline" onClick={() => setSelectedExportUnidades(new Set(uniqueExportUnidades))}>Todas</Button>
+                <Button size="sm" variant="outline" onClick={() => setSelectedExportUnidades(new Set())}>Ninguna</Button>
+              </div>
+              <div className="space-y-1 max-h-36 overflow-y-auto border rounded-md p-3 bg-slate-50">
+                {uniqueExportUnidades.length === 0 ? (
+                  <p className="text-sm text-slate-400 italic text-center py-1">Sin datos cargados</p>
+                ) : (
+                  uniqueExportUnidades.map(u => (
+                    <div key={u} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`exp-uni-${u}`}
+                        checked={selectedExportUnidades.has(u)}
+                        onCheckedChange={(checked) => {
+                          setSelectedExportUnidades(prev => {
+                            const next = new Set(prev);
+                            if (checked) next.add(u); else next.delete(u);
+                            return next;
+                          });
+                        }}
+                      />
+                      <label htmlFor={`exp-uni-${u}`} className="text-sm cursor-pointer flex-1 leading-tight">{u}</label>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Filtro por Fecha */}
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-2">Rango de Fechas</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-slate-500">Desde</Label>
+                  <Input
+                    type="date"
+                    value={exportFechaDesde}
+                    onChange={(e) => setExportFechaDesde(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-500">Hasta</Label>
+                  <Input
+                    type="date"
+                    value={exportFechaHasta}
+                    onChange={(e) => setExportFechaHasta(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              {selectedExportProveedores.size === 0 && selectedExportUnidades.size === 0
+                ? "⚠️ Selecciona al menos un proveedor o unidad"
+                : `${selectedExportProveedores.size} proveedor(es) · ${selectedExportUnidades.size} unidad(es)${exportFechaDesde || exportFechaHasta ? ` · Fecha filtrada` : ''}`}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportModalOpen(false)} disabled={exportando}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleExportExcel}
+              disabled={exportando || (selectedExportProveedores.size === 0 && selectedExportUnidades.size === 0)}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {exportando ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Exportar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

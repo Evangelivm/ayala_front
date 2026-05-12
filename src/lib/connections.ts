@@ -2634,6 +2634,25 @@ export const programacionApi = {
   updateNumeroOrden: async (id: number, numeroOrden: string | null): Promise<void> => {
     await api.patch(`/programacion/tecnica/${id}/numero-orden`, { numero_orden: numeroOrden });
   },
+
+  exportarExcel: async (filtros?: {
+    proveedores?: string[];
+    unidades?: string[];
+    fechaDesde?: string;
+    fechaHasta?: string;
+  }): Promise<ArrayBuffer> => {
+    try {
+      const response = await api.post(
+        "/programacion/exportar-excel",
+        filtros || {},
+        { responseType: "arraybuffer", timeout: 60000 },
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Exportar Excel Programacion API error:", error);
+      throw new Error("Error al exportar el archivo Excel");
+    }
+  },
 };
 
 // ============ ACARREO INTERFACES ============
