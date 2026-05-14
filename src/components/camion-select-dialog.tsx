@@ -100,7 +100,7 @@ export function CamionSelectDialog({
           variant={currentPlaca ? "outline" : "default"}
           className="w-full"
         >
-          <Truck className="h-4 w-4 mr-2" />
+          <Truck className={`h-4 w-4 ${(currentPlaca || buttonText) ? 'mr-2' : ''}`} />
           {currentPlaca || buttonText}
         </Button>
       </DialogTrigger>

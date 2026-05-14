@@ -27,6 +27,7 @@ export interface ManualRow {
   proyecto_id: number; // ID del proyecto (para enviar al backend)
   subproyecto_id: number; // ID del subproyecto (para enviar al backend)
   numero_orden?: string; // Número de orden para viaje activo
+  origen: string; // Empresa del camión (solo visualización, auto-llenado al seleccionar unidad)
 }
 
 // Interfaz para las filas de acarreo (misma estructura que ManualRow)

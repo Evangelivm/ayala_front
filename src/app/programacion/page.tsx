@@ -303,6 +303,7 @@ export default function ProgramacionPage() {
       proyecto_id: 0,
       subproyecto_id: 0,
       numero_orden: "",
+      origen: besco?.razon_social || "",
     };
     setManualRows([newRow, ...manualRows]);
   };
@@ -344,6 +345,7 @@ export default function ProgramacionPage() {
             unidad_id: camion.id_camion,
             apellidos_nombres: nombreCompleto,
             peso: capacidadTanque,
+            origen: camion.razon_social_empresa || "",
             // Autocompletar proveedor si el camión tiene empresa asignada
             proveedor: camion.razon_social_empresa || row.proveedor,
             proveedor_id: camion.empresa || row.proveedor_id,
@@ -1075,27 +1077,28 @@ export default function ProgramacionPage() {
                   </p>
                 </div>
               ) : (
-                <div className="rounded-md border">
-                  <Table className="w-full">
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[130px]">Acciones</TableHead>
                         <TableHead className="w-[180px]">Fecha</TableHead>
-                        <TableHead className="w-[140px]">Unidad</TableHead>
+                        <TableHead className="w-[100px]">Unidad</TableHead>
+                        <TableHead className="w-[220px]">Origen</TableHead>
                         <TableHead className="w-[280px]">Proveedor</TableHead>
                         <TableHead className="w-[220px]">
                           Apellidos y Nombres
                         </TableHead>
                         <TableHead className="w-[200px]">Proyecto</TableHead>
-                        <TableHead className="w-[180px]">
+                        <TableHead className="w-[160px]">
                           Programación
                         </TableHead>
-                        <TableHead className="w-[140px]">H.P</TableHead>
-                        <TableHead className="w-[180px]">Estado</TableHead>
-                        <TableHead className="w-[240px]">
-                          Ruta (Partida - Llegada)
+                        <TableHead className="w-[120px]">H.P</TableHead>
+                        <TableHead className="w-[160px]">Estado</TableHead>
+                        <TableHead className="w-[200px]">
+                          Ruta
                         </TableHead>
-                        <TableHead className="min-w-[300px]">
+                        <TableHead className="min-w-[200px]">
                           Comentario
                         </TableHead>
                       </TableRow>
@@ -1172,9 +1175,18 @@ export default function ProgramacionPage() {
                                 handleCamionSelect(row.id, camion)
                               }
                               currentPlaca={row.unidad}
-                              buttonText="Seleccionar Unidad"
+                              buttonText=""
                               empresas={empresas}
                               onCamionUpdated={loadCamiones}
+                            />
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Input
+                              type="text"
+                              value={row.origen || ""}
+                              placeholder="Auto desde unidad..."
+                              readOnly
+                              className="bg-slate-50 cursor-not-allowed text-slate-600 text-sm"
                             />
                           </TableCell>
                           <TableCell className="p-2">
@@ -1222,7 +1234,6 @@ export default function ProgramacionPage() {
                                 handleProyectoChange(row.id, id, type, "");
                               }}
                               onNameChange={(nombre) => {
-                                // Actualizar solo el nombre del proyecto/subproyecto
                                 setManualRows((prevRows) =>
                                   prevRows.map((r) =>
                                     r.id === row.id ? { ...r, proyecto: nombre } : r
@@ -1422,7 +1433,7 @@ export default function ProgramacionPage() {
                         <TableHead className="w-[60px]">ID</TableHead>
                         <TableHead className="w-[100px]">Fecha</TableHead>
                         <TableHead className="min-w-[120px]">Unidad</TableHead>
-                        <TableHead className="min-w-[150px]">Proveedor</TableHead>
+                        <TableHead className="min-w-[150px]">Origen</TableHead>
                         <TableHead className="min-w-[180px]">
                           Apellidos y Nombres
                         </TableHead>

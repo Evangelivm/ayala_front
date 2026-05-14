@@ -177,6 +177,7 @@ export default function AcarreoPage() {
       proyecto: "",
       proyecto_id: 0,
       subproyecto_id: 0,
+      origen: "",
     };
     setManualRows([newRow, ...manualRows]);
   };
