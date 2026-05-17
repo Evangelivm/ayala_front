@@ -70,7 +70,9 @@ import {
   facturaApi,
   adminLogsApi,
   usuariosApi,
+  guiasRemisionExtendidoApi,
   type ProgramacionTecnicaData,
+  type GuiaRemisionData,
   type OrdenCompraData,
   type OrdenServicioData,
   type FacturaData,
@@ -201,15 +203,22 @@ function ProgramacionTecnicaTab() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [identificadoresConGuia, setIdentificadoresConGuia] = useState<string[]>([]);
+  const [identificadoresConGuiaExtendida, setIdentificadoresConGuiaExtendida] = useState<string[]>([]);
+  const [guiasExtendidas, setGuiasExtendidas] = useState<Record<string, GuiaRemisionData[]>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const { addLog, clearLogs, getLogsFor, initLogs } = useBackendLogs<number>();
   const LIMIT = 20;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   useEffect(() => {
-    programacionApi
-      .getIdentificadoresConGuia()
-      .then(setIdentificadoresConGuia)
+    Promise.all([
+      programacionApi.getIdentificadoresConGuia(),
+      guiasRemisionExtendidoApi.getIdentificadoresExistentes(),
+    ])
+      .then(([idsNormal, idsExtendida]) => {
+        setIdentificadoresConGuia(idsNormal);
+        setIdentificadoresConGuiaExtendida(idsExtendida);
+      })
       .catch(() => {});
   }, []);
 
@@ -235,6 +244,28 @@ function ProgramacionTecnicaTab() {
     }, searchTerm ? 400 : 0);
     return () => clearTimeout(timer);
   }, [searchTerm, page]);
+
+  // Cargar guías extendidas para los registros visibles que las tengan
+  useEffect(() => {
+    if (data.length === 0 || identificadoresConGuiaExtendida.length === 0) return;
+    const conGuiaExtendida = data.filter(
+      (item) => item.identificador_unico && identificadoresConGuiaExtendida.includes(item.identificador_unico)
+    );
+    if (conGuiaExtendida.length === 0) return;
+    Promise.all(
+      conGuiaExtendida.map((item) =>
+        guiasRemisionExtendidoApi
+          .getByIdentificador(item.identificador_unico!)
+          .then((guias) => ({ id: item.identificador_unico!, guias }))
+      )
+    )
+      .then((results) => {
+        const next: Record<string, GuiaRemisionData[]> = {};
+        results.forEach(({ id, guias }) => { next[id] = guias; });
+        setGuiasExtendidas(next);
+      })
+      .catch(() => {});
+  }, [data, identificadoresConGuiaExtendida]);
 
   const handleGenerarGuia = (id: number) => {
     router.push(`/guia-remision?id=${id}`);
@@ -317,6 +348,9 @@ function ProgramacionTecnicaTab() {
 
   const hasGuiaEnProceso = (item: ProgramacionTecnicaData) =>
     !!(item.identificador_unico && identificadoresConGuia.includes(item.identificador_unico));
+
+  const hasGuiaExtendida = (item: ProgramacionTecnicaData) =>
+    !!(item.identificador_unico && identificadoresConGuiaExtendida.includes(item.identificador_unico));
 
   const activos = data.filter((i) => !i.deleted_at);
   const eliminados = data.filter((i) => i.deleted_at);
@@ -423,6 +457,23 @@ function ProgramacionTecnicaTab() {
                           </Badge>
                         )}
                       </div>
+                      {(hasGuiaEnProceso(item) || hasGuiaExtendida(item)) && (
+                        <div className="flex flex-col items-start min-w-[110px]">
+                          <span className="text-xs text-slate-500 font-medium">Tipo Guía</span>
+                          <div className="flex gap-1 flex-wrap">
+                            {hasGuiaEnProceso(item) && (
+                              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px] px-1.5 py-0">
+                                Normal
+                              </Badge>
+                            )}
+                            {hasGuiaExtendida(item) && (
+                              <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 text-[10px] px-1.5 py-0">
+                                Extendida
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -527,6 +578,73 @@ function ProgramacionTecnicaTab() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Guías Extendidas */}
+                    {item.identificador_unico &&
+                      guiasExtendidas[item.identificador_unico] &&
+                      guiasExtendidas[item.identificador_unico].length > 0 && (
+                      <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                        <h4 className="text-xs font-bold text-orange-700 mb-2 flex items-center gap-1">
+                          <FileText className="h-3 w-3" />
+                          Guías Extendidas ({guiasExtendidas[item.identificador_unico].length})
+                        </h4>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {guiasExtendidas[item.identificador_unico].map((guia, index) => {
+                            const hasLinks = !!(guia.enlace_del_pdf && guia.enlace_del_xml && guia.enlace_del_cdr);
+                            const isPending = guia.estado_gre === 'PENDIENTE' || guia.estado_gre === 'PROCESANDO' || !guia.estado_gre;
+                            const isFailed = guia.estado_gre === 'FALLADO';
+                            return (
+                              <div
+                                key={guia.id_guia}
+                                className={`bg-white rounded border p-2 ${
+                                  hasLinks ? 'border-green-200' : isPending ? 'border-cyan-200' : isFailed ? 'border-red-200' : 'border-slate-200'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs font-semibold text-slate-600">
+                                    Guía #{index + 1}: {guia.serie}-{String(guia.numero).padStart(4, '0')}
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs ${
+                                      hasLinks
+                                        ? 'bg-green-50 text-green-700 border-green-200'
+                                        : isPending
+                                        ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                                        : isFailed
+                                        ? 'bg-red-50 text-red-700 border-red-200'
+                                        : 'bg-slate-50 text-slate-700 border-slate-200'
+                                    }`}
+                                  >
+                                    {hasLinks ? 'Completada' : isPending ? 'Procesando' : isFailed ? 'Fallida' : 'Pendiente'}
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {guia.enlace_del_pdf ? (
+                                    <Button size="sm" variant="outline" onClick={() => window.open(guia.enlace_del_pdf!, "_blank")}
+                                      className="h-6 px-2 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200">
+                                      <Download className="h-3 w-3 mr-1" /> PDF
+                                    </Button>
+                                  ) : <span className="text-xs text-slate-400 px-1">-</span>}
+                                  {guia.enlace_del_xml ? (
+                                    <Button size="sm" variant="outline" onClick={() => window.open(guia.enlace_del_xml!, "_blank")}
+                                      className="h-6 px-2 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200">
+                                      <Download className="h-3 w-3 mr-1" /> XML
+                                    </Button>
+                                  ) : <span className="text-xs text-slate-400 px-1">-</span>}
+                                  {guia.enlace_del_cdr ? (
+                                    <Button size="sm" variant="outline" onClick={() => window.open(guia.enlace_del_cdr!, "_blank")}
+                                      className="h-6 px-2 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200">
+                                      <Download className="h-3 w-3 mr-1" /> CDR
+                                    </Button>
+                                  ) : <span className="text-xs text-slate-400 px-1">-</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     <BackendLogPanel
                       logs={getLogsFor(item.id)}
