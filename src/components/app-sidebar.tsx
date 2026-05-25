@@ -73,6 +73,12 @@ const menuItems = [
         isActive: false,
       },
       {
+        title: "Programación Mixta",
+        url: "/programacion-mixta",
+        icon: TrendingUp,
+        isActive: false,
+      },
+      {
         title: "Orden de Compra",
         url: "/orden-compra",
         icon: ShoppingCart,

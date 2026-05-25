@@ -2653,6 +2653,24 @@ export const programacionApi = {
       throw new Error("Error al exportar el archivo Excel");
     }
   },
+
+  exportarExcelMixto: async (filtros?: {
+    proveedores?: string[];
+    fechaDesde?: string;
+    fechaHasta?: string;
+  }): Promise<ArrayBuffer> => {
+    try {
+      const response = await api.post(
+        "/programacion/exportar-excel-mixto",
+        filtros || {},
+        { responseType: "arraybuffer", timeout: 60000 },
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Exportar Excel Mixto API error:", error);
+      throw new Error("Error al exportar el archivo Excel mixto");
+    }
+  },
 };
 
 // ============ ACARREO INTERFACES ============
