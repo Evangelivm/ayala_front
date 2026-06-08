@@ -194,6 +194,193 @@ function BackendLogPanel({
   );
 }
 
+// ─── Dialog: Editar Registro de Programación Técnica ────────────────────────
+
+const ESTADOS_PROGRAMACION = ["OK", "NO EJECUTADO", "PENDIENTE", "EN PROCESO"];
+
+function ProgramacionTecnicaEditDialog({
+  item,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  item: ProgramacionTecnicaData | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSaved: (updated: Partial<ProgramacionTecnicaData>) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    fecha: "",
+    hora_partida: "",
+    estado_programacion: "",
+    proveedor: "",
+    m3: "",
+    cantidad_viaje: "",
+    comentarios: "",
+  });
+
+  useEffect(() => {
+    if (!item) return;
+    setForm({
+      fecha: item.fecha ? item.fecha.slice(0, 10) : "",
+      hora_partida: item.hora_partida ? item.hora_partida.slice(0, 5) : "",
+      estado_programacion: item.estado_programacion ?? "",
+      proveedor: item.proveedor ?? "",
+      m3: item.m3 ?? "",
+      cantidad_viaje: item.cantidad_viaje ?? "",
+      comentarios: item.comentarios ?? "",
+    });
+  }, [item]);
+
+  const handleSave = async () => {
+    if (!item) return;
+    setSaving(true);
+    try {
+      await programacionApi.updateTecnica(item.id, {
+        fecha: form.fecha || null,
+        hora_partida: form.hora_partida || null,
+        estado_programacion: form.estado_programacion || null,
+        proveedor: form.proveedor || null,
+        m3: form.m3 || null,
+        cantidad_viaje: form.cantidad_viaje || null,
+        comentarios: form.comentarios || null,
+      });
+      toast.success("Registro actualizado correctamente");
+      onSaved({
+        fecha: form.fecha || null,
+        hora_partida: form.hora_partida || null,
+        estado_programacion: form.estado_programacion || null,
+        proveedor: form.proveedor || null,
+        m3: form.m3 || null,
+        cantidad_viaje: form.cantidad_viaje || null,
+        comentarios: form.comentarios || null,
+      });
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const set = (field: keyof typeof form) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Edit className="h-5 w-5 text-blue-600" />
+            Editar Registro #{item?.id}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="pt-fecha">Fecha</Label>
+              <Input
+                id="pt-fecha"
+                type="date"
+                value={form.fecha}
+                onChange={set("fecha")}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pt-hora">Hora de Partida</Label>
+              <Input
+                id="pt-hora"
+                type="time"
+                value={form.hora_partida}
+                onChange={set("hora_partida")}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="pt-estado">Estado de Programación</Label>
+            <Select
+              value={form.estado_programacion}
+              onValueChange={(v) => setForm((prev) => ({ ...prev, estado_programacion: v }))}
+            >
+              <SelectTrigger id="pt-estado">
+                <SelectValue placeholder="Seleccionar estado..." />
+              </SelectTrigger>
+              <SelectContent>
+                {ESTADOS_PROGRAMACION.map((e) => (
+                  <SelectItem key={e} value={e}>{e}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="pt-proveedor">Proveedor</Label>
+            <Input
+              id="pt-proveedor"
+              value={form.proveedor}
+              onChange={set("proveedor")}
+              placeholder="Nombre del proveedor"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="pt-m3">M³</Label>
+              <Input
+                id="pt-m3"
+                type="number"
+                step="0.01"
+                value={form.m3}
+                onChange={set("m3")}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pt-viajes">Cant. Viajes</Label>
+              <Input
+                id="pt-viajes"
+                type="number"
+                value={form.cantidad_viaje}
+                onChange={set("cantidad_viaje")}
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="pt-comentarios">Comentarios</Label>
+            <textarea
+              id="pt-comentarios"
+              value={form.comentarios}
+              onChange={set("comentarios")}
+              rows={3}
+              placeholder="Comentarios adicionales..."
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
+              {saving ? (
+                <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Guardando...</>
+              ) : (
+                <><CheckCircle2 className="h-4 w-4 mr-2" /> Guardar Cambios</>
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Tab: Programación Técnica ──────────────────────────────────────────────
 
 function ProgramacionTecnicaTab() {
@@ -206,6 +393,8 @@ function ProgramacionTecnicaTab() {
   const [identificadoresConGuiaExtendida, setIdentificadoresConGuiaExtendida] = useState<string[]>([]);
   const [guiasExtendidas, setGuiasExtendidas] = useState<Record<string, GuiaRemisionData[]>>({});
   const [searchTerm, setSearchTerm] = useState("");
+  const [editItem, setEditItem] = useState<ProgramacionTecnicaData | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const { addLog, clearLogs, getLogsFor, initLogs } = useBackendLogs<number>();
   const LIMIT = 20;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
@@ -662,6 +851,9 @@ function ProgramacionTecnicaTab() {
                               <ExternalLink className="h-4 w-4 mr-2" /> Recuperar Archivos
                             </Button>
                           )}
+                          <Button size="sm" variant="outline" onClick={() => { setEditItem(item); setIsEditOpen(true); }} className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300">
+                            <Edit className="h-4 w-4 mr-2" /> Editar Registro
+                          </Button>
                           <Button size="sm" variant="outline" onClick={() => handleEliminar(item)} className="bg-white hover:bg-red-50 text-red-700 border-red-300 ml-auto">
                             <Trash2 className="h-4 w-4 mr-2" /> Eliminar Registro
                           </Button>
@@ -705,6 +897,17 @@ function ProgramacionTecnicaTab() {
           </Button>
         </div>
       )}
+
+      <ProgramacionTecnicaEditDialog
+        item={editItem}
+        open={isEditOpen}
+        onOpenChange={(v) => { setIsEditOpen(v); if (!v) setEditItem(null); }}
+        onSaved={(updated) => {
+          setData((prev) =>
+            prev.map((r) => (r.id === editItem?.id ? { ...r, ...updated } : r))
+          );
+        }}
+      />
     </div>
   );
 }

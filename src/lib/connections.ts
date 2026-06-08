@@ -2342,7 +2342,7 @@ export const programacionApi = {
     }
   },
 
-  // Actualizar programación técnica con IDs de proyecto
+  // Actualizar programación técnica con IDs de proyecto y campos editables
   updateTecnica: async (
     id: number,
     data: {
@@ -2356,7 +2356,13 @@ export const programacionApi = {
       id_subsector?: number;
       id_subfrente?: number;
       id_subpartida?: number;
-      m3?: string;
+      m3?: string | null;
+      estado_programacion?: string | null;
+      comentarios?: string | null;
+      cantidad_viaje?: string | null;
+      proveedor?: string | null;
+      fecha?: string | null;
+      hora_partida?: string | null;
     }
   ): Promise<{ message: string }> => {
     try {
