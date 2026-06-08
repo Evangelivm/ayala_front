@@ -71,6 +71,8 @@ import {
   adminLogsApi,
   usuariosApi,
   guiasRemisionExtendidoApi,
+  camionesApi,
+  empresasApi,
   type ProgramacionTecnicaData,
   type GuiaRemisionData,
   type OrdenCompraData,
@@ -78,6 +80,8 @@ import {
   type FacturaData,
   type NestLogEntry,
   type UsuarioSistema,
+  type CamionData,
+  type EmpresaData,
 } from "@/lib/connections";
 import { OrdenEditDialog } from "@/components/orden-edit-dialog";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
@@ -210,51 +214,102 @@ function ProgramacionTecnicaEditDialog({
   onSaved: (updated: Partial<ProgramacionTecnicaData>) => void;
 }) {
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    fecha: "",
-    hora_partida: "",
-    estado_programacion: "",
-    proveedor: "",
-    m3: "",
-    cantidad_viaje: "",
-    comentarios: "",
+  const [camiones, setCamiones] = useState<CamionData[]>([]);
+  const [empresas, setEmpresas] = useState<EmpresaData[]>([]);
+  const [loadingCatalogos, setLoadingCatalogos] = useState(false);
+  const [camionSearch, setCamionSearch] = useState("");
+  const [empresaSearch, setEmpresaSearch] = useState("");
+
+  // Campos del formulario
+  const [fecha, setFecha] = useState("");
+  const [horaPartida, setHoraPartida] = useState("");
+  const [estadoProgramacion, setEstadoProgramacion] = useState("");
+  const [selectedCamionId, setSelectedCamionId] = useState<number | null>(null);
+  const [selectedEmpresaCodigo, setSelectedEmpresaCodigo] = useState<string | null>(null);
+  const [m3, setM3] = useState("");
+  const [cantidadViaje, setCantidadViaje] = useState("");
+  const [comentarios, setComentarios] = useState("");
+
+  // Cargar catálogos y pre-poblar form al abrir
+  useEffect(() => {
+    if (!open || !item) return;
+
+    setFecha(item.fecha ? item.fecha.slice(0, 10) : "");
+    setHoraPartida(item.hora_partida ? item.hora_partida.slice(0, 5) : "");
+    setEstadoProgramacion(item.estado_programacion ?? "");
+    setM3(item.m3 ?? "");
+    setCantidadViaje(item.cantidad_viaje ?? "");
+    setComentarios(item.comentarios ?? "");
+    setCamionSearch("");
+    setEmpresaSearch("");
+
+    setLoadingCatalogos(true);
+    Promise.all([camionesApi.getAll(), empresasApi.getAll()])
+      .then(([cams, emps]) => {
+        setCamiones(cams);
+        setEmpresas(emps);
+        // Pre-seleccionar camión buscando por placa (item.unidad es la placa en el display)
+        const camionActual = cams.find(
+          (c) => c.placa?.toUpperCase() === item.unidad?.toUpperCase()
+        );
+        setSelectedCamionId(camionActual?.id_camion ?? null);
+        // Pre-seleccionar empresa buscando por razon_social (item.proveedor es razon_social en el display)
+        const empresaActual = emps.find(
+          (e) => e.razon_social?.toLowerCase() === item.proveedor?.toLowerCase()
+        );
+        setSelectedEmpresaCodigo(empresaActual?.codigo ?? null);
+      })
+      .catch(() => toast.error("Error al cargar catálogos"))
+      .finally(() => setLoadingCatalogos(false));
+  }, [open, item]);
+
+  const camionsFiltrados = camiones.filter((c) => {
+    const q = camionSearch.toLowerCase();
+    if (!q) return true;
+    const nombre = `${c.nombre_chofer ?? ""} ${c.apellido_chofer ?? ""}`.toLowerCase();
+    return c.placa?.toLowerCase().includes(q) || nombre.includes(q);
   });
 
-  useEffect(() => {
-    if (!item) return;
-    setForm({
-      fecha: item.fecha ? item.fecha.slice(0, 10) : "",
-      hora_partida: item.hora_partida ? item.hora_partida.slice(0, 5) : "",
-      estado_programacion: item.estado_programacion ?? "",
-      proveedor: item.proveedor ?? "",
-      m3: item.m3 ?? "",
-      cantidad_viaje: item.cantidad_viaje ?? "",
-      comentarios: item.comentarios ?? "",
-    });
-  }, [item]);
+  const empresasFiltradas = empresas.filter((e) => {
+    const q = empresaSearch.toLowerCase();
+    if (!q) return true;
+    return (
+      e.razon_social?.toLowerCase().includes(q) ||
+      e.codigo?.toLowerCase().includes(q)
+    );
+  });
+
+  const camionSeleccionado = camiones.find((c) => c.id_camion === selectedCamionId);
+  const empresaSeleccionada = empresas.find((e) => e.codigo === selectedEmpresaCodigo);
 
   const handleSave = async () => {
     if (!item) return;
     setSaving(true);
     try {
       await programacionApi.updateTecnica(item.id, {
-        fecha: form.fecha || null,
-        hora_partida: form.hora_partida || null,
-        estado_programacion: form.estado_programacion || null,
-        proveedor: form.proveedor || null,
-        m3: form.m3 || null,
-        cantidad_viaje: form.cantidad_viaje || null,
-        comentarios: form.comentarios || null,
+        fecha: fecha || null,
+        hora_partida: horaPartida || null,
+        estado_programacion: estadoProgramacion || null,
+        unidad: selectedCamionId ?? null,
+        proveedor: selectedEmpresaCodigo ?? null,
+        m3: m3 || null,
+        cantidad_viaje: cantidadViaje || null,
+        comentarios: comentarios || null,
       });
       toast.success("Registro actualizado correctamente");
       onSaved({
-        fecha: form.fecha || null,
-        hora_partida: form.hora_partida || null,
-        estado_programacion: form.estado_programacion || null,
-        proveedor: form.proveedor || null,
-        m3: form.m3 || null,
-        cantidad_viaje: form.cantidad_viaje || null,
-        comentarios: form.comentarios || null,
+        fecha: fecha || null,
+        hora_partida: horaPartida || null,
+        estado_programacion: estadoProgramacion || null,
+        unidad: camionSeleccionado?.placa ?? item.unidad,
+        apellidos_nombres: camionSeleccionado
+          ? [camionSeleccionado.nombre_chofer, camionSeleccionado.apellido_chofer]
+              .filter(Boolean).join(" ") || item.apellidos_nombres
+          : item.apellidos_nombres,
+        proveedor: empresaSeleccionada?.razon_social ?? item.proveedor,
+        m3: m3 || null,
+        cantidad_viaje: cantidadViaje || null,
+        comentarios: comentarios || null,
       });
       onOpenChange(false);
     } catch (error) {
@@ -264,13 +319,9 @@ function ProgramacionTecnicaEditDialog({
     }
   };
 
-  const set = (field: keyof typeof form) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Edit className="h-5 w-5 text-blue-600" />
@@ -279,34 +330,23 @@ function ProgramacionTecnicaEditDialog({
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
+          {/* Fecha y Hora */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="pt-fecha">Fecha</Label>
-              <Input
-                id="pt-fecha"
-                type="date"
-                value={form.fecha}
-                onChange={set("fecha")}
-              />
+              <Input id="pt-fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="pt-hora">Hora de Partida</Label>
-              <Input
-                id="pt-hora"
-                type="time"
-                value={form.hora_partida}
-                onChange={set("hora_partida")}
-              />
+              <Input id="pt-hora" type="time" value={horaPartida} onChange={(e) => setHoraPartida(e.target.value)} />
             </div>
           </div>
 
+          {/* Estado */}
           <div className="space-y-1">
-            <Label htmlFor="pt-estado">Estado de Programación</Label>
-            <Select
-              value={form.estado_programacion}
-              onValueChange={(v) => setForm((prev) => ({ ...prev, estado_programacion: v }))}
-            >
-              <SelectTrigger id="pt-estado">
+            <Label>Estado de Programación</Label>
+            <Select value={estadoProgramacion} onValueChange={setEstadoProgramacion}>
+              <SelectTrigger>
                 <SelectValue placeholder="Seleccionar estado..." />
               </SelectTrigger>
               <SelectContent>
@@ -317,16 +357,107 @@ function ProgramacionTecnicaEditDialog({
             </Select>
           </div>
 
+          {/* Camión / Conductor */}
           <div className="space-y-1">
-            <Label htmlFor="pt-proveedor">Proveedor</Label>
-            <Input
-              id="pt-proveedor"
-              value={form.proveedor}
-              onChange={set("proveedor")}
-              placeholder="Nombre del proveedor"
-            />
+            <Label>Unidad / Conductor</Label>
+            {loadingCatalogos ? (
+              <div className="h-9 flex items-center gap-2 text-sm text-slate-500">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Cargando...
+              </div>
+            ) : (
+              <div className="border rounded-md p-2 space-y-2 bg-white">
+                {camionSeleccionado && (
+                  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded px-2 py-1 text-xs">
+                    <span className="font-semibold text-blue-700">
+                      {camionSeleccionado.placa} — {camionSeleccionado.nombre_chofer} {camionSeleccionado.apellido_chofer}
+                    </span>
+                    <button
+                      onClick={() => setSelectedCamionId(null)}
+                      className="text-slate-400 hover:text-red-500 ml-2"
+                    >✕</button>
+                  </div>
+                )}
+                <Input
+                  placeholder="Buscar por placa o nombre del chofer..."
+                  value={camionSearch}
+                  onChange={(e) => setCamionSearch(e.target.value)}
+                  className="h-7 text-xs"
+                />
+                {camionSearch && (
+                  <div className="max-h-32 overflow-y-auto space-y-0.5">
+                    {camionsFiltrados.slice(0, 20).map((c) => (
+                      <button
+                        key={c.id_camion}
+                        onClick={() => { setSelectedCamionId(c.id_camion); setCamionSearch(""); }}
+                        className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-blue-50 transition-colors ${
+                          selectedCamionId === c.id_camion ? "bg-blue-100 text-blue-700 font-semibold" : ""
+                        }`}
+                      >
+                        <span className="font-mono font-bold">{c.placa}</span>
+                        {" — "}
+                        {c.nombre_chofer} {c.apellido_chofer}
+                        {c.empresa && <span className="text-slate-400 ml-1">({c.empresa})</span>}
+                      </button>
+                    ))}
+                    {camionsFiltrados.length === 0 && (
+                      <p className="text-xs text-slate-400 px-2 py-1">Sin resultados</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
+          {/* Empresa / Proveedor */}
+          <div className="space-y-1">
+            <Label>Empresa / Proveedor</Label>
+            {loadingCatalogos ? (
+              <div className="h-9 flex items-center gap-2 text-sm text-slate-500">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Cargando...
+              </div>
+            ) : (
+              <div className="border rounded-md p-2 space-y-2 bg-white">
+                {empresaSeleccionada && (
+                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded px-2 py-1 text-xs">
+                    <span className="font-semibold text-emerald-700">
+                      {empresaSeleccionada.razon_social} <span className="text-slate-400 font-normal">({empresaSeleccionada.codigo})</span>
+                    </span>
+                    <button
+                      onClick={() => setSelectedEmpresaCodigo(null)}
+                      className="text-slate-400 hover:text-red-500 ml-2"
+                    >✕</button>
+                  </div>
+                )}
+                <Input
+                  placeholder="Buscar por razón social o código..."
+                  value={empresaSearch}
+                  onChange={(e) => setEmpresaSearch(e.target.value)}
+                  className="h-7 text-xs"
+                />
+                {empresaSearch && (
+                  <div className="max-h-32 overflow-y-auto space-y-0.5">
+                    {empresasFiltradas.slice(0, 20).map((e) => (
+                      <button
+                        key={e.codigo}
+                        onClick={() => { setSelectedEmpresaCodigo(e.codigo); setEmpresaSearch(""); }}
+                        className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-emerald-50 transition-colors ${
+                          selectedEmpresaCodigo === e.codigo ? "bg-emerald-100 text-emerald-700 font-semibold" : ""
+                        }`}
+                      >
+                        {e.razon_social}
+                        <span className="text-slate-400 ml-1 font-mono">({e.codigo})</span>
+                      </button>
+                    ))}
+                    {empresasFiltradas.length === 0 && (
+                      <p className="text-xs text-slate-400 px-2 py-1">Sin resultados</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* M3 y Viajes */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="pt-m3">M³</Label>
@@ -334,8 +465,8 @@ function ProgramacionTecnicaEditDialog({
                 id="pt-m3"
                 type="number"
                 step="0.01"
-                value={form.m3}
-                onChange={set("m3")}
+                value={m3}
+                onChange={(e) => setM3(e.target.value)}
                 placeholder="0.00"
               />
             </div>
@@ -344,19 +475,20 @@ function ProgramacionTecnicaEditDialog({
               <Input
                 id="pt-viajes"
                 type="number"
-                value={form.cantidad_viaje}
-                onChange={set("cantidad_viaje")}
+                value={cantidadViaje}
+                onChange={(e) => setCantidadViaje(e.target.value)}
                 placeholder="0"
               />
             </div>
           </div>
 
+          {/* Comentarios */}
           <div className="space-y-1">
             <Label htmlFor="pt-comentarios">Comentarios</Label>
             <textarea
               id="pt-comentarios"
-              value={form.comentarios}
-              onChange={set("comentarios")}
+              value={comentarios}
+              onChange={(e) => setComentarios(e.target.value)}
               rows={3}
               placeholder="Comentarios adicionales..."
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
@@ -367,7 +499,7 @@ function ProgramacionTecnicaEditDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Button onClick={handleSave} disabled={saving || loadingCatalogos} className="bg-blue-600 hover:bg-blue-700 text-white">
               {saving ? (
                 <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Guardando...</>
               ) : (
