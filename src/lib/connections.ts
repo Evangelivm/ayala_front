@@ -2346,16 +2346,16 @@ export const programacionApi = {
   updateTecnica: async (
     id: number,
     data: {
-      id_proyecto?: number;
-      id_etapa?: number;
-      id_sector?: number;
-      id_frente?: number;
-      id_partida?: number;
-      id_subproyecto?: number;
-      id_subetapa?: number;
-      id_subsector?: number;
-      id_subfrente?: number;
-      id_subpartida?: number;
+      id_proyecto?: number | null;
+      id_etapa?: number | null;
+      id_sector?: number | null;
+      id_frente?: number | null;
+      id_partida?: number | null;
+      id_subproyecto?: number | null;
+      id_subetapa?: number | null;
+      id_subsector?: number | null;
+      id_subfrente?: number | null;
+      id_subpartida?: number | null;
       m3?: string | null;
       estado_programacion?: string | null;
       comentarios?: string | null;
