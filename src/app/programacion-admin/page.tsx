@@ -223,6 +223,7 @@ function ProgramacionTecnicaEditDialog({
   // Campos del formulario
   const [fecha, setFecha] = useState("");
   const [horaPartida, setHoraPartida] = useState("");
+  const [horaPartidaModified, setHoraPartidaModified] = useState(false);
   const [estadoProgramacion, setEstadoProgramacion] = useState("");
   const [selectedCamionId, setSelectedCamionId] = useState<number | null>(null);
   const [selectedEmpresaCodigo, setSelectedEmpresaCodigo] = useState<string | null>(null);
@@ -236,6 +237,7 @@ function ProgramacionTecnicaEditDialog({
 
     setFecha(item.fecha ? item.fecha.slice(0, 10) : "");
     setHoraPartida(item.hora_partida ? formatTimePeru(item.hora_partida) : "");
+    setHoraPartidaModified(false);
     setEstadoProgramacion(item.estado_programacion ?? "");
     setM3(item.m3 ?? "");
     setCantidadViaje(item.cantidad_viaje ?? "");
@@ -288,7 +290,7 @@ function ProgramacionTecnicaEditDialog({
     try {
       await programacionApi.updateTecnica(item.id, {
         fecha: fecha || null,
-        hora_partida: horaPartida || null,
+        ...(horaPartidaModified && { hora_partida: horaPartida || null }),
         estado_programacion: estadoProgramacion || null,
         unidad: selectedCamionId ?? null,
         proveedor: selectedEmpresaCodigo ?? null,
@@ -338,7 +340,7 @@ function ProgramacionTecnicaEditDialog({
             </div>
             <div className="space-y-1">
               <Label htmlFor="pt-hora">Hora de Partida</Label>
-              <Input id="pt-hora" type="time" value={horaPartida} onChange={(e) => setHoraPartida(e.target.value)} />
+              <Input id="pt-hora" type="time" value={horaPartida} onChange={(e) => { setHoraPartida(e.target.value); setHoraPartidaModified(true); }} />
             </div>
           </div>
 
