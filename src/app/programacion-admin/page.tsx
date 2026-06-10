@@ -235,7 +235,7 @@ function ProgramacionTecnicaEditDialog({
     if (!open || !item) return;
 
     setFecha(item.fecha ? item.fecha.slice(0, 10) : "");
-    setHoraPartida(item.hora_partida ? item.hora_partida.slice(0, 5) : "");
+    setHoraPartida(item.hora_partida ? formatTimePeru(item.hora_partida) : "");
     setEstadoProgramacion(item.estado_programacion ?? "");
     setM3(item.m3 ?? "");
     setCantidadViaje(item.cantidad_viaje ?? "");
