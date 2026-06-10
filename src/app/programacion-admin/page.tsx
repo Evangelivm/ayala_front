@@ -85,6 +85,15 @@ import {
 } from "@/lib/connections";
 import { OrdenEditDialog } from "@/components/orden-edit-dialog";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
+import { ProyectoSelect } from "@/components/proyecto-select";
+import { EtapaSelect } from "@/components/etapa-select";
+import { SectorSelect } from "@/components/sector-select";
+import { FrenteSelectBySector } from "@/components/frente-select-by-sector";
+import { PartidaSelect } from "@/components/partida-select";
+import { SubEtapaSelect } from "@/components/subetapa-select";
+import { SubsectorSelect } from "@/components/subsector-select";
+import { SubfrenteSelect } from "@/components/subfrente-select";
+import { SubpartidaSelect } from "@/components/subpartida-select";
 
 // ─── Tipo para logs de respuesta del backend ────────────────────────────────
 
@@ -225,11 +234,24 @@ function ProgramacionTecnicaEditDialog({
   const [horaPartida, setHoraPartida] = useState("");
   const [horaPartidaModified, setHoraPartidaModified] = useState(false);
   const [estadoProgramacion, setEstadoProgramacion] = useState("");
+  const [programacion, setProgramacion] = useState("");
   const [selectedCamionId, setSelectedCamionId] = useState<number | null>(null);
   const [selectedEmpresaCodigo, setSelectedEmpresaCodigo] = useState<string | null>(null);
   const [m3, setM3] = useState("");
   const [cantidadViaje, setCantidadViaje] = useState("");
   const [comentarios, setComentarios] = useState("");
+  // Proyecto
+  const [selectionType, setSelectionType] = useState<"proyecto" | "subproyecto" | null>(null);
+  const [idProyecto, setIdProyecto] = useState<number | undefined>(undefined);
+  const [idEtapa, setIdEtapa] = useState<number | undefined>(undefined);
+  const [idSector, setIdSector] = useState<number | undefined>(undefined);
+  const [idFrente, setIdFrente] = useState<number | undefined>(undefined);
+  const [idPartida, setIdPartida] = useState<number | undefined>(undefined);
+  const [idSubproyecto, setIdSubproyecto] = useState<number | undefined>(undefined);
+  const [idSubetapa, setIdSubetapa] = useState<number | undefined>(undefined);
+  const [idSubsector, setIdSubsector] = useState<number | undefined>(undefined);
+  const [idSubfrente, setIdSubfrente] = useState<number | undefined>(undefined);
+  const [idSubpartida, setIdSubpartida] = useState<number | undefined>(undefined);
 
   // Cargar catálogos y pre-poblar form al abrir
   useEffect(() => {
@@ -239,11 +261,34 @@ function ProgramacionTecnicaEditDialog({
     setHoraPartida(item.hora_partida ? formatTimePeru(item.hora_partida) : "");
     setHoraPartidaModified(false);
     setEstadoProgramacion(item.estado_programacion ?? "");
+    setProgramacion(item.programacion ?? "");
     setM3(item.m3 ?? "");
     setCantidadViaje(item.cantidad_viaje ?? "");
     setComentarios(item.comentarios ?? "");
     setCamionSearch("");
     setEmpresaSearch("");
+    // Proyecto en cascada
+    if (item.id_subproyecto) {
+      setSelectionType("subproyecto");
+      setIdSubproyecto(item.id_subproyecto);
+      setIdSubetapa(item.id_subetapa ?? undefined);
+      setIdSubsector(item.id_subsector ?? undefined);
+      setIdSubfrente(item.id_subfrente ?? undefined);
+      setIdSubpartida(item.id_subpartida ?? undefined);
+      setIdProyecto(undefined); setIdEtapa(undefined); setIdSector(undefined); setIdFrente(undefined); setIdPartida(undefined);
+    } else if (item.id_proyecto) {
+      setSelectionType("proyecto");
+      setIdProyecto(item.id_proyecto);
+      setIdEtapa(item.id_etapa ?? undefined);
+      setIdSector(item.id_sector ?? undefined);
+      setIdFrente(item.id_frente ?? undefined);
+      setIdPartida(item.id_partida ?? undefined);
+      setIdSubproyecto(undefined); setIdSubetapa(undefined); setIdSubsector(undefined); setIdSubfrente(undefined); setIdSubpartida(undefined);
+    } else {
+      setSelectionType(null);
+      setIdProyecto(undefined); setIdEtapa(undefined); setIdSector(undefined); setIdFrente(undefined); setIdPartida(undefined);
+      setIdSubproyecto(undefined); setIdSubetapa(undefined); setIdSubsector(undefined); setIdSubfrente(undefined); setIdSubpartida(undefined);
+    }
 
     setLoadingCatalogos(true);
     Promise.all([camionesApi.getAll(), empresasApi.getAll()])
@@ -292,11 +337,22 @@ function ProgramacionTecnicaEditDialog({
         fecha: fecha || null,
         ...(horaPartidaModified && { hora_partida: horaPartida || null }),
         estado_programacion: estadoProgramacion || null,
+        programacion: programacion || null,
         unidad: selectedCamionId ?? null,
         proveedor: selectedEmpresaCodigo ?? null,
         m3: m3 || null,
         cantidad_viaje: cantidadViaje || null,
         comentarios: comentarios || null,
+        id_proyecto: selectionType === "proyecto" ? (idProyecto ?? null) : null,
+        id_etapa: selectionType === "proyecto" ? (idEtapa ?? null) : null,
+        id_sector: selectionType === "proyecto" ? (idSector ?? null) : null,
+        id_frente: selectionType === "proyecto" ? (idFrente ?? null) : null,
+        id_partida: selectionType === "proyecto" ? (idPartida ?? null) : null,
+        id_subproyecto: selectionType === "subproyecto" ? (idSubproyecto ?? null) : null,
+        id_subetapa: selectionType === "subproyecto" ? (idSubetapa ?? null) : null,
+        id_subsector: selectionType === "subproyecto" ? (idSubsector ?? null) : null,
+        id_subfrente: selectionType === "subproyecto" ? (idSubfrente ?? null) : null,
+        id_subpartida: selectionType === "subproyecto" ? (idSubpartida ?? null) : null,
       });
       toast.success("Registro actualizado correctamente");
       onSaved({
@@ -344,19 +400,30 @@ function ProgramacionTecnicaEditDialog({
             </div>
           </div>
 
-          {/* Estado */}
-          <div className="space-y-1">
-            <Label>Estado de Programación</Label>
-            <Select value={estadoProgramacion} onValueChange={setEstadoProgramacion}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar estado..." />
-              </SelectTrigger>
-              <SelectContent>
-                {ESTADOS_PROGRAMACION.map((e) => (
-                  <SelectItem key={e} value={e}>{e}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Estado y Programación */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Estado de Programación</Label>
+              <Select value={estadoProgramacion} onValueChange={setEstadoProgramacion}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar estado..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {ESTADOS_PROGRAMACION.map((e) => (
+                    <SelectItem key={e} value={e}>{e}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pt-programacion">Programación</Label>
+              <Input
+                id="pt-programacion"
+                value={programacion}
+                onChange={(e) => setProgramacion(e.target.value)}
+                placeholder="Ruta / descripción..."
+              />
+            </div>
           </div>
 
           {/* Camión / Conductor */}
@@ -453,6 +520,87 @@ function ProgramacionTecnicaEditDialog({
                     {empresasFiltradas.length === 0 && (
                       <p className="text-xs text-slate-400 px-2 py-1">Sin resultados</p>
                     )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Proyecto */}
+          <div className="space-y-2 rounded-md border p-3 bg-slate-50">
+            <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Proyecto</Label>
+            <ProyectoSelect
+              value={
+                selectionType === "proyecto" && idProyecto
+                  ? `p-${idProyecto}`
+                  : selectionType === "subproyecto" && idSubproyecto
+                  ? `s-${idSubproyecto}`
+                  : ""
+              }
+              onChange={(id, type) => {
+                setSelectionType(type);
+                if (type === "proyecto") {
+                  setIdProyecto(id); setIdEtapa(undefined); setIdSector(undefined); setIdFrente(undefined); setIdPartida(undefined);
+                  setIdSubproyecto(undefined); setIdSubetapa(undefined); setIdSubsector(undefined); setIdSubfrente(undefined); setIdSubpartida(undefined);
+                } else {
+                  setIdSubproyecto(id); setIdSubetapa(undefined); setIdSubsector(undefined); setIdSubfrente(undefined); setIdSubpartida(undefined);
+                  setIdProyecto(undefined); setIdEtapa(undefined); setIdSector(undefined); setIdFrente(undefined); setIdPartida(undefined);
+                }
+              }}
+              placeholder="Seleccionar proyecto o subproyecto..."
+            />
+
+            {/* Flujo Proyecto */}
+            {selectionType === "proyecto" && idProyecto && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Etapa</Label>
+                  <EtapaSelect idProyecto={idProyecto} value={idEtapa} onChange={(id) => { setIdEtapa(id); setIdSector(undefined); setIdFrente(undefined); setIdPartida(undefined); }} />
+                </div>
+                {idEtapa && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Sector</Label>
+                    <SectorSelect idEtapa={idEtapa} value={idSector} onChange={(id) => { setIdSector(id); setIdFrente(undefined); setIdPartida(undefined); }} />
+                  </div>
+                )}
+                {idSector && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Frente</Label>
+                    <FrenteSelectBySector idSector={idSector} value={idFrente} onChange={(id) => { setIdFrente(id); setIdPartida(undefined); }} />
+                  </div>
+                )}
+                {idFrente && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Partida</Label>
+                    <PartidaSelect idFrente={idFrente} value={idPartida} onChange={(id) => setIdPartida(id)} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Flujo Subproyecto */}
+            {selectionType === "subproyecto" && idSubproyecto && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Sub-Etapa</Label>
+                  <SubEtapaSelect idSubproyecto={idSubproyecto} value={idSubetapa} onChange={(id) => { setIdSubetapa(id); setIdSubsector(undefined); setIdSubfrente(undefined); setIdSubpartida(undefined); }} />
+                </div>
+                {idSubetapa && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Subsector</Label>
+                    <SubsectorSelect idSubEtapa={idSubetapa} value={idSubsector} onChange={(id) => { setIdSubsector(id); setIdSubfrente(undefined); setIdSubpartida(undefined); }} />
+                  </div>
+                )}
+                {idSubsector && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Subfrente</Label>
+                    <SubfrenteSelect idSubsector={idSubsector} value={idSubfrente} onChange={(id) => { setIdSubfrente(id); setIdSubpartida(undefined); }} />
+                  </div>
+                )}
+                {idSubfrente && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Subpartida</Label>
+                    <SubpartidaSelect idSubfrente={idSubfrente} value={idSubpartida} onChange={(id) => setIdSubpartida(id)} />
                   </div>
                 )}
               </div>

@@ -2364,6 +2364,7 @@ export const programacionApi = {
       fecha?: string | null;
       hora_partida?: string | null;
       unidad?: number | null;
+      programacion?: string | null;
     }
   ): Promise<{ message: string }> => {
     try {
