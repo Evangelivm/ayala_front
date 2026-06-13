@@ -1387,6 +1387,39 @@ function OrdenesCompraTab() {
     }
   };
 
+  const handleRemoveDocumentoOC = async (
+    item: OrdenCompraData,
+    tipo: 'operacion' | 'cotizacion' | 'factura' | 'retencion',
+  ) => {
+    const nombres: Record<string, string> = {
+      operacion: 'Operación',
+      cotizacion: 'Cotización',
+      factura: 'Factura',
+      retencion: 'Comp. Retención',
+    };
+    const nombre = nombres[tipo];
+    if (!confirm(`¿Eliminar el documento "${nombre}" de la orden ${item.numero_orden}?\n\nEl archivo en Dropbox no se borrará, solo se eliminará el enlace.`)) return;
+    try {
+      if (tipo === 'operacion') await ordenesCompraApi.removeOperacion(item.id_orden_compra!);
+      else if (tipo === 'cotizacion') await ordenesCompraApi.removeCotizacion(item.id_orden_compra!);
+      else if (tipo === 'factura') await ordenesCompraApi.removeFactura(item.id_orden_compra!);
+      else await ordenesCompraApi.removeRetencion(item.id_orden_compra!);
+      toast.success(`${nombre} eliminado de la orden ${item.numero_orden}`);
+      setData((prev) => prev.map((r) => {
+        if (r.id_orden_compra !== item.id_orden_compra) return r;
+        const update: Partial<OrdenCompraData> = {};
+        if (tipo === 'operacion') update.url = null;
+        if (tipo === 'cotizacion') update.url_cotizacion = null;
+        if (tipo === 'factura') { update.url_factura = null; update.nro_factura = null; update.nro_serie = null; }
+        if (tipo === 'retencion') update.url_comprobante_retencion = null;
+        if (r.estado === 'COMPLETADA') update.estado = 'PENDIENTE';
+        return { ...r, ...update };
+      }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Error al eliminar ${nombre}`);
+    }
+  };
+
   const activos = data.filter((i) => !i.deleted_at);
   const eliminados = data.filter((i) => i.deleted_at);
 
@@ -1598,40 +1631,76 @@ function OrdenesCompraTab() {
                             <FileText className="h-3 w-3" /> PDF
                           </a>
                           {item.url ? (
-                            <a href={item.url} target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200">
-                              <ExternalLink className="h-3 w-3" /> Operación
-                            </a>
+                            <div className="inline-flex items-center rounded overflow-hidden">
+                              <a href={item.url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs hover:bg-blue-200">
+                                <ExternalLink className="h-3 w-3" /> Operación
+                              </a>
+                              <button
+                                onClick={() => handleRemoveDocumentoOC(item, 'operacion')}
+                                className="px-1 py-1 bg-red-100 text-red-600 hover:bg-red-200"
+                                title="Eliminar enlace de operación"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
                               <ExternalLink className="h-3 w-3" /> Operación
                             </span>
                           )}
                           {item.url_cotizacion ? (
-                            <a href={item.url_cotizacion} target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-200">
-                              <ExternalLink className="h-3 w-3" /> Cotización
-                            </a>
+                            <div className="inline-flex items-center rounded overflow-hidden">
+                              <a href={item.url_cotizacion} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs hover:bg-purple-200">
+                                <ExternalLink className="h-3 w-3" /> Cotización
+                              </a>
+                              <button
+                                onClick={() => handleRemoveDocumentoOC(item, 'cotizacion')}
+                                className="px-1 py-1 bg-red-100 text-red-600 hover:bg-red-200"
+                                title="Eliminar enlace de cotización"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
                               <ExternalLink className="h-3 w-3" /> Cotización
                             </span>
                           )}
                           {item.url_factura ? (
-                            <a href={item.url_factura} target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-200">
-                              <ExternalLink className="h-3 w-3" /> Factura
-                            </a>
+                            <div className="inline-flex items-center rounded overflow-hidden">
+                              <a href={item.url_factura} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 text-xs hover:bg-orange-200">
+                                <ExternalLink className="h-3 w-3" /> Factura
+                              </a>
+                              <button
+                                onClick={() => handleRemoveDocumentoOC(item, 'factura')}
+                                className="px-1 py-1 bg-red-100 text-red-600 hover:bg-red-200"
+                                title="Eliminar enlace de factura y nro. de factura"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
                               <ExternalLink className="h-3 w-3" /> Factura
                             </span>
                           )}
                           {item.url_comprobante_retencion ? (
-                            <a href={item.url_comprobante_retencion} target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs hover:bg-indigo-200">
-                              <FileText className="h-3 w-3" /> Comp. Retención
-                            </a>
+                            <div className="inline-flex items-center rounded overflow-hidden">
+                              <a href={item.url_comprobante_retencion} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 text-xs hover:bg-indigo-200">
+                                <FileText className="h-3 w-3" /> Comp. Retención
+                              </a>
+                              <button
+                                onClick={() => handleRemoveDocumentoOC(item, 'retencion')}
+                                className="px-1 py-1 bg-red-100 text-red-600 hover:bg-red-200"
+                                title="Eliminar enlace de comprobante de retención"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
                               <FileText className="h-3 w-3" /> Comp. Retención
@@ -2006,6 +2075,39 @@ function OrdenesServicioTab() {
     }
   };
 
+  const handleRemoveDocumentoOS = async (
+    item: OrdenServicioData,
+    tipo: 'operacion' | 'cotizacion' | 'factura' | 'retencion',
+  ) => {
+    const nombres: Record<string, string> = {
+      operacion: 'Operación',
+      cotizacion: 'Cotización',
+      factura: 'Factura',
+      retencion: 'Comp. Retención',
+    };
+    const nombre = nombres[tipo];
+    if (!confirm(`¿Eliminar el documento "${nombre}" de la orden ${item.numero_orden}?\n\nEl archivo en Dropbox no se borrará, solo se eliminará el enlace.`)) return;
+    try {
+      if (tipo === 'operacion') await ordenesServicioApi.removeOperacion(item.id_orden_servicio!);
+      else if (tipo === 'cotizacion') await ordenesServicioApi.removeCotizacion(item.id_orden_servicio!);
+      else if (tipo === 'factura') await ordenesServicioApi.removeFactura(item.id_orden_servicio!);
+      else await ordenesServicioApi.removeRetencion(item.id_orden_servicio!);
+      toast.success(`${nombre} eliminado de la orden ${item.numero_orden}`);
+      setData((prev) => prev.map((r) => {
+        if (r.id_orden_servicio !== item.id_orden_servicio) return r;
+        const update: Partial<OrdenServicioData> = {};
+        if (tipo === 'operacion') update.url = null;
+        if (tipo === 'cotizacion') update.url_cotizacion = null;
+        if (tipo === 'factura') { update.url_factura = null; update.nro_factura = null; update.nro_serie = null; }
+        if (tipo === 'retencion') update.url_comprobante_retencion = null;
+        if (r.estado === 'COMPLETADA') update.estado = 'PENDIENTE';
+        return { ...r, ...update };
+      }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Error al eliminar ${nombre}`);
+    }
+  };
+
   const activos = data.filter((i) => !i.deleted_at);
   const eliminados = data.filter((i) => i.deleted_at);
 
@@ -2219,40 +2321,76 @@ function OrdenesServicioTab() {
                             <FileText className="h-3 w-3" /> PDF
                           </a>
                           {item.url ? (
-                            <a href={item.url} target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200">
-                              <ExternalLink className="h-3 w-3" /> Operación
-                            </a>
+                            <div className="inline-flex items-center rounded overflow-hidden">
+                              <a href={item.url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs hover:bg-blue-200">
+                                <ExternalLink className="h-3 w-3" /> Operación
+                              </a>
+                              <button
+                                onClick={() => handleRemoveDocumentoOS(item, 'operacion')}
+                                className="px-1 py-1 bg-red-100 text-red-600 hover:bg-red-200"
+                                title="Eliminar enlace de operación"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
                               <ExternalLink className="h-3 w-3" /> Operación
                             </span>
                           )}
                           {item.url_cotizacion ? (
-                            <a href={item.url_cotizacion} target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-200">
-                              <ExternalLink className="h-3 w-3" /> Cotización
-                            </a>
+                            <div className="inline-flex items-center rounded overflow-hidden">
+                              <a href={item.url_cotizacion} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs hover:bg-purple-200">
+                                <ExternalLink className="h-3 w-3" /> Cotización
+                              </a>
+                              <button
+                                onClick={() => handleRemoveDocumentoOS(item, 'cotizacion')}
+                                className="px-1 py-1 bg-red-100 text-red-600 hover:bg-red-200"
+                                title="Eliminar enlace de cotización"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
                               <ExternalLink className="h-3 w-3" /> Cotización
                             </span>
                           )}
                           {item.url_factura ? (
-                            <a href={item.url_factura} target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-200">
-                              <ExternalLink className="h-3 w-3" /> Factura
-                            </a>
+                            <div className="inline-flex items-center rounded overflow-hidden">
+                              <a href={item.url_factura} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 text-xs hover:bg-orange-200">
+                                <ExternalLink className="h-3 w-3" /> Factura
+                              </a>
+                              <button
+                                onClick={() => handleRemoveDocumentoOS(item, 'factura')}
+                                className="px-1 py-1 bg-red-100 text-red-600 hover:bg-red-200"
+                                title="Eliminar enlace de factura y nro. de factura"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
                               <ExternalLink className="h-3 w-3" /> Factura
                             </span>
                           )}
                           {item.url_comprobante_retencion ? (
-                            <a href={item.url_comprobante_retencion} target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs hover:bg-indigo-200">
-                              <FileText className="h-3 w-3" /> Comp. Retención
-                            </a>
+                            <div className="inline-flex items-center rounded overflow-hidden">
+                              <a href={item.url_comprobante_retencion} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 text-xs hover:bg-indigo-200">
+                                <FileText className="h-3 w-3" /> Comp. Retención
+                              </a>
+                              <button
+                                onClick={() => handleRemoveDocumentoOS(item, 'retencion')}
+                                className="px-1 py-1 bg-red-100 text-red-600 hover:bg-red-200"
+                                title="Eliminar enlace de comprobante de retención"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
                               <FileText className="h-3 w-3" /> Comp. Retención

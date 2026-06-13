@@ -4059,6 +4059,42 @@ export const ordenesCompraApi = {
       throw error;
     }
   },
+
+  removeOperacion: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/remove-operacion`);
+    } catch (error) {
+      console.error("Error eliminando operación de orden de compra:", error);
+      throw error;
+    }
+  },
+
+  removeCotizacion: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/remove-cotizacion`);
+    } catch (error) {
+      console.error("Error eliminando cotización de orden de compra:", error);
+      throw error;
+    }
+  },
+
+  removeFactura: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/remove-factura`);
+    } catch (error) {
+      console.error("Error eliminando factura de orden de compra:", error);
+      throw error;
+    }
+  },
+
+  removeRetencion: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/remove-retencion`);
+    } catch (error) {
+      console.error("Error eliminando comprobante de retención de orden de compra:", error);
+      throw error;
+    }
+  },
 };
 
 // ============ ORDENES SERVICIO API ============
@@ -4473,6 +4509,42 @@ export const ordenesServicioApi = {
 
   saveBackendLogs: async (id: number, logs: string): Promise<void> => {
     await api.patch(`/ordenes-servicio/${id}/backend-logs`, { logs });
+  },
+
+  removeOperacion: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/remove-operacion`);
+    } catch (error) {
+      console.error("Error eliminando operación de orden de servicio:", error);
+      throw error;
+    }
+  },
+
+  removeCotizacion: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/remove-cotizacion`);
+    } catch (error) {
+      console.error("Error eliminando cotización de orden de servicio:", error);
+      throw error;
+    }
+  },
+
+  removeFactura: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/remove-factura`);
+    } catch (error) {
+      console.error("Error eliminando factura de orden de servicio:", error);
+      throw error;
+    }
+  },
+
+  removeRetencion: async (id: number): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/remove-retencion`);
+    } catch (error) {
+      console.error("Error eliminando comprobante de retención de orden de servicio:", error);
+      throw error;
+    }
   },
 };
 

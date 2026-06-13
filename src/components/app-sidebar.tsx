@@ -18,6 +18,7 @@ import {
   Briefcase,
   Package,
   TrendingUp,
+  Network,
 } from "lucide-react"
 
 import {
@@ -134,6 +135,11 @@ const menuItems = [
         title: "Configuración",
         url: "/configuracion",
         icon: Settings,
+      },
+      {
+        title: "Arquitectura del Sistema",
+        url: "/arquitectura",
+        icon: Network,
       },
     ],
   },
