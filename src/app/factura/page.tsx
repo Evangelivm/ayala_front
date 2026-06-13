@@ -919,6 +919,15 @@ export default function FacturaPage() {
         return;
       }
 
+      // Validar tipo de cambio cuando la moneda es dólares
+      if (
+        nuevaFacturaData.moneda === "DOLARES" &&
+        (!nuevaFacturaData.tipoCambio || nuevaFacturaData.tipoCambio <= 0)
+      ) {
+        toast.error("Debe ingresar el tipo de cambio cuando la moneda es dólares");
+        return;
+      }
+
       // Validar que si se seleccionó detracción, se haya seleccionado el tipo de detracción
       if (
         nuevaFacturaData.aplicarDetraccion &&
@@ -2254,6 +2263,30 @@ export default function FacturaPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Tipo de Cambio - Solo visible si moneda es DÓLARES */}
+                  {nuevaFacturaData.moneda === "DOLARES" && (
+                    <div className="col-span-2">
+                      <Label htmlFor="tipo-cambio" className="text-xs font-semibold">
+                        Tipo de Cambio: <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="tipo-cambio"
+                        type="number"
+                        step="0.001"
+                        min="0.001"
+                        value={nuevaFacturaData.tipoCambio || ""}
+                        onChange={(e) =>
+                          handleNuevaFacturaInputChange(
+                            "tipoCambio",
+                            parseFloat(e.target.value) || 0
+                          )
+                        }
+                        placeholder="Ej: 3.850"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  )}
 
                   {/* Tipo de Venta */}
                   <div className="col-span-2">

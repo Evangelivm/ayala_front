@@ -47,6 +47,9 @@ import {
   KeyRound,
   Eye,
   EyeOff,
+  Upload,
+  X,
+  Plus,
 } from "lucide-react";
 import {
   Dialog,
@@ -73,6 +76,7 @@ import {
   guiasRemisionExtendidoApi,
   camionesApi,
   empresasApi,
+  urlHelpers,
   type ProgramacionTecnicaData,
   type GuiaRemisionData,
   type OrdenCompraData,
@@ -82,6 +86,7 @@ import {
   type UsuarioSistema,
   type CamionData,
   type EmpresaData,
+  type MultifacturaDetalle,
 } from "@/lib/connections";
 import { OrdenEditDialog } from "@/components/orden-edit-dialog";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
@@ -1196,6 +1201,16 @@ function ProgramacionTecnicaTab() {
 
 // ─── Tab: Órdenes de Compra ──────────────────────────────────────────────────
 
+type MultifacturaRowLocal = {
+  id_detalle?: number;
+  nro_serie: string;
+  nro_factura: string;
+  galones: string;
+  proyecto: string;
+  url_factura?: string | null;
+  url_guia?: string | null;
+};
+
 function OrdenesCompraTab() {
   const [data, setData] = useState<OrdenCompraData[]>([]);
   const [editOrden, setEditOrden] = useState<OrdenCompraData | null>(null);
@@ -1205,6 +1220,26 @@ function OrdenesCompraTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { addLog, clearLogs, getLogsFor, initLogs } = useBackendLogs<number>();
+
+  // N° Factura
+  const [editingFacturaId, setEditingFacturaId] = useState<number | null>(null);
+  const [nroFacturaEdit, setNroFacturaEdit] = useState("");
+
+  // Upload archivos
+  const [uploadDialogType, setUploadDialogType] = useState<"cotizacion" | "factura" | null>(null);
+  const [uploadOrdenId, setUploadOrdenId] = useState<number | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Multifacturas
+  const [isMultifacturasOpen, setIsMultifacturasOpen] = useState(false);
+  const [multifacturasOrdenId, setMultifacturasOrdenId] = useState<number | null>(null);
+  const [multifacturasRows, setMultifacturasRows] = useState<MultifacturaRowLocal[]>([
+    { nro_serie: "", nro_factura: "", galones: "", proyecto: "" },
+  ]);
+  const [multifacturasLoading, setMultifacturasLoading] = useState(false);
+  const [multifacturasSaving, setMultifacturasSaving] = useState(false);
+
   const LIMIT = 20;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
@@ -1216,7 +1251,6 @@ function OrdenesCompraTab() {
         .then((result) => {
           setData(result.data);
           setTotal(result.total);
-          // Cargar logs guardados en DB para cada orden
           result.data.forEach((item) => initLogs(item.id_orden_compra!, item.backend_logs));
         })
         .catch(() => toast.error("Error al cargar las órdenes de compra"))
@@ -1224,6 +1258,103 @@ function OrdenesCompraTab() {
     }, searchTerm ? 400 : 0);
     return () => clearTimeout(timer);
   }, [searchTerm, page]);
+
+  const reloadData = async () => {
+    try {
+      const result = await searchApi.ordenesCompra(searchTerm, page, LIMIT);
+      setData(result.data);
+      setTotal(result.total);
+    } catch { /* ignore */ }
+  };
+
+  const isNroFacturaDuplicado = (nroFactura: string, ordenId: number | null, idProveedor: number | null): boolean => {
+    if (!nroFactura?.trim()) return false;
+    return data.some(o => o.nro_factura === nroFactura && o.id_proveedor === idProveedor && o.id_orden_compra !== ordenId);
+  };
+
+  const handleUpdateNroFactura = async (ordenId: number, nroFactura: string) => {
+    try {
+      toast.loading("Actualizando número de factura...");
+      await ordenesCompraApi.actualizarNumeroFactura(ordenId, nroFactura);
+      toast.dismiss();
+      toast.success("Número de factura actualizado");
+      setData((prev) => prev.map((o) => o.id_orden_compra === ordenId ? { ...o, nro_factura: nroFactura } : o));
+      setEditingFacturaId(null);
+      setNroFacturaEdit("");
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Error al actualizar el número de factura", { description: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!uploadFile || !uploadOrdenId || !uploadDialogType) return;
+    setIsUploading(true);
+    try {
+      toast.loading(`Subiendo ${uploadDialogType === "cotizacion" ? "cotización" : "factura"}...`);
+      const form = new FormData();
+      form.append("file", uploadFile);
+      if (uploadDialogType === "cotizacion") {
+        await ordenesCompraApi.uploadCotizacion(uploadOrdenId, form);
+      } else {
+        await ordenesCompraApi.uploadFactura(uploadOrdenId, form);
+      }
+      toast.dismiss();
+      toast.success(`${uploadDialogType === "cotizacion" ? "Cotización" : "Factura"} subida exitosamente`);
+      await reloadData();
+      setUploadDialogType(null);
+      setUploadOrdenId(null);
+      setUploadFile(null);
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Error al subir el archivo", { description: error instanceof Error ? error.message : "Error desconocido" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const openMultifacturas = async (ordenId: number) => {
+    setMultifacturasOrdenId(ordenId);
+    setIsMultifacturasOpen(true);
+    setMultifacturasLoading(true);
+    try {
+      const rowsData = await ordenesCompraApi.getMultifacturas(ordenId);
+      if (rowsData && rowsData.length > 0) {
+        setMultifacturasRows(rowsData.map((d: MultifacturaDetalle) => ({
+          id_detalle: d.id_detalle,
+          nro_serie: d.nro_serie || "",
+          nro_factura: d.nro_factura || "",
+          galones: d.galones || "",
+          proyecto: d.proyecto || "",
+          url_factura: d.url_factura,
+          url_guia: d.url_guia,
+        })));
+      } else {
+        setMultifacturasRows([{ nro_serie: "", nro_factura: "", galones: "", proyecto: "" }]);
+      }
+    } catch {
+      setMultifacturasRows([{ nro_serie: "", nro_factura: "", galones: "", proyecto: "" }]);
+    } finally {
+      setMultifacturasLoading(false);
+    }
+  };
+
+  const saveMultifacturas = async () => {
+    if (!multifacturasOrdenId) return;
+    setMultifacturasSaving(true);
+    try {
+      toast.loading("Guardando multifacturas...");
+      await ordenesCompraApi.saveMultifacturas(multifacturasOrdenId, multifacturasRows);
+      toast.dismiss();
+      toast.success("Multifacturas guardadas exitosamente");
+      setIsMultifacturasOpen(false);
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Error al guardar multifacturas", { description: error instanceof Error ? error.message : "Error desconocido" });
+    } finally {
+      setMultifacturasSaving(false);
+    }
+  };
 
   const handleEliminar = async (item: OrdenCompraData) => {
     const label = item.numero_orden;
@@ -1233,13 +1364,7 @@ function OrdenesCompraTab() {
       const result = await ordenesCompraApi.delete(item.id_orden_compra!);
       addLog(item.id_orden_compra!, "Eliminar Orden", "ok", result ?? { message: `Orden "${label}" eliminada` });
       toast.success(`Orden "${label}" marcada como eliminada`);
-      setData((prev) =>
-        prev.map((r) =>
-          r.id_orden_compra === item.id_orden_compra
-            ? { ...r, deleted_at: new Date().toISOString() }
-            : r
-        )
-      );
+      setData((prev) => prev.map((r) => r.id_orden_compra === item.id_orden_compra ? { ...r, deleted_at: new Date().toISOString() } : r));
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Error al eliminar";
       addLog(item.id_orden_compra!, "Eliminar Orden", "error", { error: msg });
@@ -1254,11 +1379,7 @@ function OrdenesCompraTab() {
       const result = await ordenesCompraApi.restore(item.id_orden_compra!);
       addLog(item.id_orden_compra!, "Restaurar Orden", "ok", result ?? { message: `Orden "${label}" restaurada` });
       toast.success(`Orden "${label}" restaurada exitosamente`);
-      setData((prev) =>
-        prev.map((r) =>
-          r.id_orden_compra === item.id_orden_compra ? { ...r, deleted_at: null } : r
-        )
-      );
+      setData((prev) => prev.map((r) => r.id_orden_compra === item.id_orden_compra ? { ...r, deleted_at: null } : r));
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Error al restaurar";
       addLog(item.id_orden_compra!, "Restaurar Orden", "error", { error: msg });
@@ -1275,9 +1396,7 @@ function OrdenesCompraTab() {
         <div className="flex gap-2 flex-wrap">
           <Badge variant="secondary">{activos.length} activas</Badge>
           {eliminados.length > 0 && (
-            <Badge variant="outline" className="text-red-600 border-red-300">
-              {eliminados.length} eliminadas
-            </Badge>
+            <Badge variant="outline" className="text-red-600 border-red-300">{eliminados.length} eliminadas</Badge>
           )}
           <Badge variant="outline" className="text-slate-500">{total} total</Badge>
         </div>
@@ -1313,9 +1432,7 @@ function OrdenesCompraTab() {
                 key={item.id_orden_compra}
                 value={`oc-${item.id_orden_compra}`}
                 className={`border rounded-lg overflow-hidden transition-all ${
-                  isDeleted
-                    ? "border-l-4 border-red-500 bg-red-100 ring-1 ring-red-300"
-                    : "border-slate-200"
+                  isDeleted ? "border-l-4 border-red-500 bg-red-100 ring-1 ring-red-300" : "border-slate-200"
                 }`}
               >
                 <AccordionTrigger className="hover:no-underline px-4 py-3 hover:bg-slate-50">
@@ -1351,9 +1468,7 @@ function OrdenesCompraTab() {
                       {isDeleted ? (
                         <Badge className="bg-red-100 text-red-600 hover:bg-red-100">ELIMINADA</Badge>
                       ) : (
-                        <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 text-xs">
-                          {item.estado}
-                        </Badge>
+                        <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 text-xs">{item.estado}</Badge>
                       )}
                     </div>
                   </div>
@@ -1361,35 +1476,207 @@ function OrdenesCompraTab() {
 
                 <AccordionContent className="px-4 pb-4">
                   <div className="space-y-3 pt-2">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-50 rounded-lg p-3">
-                      <div>
-                        <p className="text-xs text-slate-500">RUC Proveedor</p>
-                        <p className="text-sm font-semibold">{item.ruc_proveedor || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Moneda</p>
-                        <p className="text-sm font-semibold">{item.moneda || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Subtotal</p>
-                        <p className="text-sm font-semibold font-mono">
-                          {Number(item.subtotal).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">IGV</p>
-                        <p className="text-sm font-semibold font-mono">
-                          {Number(item.igv).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
-                        </p>
-                      </div>
-                      {isDeleted && item.deleted_at && (
-                        <div className="col-span-2 lg:col-span-4">
-                          <p className="text-xs text-red-500">Eliminada el</p>
-                          <p className="text-xs font-mono text-red-400">
-                            {new Date(item.deleted_at).toLocaleString("es-PE")}
-                          </p>
+                    {/* Fila 1: Información Financiera + Autorizaciones */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <h4 className="text-xs font-bold text-slate-700 mb-2">Información Financiera</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-slate-500">RUC Proveedor</p>
+                            <p className="text-sm font-semibold">{item.ruc_proveedor || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Moneda</p>
+                            <p className="text-sm font-semibold">{item.moneda || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Subtotal</p>
+                            <p className="text-sm font-semibold font-mono">
+                              {Number(item.subtotal).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">IGV</p>
+                            <p className="text-sm font-semibold font-mono">
+                              {Number(item.igv).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Total</p>
+                            <p className="text-sm font-bold font-mono">
+                              {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
                         </div>
-                      )}
+                        {isDeleted && item.deleted_at && (
+                          <div className="mt-2">
+                            <p className="text-xs text-red-500">Eliminada el</p>
+                            <p className="text-xs font-mono text-red-400">{new Date(item.deleted_at).toLocaleString("es-PE")}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <h4 className="text-xs font-bold text-slate-700 mb-2">Autorizaciones</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-slate-500">Admin.</p>
+                            {item.auto_administrador === true ? (
+                              <Badge className="bg-green-100 text-green-800 text-xs">APROBADO</Badge>
+                            ) : item.auto_administrador === false ? (
+                              <Badge className="bg-yellow-100 text-yellow-800 text-xs">PENDIENTE</Badge>
+                            ) : <span className="text-xs text-slate-400">-</span>}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Jefe Proy.</p>
+                            {item.jefe_proyecto === true ? (
+                              <Badge className="bg-green-100 text-green-800 text-xs">APROBADO</Badge>
+                            ) : item.jefe_proyecto === false ? (
+                              <Badge className="bg-yellow-100 text-yellow-800 text-xs">PENDIENTE</Badge>
+                            ) : <span className="text-xs text-slate-400">-</span>}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Contab.</p>
+                            {item.auto_contabilidad === true ? (
+                              <Badge className="bg-green-100 text-green-800 text-xs">APROBADO</Badge>
+                            ) : item.auto_contabilidad === false ? (
+                              <Badge className="bg-yellow-100 text-yellow-800 text-xs">PENDIENTE</Badge>
+                            ) : <span className="text-xs text-slate-400">-</span>}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Proc. Pago</p>
+                            <p className="text-sm">{item.procede_pago || "-"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Fila 2: Retención/Detracción/Anticipo + Documentos */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <h4 className="text-xs font-bold text-slate-700 mb-2">Retención, Detracción y Anticipo</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-slate-500">Retención</p>
+                            {item.retencion ? (
+                              <Badge className="bg-blue-100 text-blue-800 text-xs">{item.retencion}</Badge>
+                            ) : <span className="text-xs text-slate-400">-</span>}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Valor Ret.</p>
+                            <p className="text-sm font-mono">{item.valor_retencion ? Number(item.valor_retencion).toFixed(2) : "0.00"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Detracción</p>
+                            {item.detraccion ? (
+                              <Badge className="bg-purple-100 text-purple-800 text-xs">{item.detraccion}</Badge>
+                            ) : <span className="text-xs text-slate-400">-</span>}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Valor Det.</p>
+                            <p className="text-sm font-mono">{item.valor_detraccion ? Number(item.valor_detraccion).toFixed(2) : "0.00"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Anticipo</p>
+                            {item.tiene_anticipo === "SI" ? (
+                              <Badge className="bg-green-100 text-green-800 text-xs">SÍ</Badge>
+                            ) : (
+                              <Badge className="bg-red-100 text-red-800 text-xs">NO</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <h4 className="text-xs font-bold text-slate-700 mb-2">Documentos</h4>
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          <a
+                            href={item.id_orden_compra ? urlHelpers.getOrdenCompraPdfUrl(item.id_orden_compra) : "#"}
+                            target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
+                          >
+                            <FileText className="h-3 w-3" /> PDF
+                          </a>
+                          {item.url ? (
+                            <a href={item.url} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200">
+                              <ExternalLink className="h-3 w-3" /> Operación
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
+                              <ExternalLink className="h-3 w-3" /> Operación
+                            </span>
+                          )}
+                          {item.url_cotizacion ? (
+                            <a href={item.url_cotizacion} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-200">
+                              <ExternalLink className="h-3 w-3" /> Cotización
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
+                              <ExternalLink className="h-3 w-3" /> Cotización
+                            </span>
+                          )}
+                          {item.url_factura ? (
+                            <a href={item.url_factura} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-200">
+                              <ExternalLink className="h-3 w-3" /> Factura
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
+                              <ExternalLink className="h-3 w-3" /> Factura
+                            </span>
+                          )}
+                          {item.url_comprobante_retencion ? (
+                            <a href={item.url_comprobante_retencion} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs hover:bg-indigo-200">
+                              <FileText className="h-3 w-3" /> Comp. Retención
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
+                              <FileText className="h-3 w-3" /> Comp. Retención
+                            </span>
+                          )}
+                        </div>
+
+                        {/* N° Factura */}
+                        <div className="pt-2 border-t border-slate-200">
+                          <label className="text-xs font-semibold text-slate-700 mb-1 block">Número de Factura:</label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="text"
+                              placeholder="Ej: F001-00001234"
+                              value={editingFacturaId === item.id_orden_compra ? nroFacturaEdit : (item.nro_factura || "")}
+                              onChange={(e) => { if (editingFacturaId === item.id_orden_compra) setNroFacturaEdit(e.target.value); }}
+                              onFocus={() => { setEditingFacturaId(item.id_orden_compra || null); setNroFacturaEdit(item.nro_factura || ""); }}
+                              disabled={!!item.nro_factura}
+                              className="h-8 text-xs flex-1"
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => { if (item.id_orden_compra) handleUpdateNroFactura(item.id_orden_compra, nroFacturaEdit); }}
+                              disabled={editingFacturaId !== item.id_orden_compra || !!item.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, item.id_orden_compra || null, item.id_proveedor || null)}
+                              className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
+                            >
+                              Guardar
+                            </Button>
+                          </div>
+                          {editingFacturaId === item.id_orden_compra && isNroFacturaDuplicado(nroFacturaEdit, item.id_orden_compra || null, item.id_proveedor || null) && (
+                            <p className="text-xs text-red-600 mt-1">Este proveedor ya tiene una orden con ese número de factura</p>
+                          )}
+                        </div>
+
+                        {/* Multifacturas */}
+                        <div className="mt-2">
+                          <Button
+                            size="sm"
+                            onClick={() => item.id_orden_compra && openMultifacturas(item.id_orden_compra)}
+                            className="h-8 px-3 text-xs bg-teal-600 hover:bg-teal-700 text-white"
+                          >
+                            Multifacturas
+                          </Button>
+                        </div>
+                      </div>
                     </div>
 
                     <BackendLogPanel
@@ -1399,9 +1686,25 @@ function OrdenesCompraTab() {
 
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
                       {!isDeleted && (
-                        <Button size="sm" variant="outline" onClick={() => { setEditOrden(item); setIsEditOpen(true); }} className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300">
-                          <Edit className="h-4 w-4 mr-2" /> Editar Orden
-                        </Button>
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => { setEditOrden(item); setIsEditOpen(true); }} className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300">
+                            <Edit className="h-4 w-4 mr-2" /> Editar Orden
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => { setUploadOrdenId(item.id_orden_compra || null); setUploadDialogType("cotizacion"); }}
+                            className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1"
+                          >
+                            <Upload className="h-3.5 w-3.5" /> Subir Cotización
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => { setUploadOrdenId(item.id_orden_compra || null); setUploadDialogType("factura"); }}
+                            className="bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-1"
+                          >
+                            <Upload className="h-3.5 w-3.5" /> Subir Factura
+                          </Button>
+                        </>
                       )}
                       {!isDeleted ? (
                         <Button size="sm" variant="outline" onClick={() => handleEliminar(item)} className="bg-white hover:bg-red-50 text-red-700 border-red-300 ml-auto">
@@ -1424,37 +1727,102 @@ function OrdenesCompraTab() {
       {/* Paginación */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || isLoading}
-          >
-            ← Anterior
-          </Button>
-          <span className="text-sm text-slate-600">
-            Página {page} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || isLoading}
-          >
-            Siguiente →
-          </Button>
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1 || isLoading}>← Anterior</Button>
+          <span className="text-sm text-slate-600">Página {page} de {totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages || isLoading}>Siguiente →</Button>
         </div>
       )}
+
+      {/* Dialog Subir Archivo */}
+      <Dialog open={!!uploadDialogType} onOpenChange={(v) => { if (!v) { setUploadDialogType(null); setUploadOrdenId(null); setUploadFile(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{uploadDialogType === "cotizacion" ? "Subir Cotización" : "Subir Factura"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="oc-upload-file">Seleccionar archivo (PDF, JPG, PNG)</Label>
+              <Input id="oc-upload-file" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)} />
+              {uploadFile && <p className="text-xs text-slate-500">{uploadFile.name}</p>}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setUploadDialogType(null); setUploadOrdenId(null); setUploadFile(null); }} disabled={isUploading}>Cancelar</Button>
+              <Button onClick={handleUpload} disabled={!uploadFile || isUploading}>{isUploading ? "Subiendo..." : "Subir"}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Multifacturas */}
+      <Dialog open={isMultifacturasOpen} onOpenChange={setIsMultifacturasOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Multifacturas — Orden de Compra #{multifacturasOrdenId}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            {multifacturasLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="border border-slate-200 px-2 py-1.5 text-left font-semibold">N° Serie</th>
+                        <th className="border border-slate-200 px-2 py-1.5 text-left font-semibold">N° Factura</th>
+                        <th className="border border-slate-200 px-2 py-1.5 text-left font-semibold">Galones</th>
+                        <th className="border border-slate-200 px-2 py-1.5 text-left font-semibold">Proyecto</th>
+                        <th className="border border-slate-200 px-2 py-1.5 w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {multifacturasRows.map((row, i) => (
+                        <tr key={i} className="hover:bg-slate-50">
+                          <td className="border border-slate-200 px-1 py-1">
+                            <Input value={row.nro_serie} onChange={(e) => setMultifacturasRows((p) => p.map((r, idx) => idx === i ? { ...r, nro_serie: e.target.value } : r))} className="h-7 text-xs" placeholder="0001" />
+                          </td>
+                          <td className="border border-slate-200 px-1 py-1">
+                            <Input value={row.nro_factura} onChange={(e) => setMultifacturasRows((p) => p.map((r, idx) => idx === i ? { ...r, nro_factura: e.target.value } : r))} className="h-7 text-xs" placeholder="F001-0001" />
+                          </td>
+                          <td className="border border-slate-200 px-1 py-1">
+                            <Input value={row.galones} onChange={(e) => setMultifacturasRows((p) => p.map((r, idx) => idx === i ? { ...r, galones: e.target.value } : r))} className="h-7 text-xs" placeholder="0" />
+                          </td>
+                          <td className="border border-slate-200 px-1 py-1">
+                            <Input value={row.proyecto} onChange={(e) => setMultifacturasRows((p) => p.map((r, idx) => idx === i ? { ...r, proyecto: e.target.value } : r))} className="h-7 text-xs" placeholder="Proyecto" />
+                          </td>
+                          <td className="border border-slate-200 px-1 py-1 text-center">
+                            <button onClick={() => setMultifacturasRows((p) => p.filter((_, idx) => idx !== i))} className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50">
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setMultifacturasRows((p) => [...p, { nro_serie: "", nro_factura: "", galones: "", proyecto: "" }])} className="flex items-center gap-1 text-xs">
+                  <Plus className="h-3 w-3" /> Agregar fila
+                </Button>
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                  <Button variant="outline" onClick={() => setIsMultifacturasOpen(false)} disabled={multifacturasSaving}>Cancelar</Button>
+                  <Button onClick={saveMultifacturas} disabled={multifacturasSaving} className="bg-teal-600 hover:bg-teal-700">
+                    {multifacturasSaving ? "Guardando..." : "Guardar"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <OrdenEditDialog
         orden={editOrden}
         tipo="compra"
         open={isEditOpen}
         onOpenChange={(v) => { setIsEditOpen(v); if (!v) setEditOrden(null); }}
-        onSaved={() => {
-          // Recargar la página actual de búsqueda
-          setData((prev) => [...prev]);
-        }}
+        onSaved={() => { setData((prev) => [...prev]); }}
       />
     </div>
   );
@@ -1471,6 +1839,26 @@ function OrdenesServicioTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { addLog, clearLogs, getLogsFor, initLogs } = useBackendLogs<number>();
+
+  // N° Factura
+  const [editingFacturaId, setEditingFacturaId] = useState<number | null>(null);
+  const [nroFacturaEdit, setNroFacturaEdit] = useState("");
+
+  // Upload archivos
+  const [uploadDialogType, setUploadDialogType] = useState<"cotizacion" | "factura" | null>(null);
+  const [uploadOrdenId, setUploadOrdenId] = useState<number | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Multifacturas
+  const [isMultifacturasOpen, setIsMultifacturasOpen] = useState(false);
+  const [multifacturasOrdenId, setMultifacturasOrdenId] = useState<number | null>(null);
+  const [multifacturasRows, setMultifacturasRows] = useState<MultifacturaRowLocal[]>([
+    { nro_serie: "", nro_factura: "", galones: "", proyecto: "" },
+  ]);
+  const [multifacturasLoading, setMultifacturasLoading] = useState(false);
+  const [multifacturasSaving, setMultifacturasSaving] = useState(false);
+
   const LIMIT = 20;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
@@ -1482,7 +1870,6 @@ function OrdenesServicioTab() {
         .then((result) => {
           setData(result.data);
           setTotal(result.total);
-          // Cargar logs guardados en DB para cada orden
           result.data.forEach((item) => initLogs(item.id_orden_servicio!, item.backend_logs));
         })
         .catch(() => toast.error("Error al cargar las órdenes de servicio"))
@@ -1490,6 +1877,103 @@ function OrdenesServicioTab() {
     }, searchTerm ? 400 : 0);
     return () => clearTimeout(timer);
   }, [searchTerm, page]);
+
+  const reloadData = async () => {
+    try {
+      const result = await searchApi.ordenesServicio(searchTerm, page, LIMIT);
+      setData(result.data);
+      setTotal(result.total);
+    } catch { /* ignore */ }
+  };
+
+  const isNroFacturaDuplicado = (nroFactura: string, ordenId: number | null, idProveedor: number | null): boolean => {
+    if (!nroFactura?.trim()) return false;
+    return data.some(o => o.nro_factura === nroFactura && o.id_proveedor === idProveedor && o.id_orden_servicio !== ordenId);
+  };
+
+  const handleUpdateNroFactura = async (ordenId: number, nroFactura: string) => {
+    try {
+      toast.loading("Actualizando número de factura...");
+      await ordenesServicioApi.actualizarNumeroFactura(ordenId, nroFactura);
+      toast.dismiss();
+      toast.success("Número de factura actualizado");
+      setData((prev) => prev.map((o) => o.id_orden_servicio === ordenId ? { ...o, nro_factura: nroFactura } : o));
+      setEditingFacturaId(null);
+      setNroFacturaEdit("");
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Error al actualizar el número de factura", { description: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!uploadFile || !uploadOrdenId || !uploadDialogType) return;
+    setIsUploading(true);
+    try {
+      toast.loading(`Subiendo ${uploadDialogType === "cotizacion" ? "cotización" : "factura"}...`);
+      const form = new FormData();
+      form.append("file", uploadFile);
+      if (uploadDialogType === "cotizacion") {
+        await ordenesServicioApi.uploadCotizacion(uploadOrdenId, form);
+      } else {
+        await ordenesServicioApi.uploadFactura(uploadOrdenId, form);
+      }
+      toast.dismiss();
+      toast.success(`${uploadDialogType === "cotizacion" ? "Cotización" : "Factura"} subida exitosamente`);
+      await reloadData();
+      setUploadDialogType(null);
+      setUploadOrdenId(null);
+      setUploadFile(null);
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Error al subir el archivo", { description: error instanceof Error ? error.message : "Error desconocido" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const openMultifacturas = async (ordenId: number) => {
+    setMultifacturasOrdenId(ordenId);
+    setIsMultifacturasOpen(true);
+    setMultifacturasLoading(true);
+    try {
+      const rowsData = await ordenesServicioApi.getMultifacturas(ordenId);
+      if (rowsData && rowsData.length > 0) {
+        setMultifacturasRows(rowsData.map((d: MultifacturaDetalle) => ({
+          id_detalle: d.id_detalle,
+          nro_serie: d.nro_serie || "",
+          nro_factura: d.nro_factura || "",
+          galones: d.galones || "",
+          proyecto: d.proyecto || "",
+          url_factura: d.url_factura,
+          url_guia: d.url_guia,
+        })));
+      } else {
+        setMultifacturasRows([{ nro_serie: "", nro_factura: "", galones: "", proyecto: "" }]);
+      }
+    } catch {
+      setMultifacturasRows([{ nro_serie: "", nro_factura: "", galones: "", proyecto: "" }]);
+    } finally {
+      setMultifacturasLoading(false);
+    }
+  };
+
+  const saveMultifacturas = async () => {
+    if (!multifacturasOrdenId) return;
+    setMultifacturasSaving(true);
+    try {
+      toast.loading("Guardando multifacturas...");
+      await ordenesServicioApi.saveMultifacturas(multifacturasOrdenId, multifacturasRows);
+      toast.dismiss();
+      toast.success("Multifacturas guardadas exitosamente");
+      setIsMultifacturasOpen(false);
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Error al guardar multifacturas", { description: error instanceof Error ? error.message : "Error desconocido" });
+    } finally {
+      setMultifacturasSaving(false);
+    }
+  };
 
   const handleEliminar = async (item: OrdenServicioData) => {
     const label = item.numero_orden;
@@ -1499,13 +1983,7 @@ function OrdenesServicioTab() {
       const result = await ordenesServicioApi.delete(item.id_orden_servicio!);
       addLog(item.id_orden_servicio!, "Eliminar Orden", "ok", result ?? { message: `Orden "${label}" eliminada` });
       toast.success(`Orden "${label}" marcada como eliminada`);
-      setData((prev) =>
-        prev.map((r) =>
-          r.id_orden_servicio === item.id_orden_servicio
-            ? { ...r, deleted_at: new Date().toISOString() }
-            : r
-        )
-      );
+      setData((prev) => prev.map((r) => r.id_orden_servicio === item.id_orden_servicio ? { ...r, deleted_at: new Date().toISOString() } : r));
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Error al eliminar";
       addLog(item.id_orden_servicio!, "Eliminar Orden", "error", { error: msg });
@@ -1520,11 +1998,7 @@ function OrdenesServicioTab() {
       const result = await ordenesServicioApi.restore(item.id_orden_servicio!);
       addLog(item.id_orden_servicio!, "Restaurar Orden", "ok", result ?? { message: `Orden "${label}" restaurada` });
       toast.success(`Orden "${label}" restaurada exitosamente`);
-      setData((prev) =>
-        prev.map((r) =>
-          r.id_orden_servicio === item.id_orden_servicio ? { ...r, deleted_at: null } : r
-        )
-      );
+      setData((prev) => prev.map((r) => r.id_orden_servicio === item.id_orden_servicio ? { ...r, deleted_at: null } : r));
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Error al restaurar";
       addLog(item.id_orden_servicio!, "Restaurar Orden", "error", { error: msg });
@@ -1541,9 +2015,7 @@ function OrdenesServicioTab() {
         <div className="flex gap-2 flex-wrap">
           <Badge variant="secondary">{activos.length} activas</Badge>
           {eliminados.length > 0 && (
-            <Badge variant="outline" className="text-red-600 border-red-300">
-              {eliminados.length} eliminadas
-            </Badge>
+            <Badge variant="outline" className="text-red-600 border-red-300">{eliminados.length} eliminadas</Badge>
           )}
           <Badge variant="outline" className="text-slate-500">{total} total</Badge>
         </div>
@@ -1579,9 +2051,7 @@ function OrdenesServicioTab() {
                 key={item.id_orden_servicio}
                 value={`os-${item.id_orden_servicio}`}
                 className={`border rounded-lg overflow-hidden transition-all ${
-                  isDeleted
-                    ? "border-l-4 border-red-500 bg-red-100 ring-1 ring-red-300"
-                    : "border-slate-200"
+                  isDeleted ? "border-l-4 border-red-500 bg-red-100 ring-1 ring-red-300" : "border-slate-200"
                 }`}
               >
                 <AccordionTrigger className="hover:no-underline px-4 py-3 hover:bg-slate-50">
@@ -1627,35 +2097,207 @@ function OrdenesServicioTab() {
 
                 <AccordionContent className="px-4 pb-4">
                   <div className="space-y-3 pt-2">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-50 rounded-lg p-3">
-                      <div>
-                        <p className="text-xs text-slate-500">RUC Proveedor</p>
-                        <p className="text-sm font-semibold">{item.ruc_proveedor || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Moneda</p>
-                        <p className="text-sm font-semibold">{item.moneda || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Subtotal</p>
-                        <p className="text-sm font-semibold font-mono">
-                          {Number(item.subtotal).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">IGV</p>
-                        <p className="text-sm font-semibold font-mono">
-                          {Number(item.igv).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
-                        </p>
-                      </div>
-                      {isDeleted && item.deleted_at && (
-                        <div className="col-span-2 lg:col-span-4">
-                          <p className="text-xs text-red-500">Eliminada el</p>
-                          <p className="text-xs font-mono text-red-400">
-                            {new Date(item.deleted_at).toLocaleString("es-PE")}
-                          </p>
+                    {/* Fila 1: Información Financiera + Autorizaciones */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <h4 className="text-xs font-bold text-slate-700 mb-2">Información Financiera</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-slate-500">RUC Proveedor</p>
+                            <p className="text-sm font-semibold">{item.ruc_proveedor || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Moneda</p>
+                            <p className="text-sm font-semibold">{item.moneda || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Subtotal</p>
+                            <p className="text-sm font-semibold font-mono">
+                              {Number(item.subtotal).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">IGV</p>
+                            <p className="text-sm font-semibold font-mono">
+                              {Number(item.igv).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Total</p>
+                            <p className="text-sm font-bold font-mono">
+                              {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
                         </div>
-                      )}
+                        {isDeleted && item.deleted_at && (
+                          <div className="mt-2">
+                            <p className="text-xs text-red-500">Eliminada el</p>
+                            <p className="text-xs font-mono text-red-400">{new Date(item.deleted_at).toLocaleString("es-PE")}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <h4 className="text-xs font-bold text-slate-700 mb-2">Autorizaciones</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-slate-500">Admin.</p>
+                            {item.auto_administrador === true ? (
+                              <Badge className="bg-green-100 text-green-800 text-xs">APROBADO</Badge>
+                            ) : item.auto_administrador === false ? (
+                              <Badge className="bg-yellow-100 text-yellow-800 text-xs">PENDIENTE</Badge>
+                            ) : <span className="text-xs text-slate-400">-</span>}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Jefe Proy.</p>
+                            {item.jefe_proyecto === true ? (
+                              <Badge className="bg-green-100 text-green-800 text-xs">APROBADO</Badge>
+                            ) : item.jefe_proyecto === false ? (
+                              <Badge className="bg-yellow-100 text-yellow-800 text-xs">PENDIENTE</Badge>
+                            ) : <span className="text-xs text-slate-400">-</span>}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Contab.</p>
+                            {item.auto_contabilidad === true ? (
+                              <Badge className="bg-green-100 text-green-800 text-xs">APROBADO</Badge>
+                            ) : item.auto_contabilidad === false ? (
+                              <Badge className="bg-yellow-100 text-yellow-800 text-xs">PENDIENTE</Badge>
+                            ) : <span className="text-xs text-slate-400">-</span>}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Proc. Pago</p>
+                            <p className="text-sm">{item.procede_pago || "-"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Fila 2: Retención/Detracción/Anticipo + Documentos */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <h4 className="text-xs font-bold text-slate-700 mb-2">Retención, Detracción y Anticipo</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-slate-500">Retención</p>
+                            {item.retencion ? (
+                              <Badge className="bg-blue-100 text-blue-800 text-xs">{item.retencion}</Badge>
+                            ) : <span className="text-xs text-slate-400">-</span>}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Valor Ret.</p>
+                            <p className="text-sm font-mono">{item.valor_retencion ? Number(item.valor_retencion).toFixed(2) : "0.00"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Detracción</p>
+                            {item.detraccion ? (
+                              <Badge className="bg-purple-100 text-purple-800 text-xs">{item.detraccion}</Badge>
+                            ) : <span className="text-xs text-slate-400">-</span>}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Valor Det.</p>
+                            <p className="text-sm font-mono">{item.valor_detraccion ? Number(item.valor_detraccion).toFixed(2) : "0.00"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Anticipo</p>
+                            {item.tiene_anticipo === "SI" ? (
+                              <Badge className="bg-green-100 text-green-800 text-xs">SÍ</Badge>
+                            ) : (
+                              <Badge className="bg-red-100 text-red-800 text-xs">NO</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <h4 className="text-xs font-bold text-slate-700 mb-2">Documentos</h4>
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          <a
+                            href={item.id_orden_servicio ? urlHelpers.getOrdenServicioPdfUrl(item.id_orden_servicio) : "#"}
+                            target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
+                          >
+                            <FileText className="h-3 w-3" /> PDF
+                          </a>
+                          {item.url ? (
+                            <a href={item.url} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200">
+                              <ExternalLink className="h-3 w-3" /> Operación
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
+                              <ExternalLink className="h-3 w-3" /> Operación
+                            </span>
+                          )}
+                          {item.url_cotizacion ? (
+                            <a href={item.url_cotizacion} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-200">
+                              <ExternalLink className="h-3 w-3" /> Cotización
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
+                              <ExternalLink className="h-3 w-3" /> Cotización
+                            </span>
+                          )}
+                          {item.url_factura ? (
+                            <a href={item.url_factura} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-200">
+                              <ExternalLink className="h-3 w-3" /> Factura
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
+                              <ExternalLink className="h-3 w-3" /> Factura
+                            </span>
+                          )}
+                          {item.url_comprobante_retencion ? (
+                            <a href={item.url_comprobante_retencion} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs hover:bg-indigo-200">
+                              <FileText className="h-3 w-3" /> Comp. Retención
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded text-xs cursor-not-allowed">
+                              <FileText className="h-3 w-3" /> Comp. Retención
+                            </span>
+                          )}
+                        </div>
+
+                        {/* N° Factura */}
+                        <div className="pt-2 border-t border-slate-200">
+                          <label className="text-xs font-semibold text-slate-700 mb-1 block">Número de Factura:</label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="text"
+                              placeholder="Ej: F001-00001234"
+                              value={editingFacturaId === item.id_orden_servicio ? nroFacturaEdit : (item.nro_factura || "")}
+                              onChange={(e) => { if (editingFacturaId === item.id_orden_servicio) setNroFacturaEdit(e.target.value); }}
+                              onFocus={() => { setEditingFacturaId(item.id_orden_servicio || null); setNroFacturaEdit(item.nro_factura || ""); }}
+                              disabled={!!item.nro_factura}
+                              className="h-8 text-xs flex-1"
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => { if (item.id_orden_servicio) handleUpdateNroFactura(item.id_orden_servicio, nroFacturaEdit); }}
+                              disabled={editingFacturaId !== item.id_orden_servicio || !!item.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, item.id_orden_servicio || null, item.id_proveedor || null)}
+                              className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
+                            >
+                              Guardar
+                            </Button>
+                          </div>
+                          {editingFacturaId === item.id_orden_servicio && isNroFacturaDuplicado(nroFacturaEdit, item.id_orden_servicio || null, item.id_proveedor || null) && (
+                            <p className="text-xs text-red-600 mt-1">Este proveedor ya tiene una orden con ese número de factura</p>
+                          )}
+                        </div>
+
+                        {/* Multifacturas */}
+                        <div className="mt-2">
+                          <Button
+                            size="sm"
+                            onClick={() => item.id_orden_servicio && openMultifacturas(item.id_orden_servicio)}
+                            className="h-8 px-3 text-xs bg-teal-600 hover:bg-teal-700 text-white"
+                          >
+                            Multifacturas
+                          </Button>
+                        </div>
+                      </div>
                     </div>
 
                     <BackendLogPanel
@@ -1665,9 +2307,25 @@ function OrdenesServicioTab() {
 
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
                       {!isDeleted && (
-                        <Button size="sm" variant="outline" onClick={() => { setEditOrden(item); setIsEditOpen(true); }} className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300">
-                          <Edit className="h-4 w-4 mr-2" /> Editar Orden
-                        </Button>
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => { setEditOrden(item); setIsEditOpen(true); }} className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300">
+                            <Edit className="h-4 w-4 mr-2" /> Editar Orden
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => { setUploadOrdenId(item.id_orden_servicio || null); setUploadDialogType("cotizacion"); }}
+                            className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1"
+                          >
+                            <Upload className="h-3.5 w-3.5" /> Subir Cotización
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => { setUploadOrdenId(item.id_orden_servicio || null); setUploadDialogType("factura"); }}
+                            className="bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-1"
+                          >
+                            <Upload className="h-3.5 w-3.5" /> Subir Factura
+                          </Button>
+                        </>
                       )}
                       {!isDeleted ? (
                         <Button size="sm" variant="outline" onClick={() => handleEliminar(item)} className="bg-white hover:bg-red-50 text-red-700 border-red-300 ml-auto">
@@ -1711,6 +2369,90 @@ function OrdenesServicioTab() {
           </Button>
         </div>
       )}
+
+      {/* Dialog Subir Archivo */}
+      <Dialog open={!!uploadDialogType} onOpenChange={(v) => { if (!v) { setUploadDialogType(null); setUploadOrdenId(null); setUploadFile(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{uploadDialogType === "cotizacion" ? "Subir Cotización" : "Subir Factura"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="os-upload-file">Seleccionar archivo (PDF, JPG, PNG)</Label>
+              <Input id="os-upload-file" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)} />
+              {uploadFile && <p className="text-xs text-slate-500">{uploadFile.name}</p>}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setUploadDialogType(null); setUploadOrdenId(null); setUploadFile(null); }} disabled={isUploading}>Cancelar</Button>
+              <Button onClick={handleUpload} disabled={!uploadFile || isUploading}>{isUploading ? "Subiendo..." : "Subir"}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Multifacturas */}
+      <Dialog open={isMultifacturasOpen} onOpenChange={setIsMultifacturasOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Multifacturas — Orden de Servicio #{multifacturasOrdenId}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            {multifacturasLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="border border-slate-200 px-2 py-1.5 text-left font-semibold">N° Serie</th>
+                        <th className="border border-slate-200 px-2 py-1.5 text-left font-semibold">N° Factura</th>
+                        <th className="border border-slate-200 px-2 py-1.5 text-left font-semibold">Galones</th>
+                        <th className="border border-slate-200 px-2 py-1.5 text-left font-semibold">Proyecto</th>
+                        <th className="border border-slate-200 px-2 py-1.5 w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {multifacturasRows.map((row, i) => (
+                        <tr key={i} className="hover:bg-slate-50">
+                          <td className="border border-slate-200 px-1 py-1">
+                            <Input value={row.nro_serie} onChange={(e) => setMultifacturasRows((p) => p.map((r, idx) => idx === i ? { ...r, nro_serie: e.target.value } : r))} className="h-7 text-xs" placeholder="0001" />
+                          </td>
+                          <td className="border border-slate-200 px-1 py-1">
+                            <Input value={row.nro_factura} onChange={(e) => setMultifacturasRows((p) => p.map((r, idx) => idx === i ? { ...r, nro_factura: e.target.value } : r))} className="h-7 text-xs" placeholder="F001-0001" />
+                          </td>
+                          <td className="border border-slate-200 px-1 py-1">
+                            <Input value={row.galones} onChange={(e) => setMultifacturasRows((p) => p.map((r, idx) => idx === i ? { ...r, galones: e.target.value } : r))} className="h-7 text-xs" placeholder="0" />
+                          </td>
+                          <td className="border border-slate-200 px-1 py-1">
+                            <Input value={row.proyecto} onChange={(e) => setMultifacturasRows((p) => p.map((r, idx) => idx === i ? { ...r, proyecto: e.target.value } : r))} className="h-7 text-xs" placeholder="Proyecto" />
+                          </td>
+                          <td className="border border-slate-200 px-1 py-1 text-center">
+                            <button onClick={() => setMultifacturasRows((p) => p.filter((_, idx) => idx !== i))} className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50">
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setMultifacturasRows((p) => [...p, { nro_serie: "", nro_factura: "", galones: "", proyecto: "" }])} className="flex items-center gap-1 text-xs">
+                  <Plus className="h-3 w-3" /> Agregar fila
+                </Button>
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                  <Button variant="outline" onClick={() => setIsMultifacturasOpen(false)} disabled={multifacturasSaving}>Cancelar</Button>
+                  <Button onClick={saveMultifacturas} disabled={multifacturasSaving} className="bg-teal-600 hover:bg-teal-700">
+                    {multifacturasSaving ? "Guardando..." : "Guardar"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <OrdenEditDialog
         orden={editOrden}
