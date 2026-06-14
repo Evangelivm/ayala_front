@@ -844,13 +844,14 @@ export default function FacturaPage() {
     let observacion = "";
 
     // NETO A PAGAR arriba
-    observacion += `Neto a pagar: S/ ${nuevaFacturaData.netoAPagar.toFixed(
+    const simbolo = nuevaFacturaData.moneda === "DOLARES" ? "$" : "S/";
+    observacion += `Neto a pagar: ${simbolo} ${nuevaFacturaData.netoAPagar.toFixed(
       2
     )}\n`;
 
     // Fondo de Garantía (si aplica)
     if (nuevaFacturaData.fondoGarantia) {
-      observacion += `Fondo de Garantía: S/ ${parseFloat(
+      observacion += `Fondo de Garantía: ${simbolo} ${parseFloat(
         nuevaFacturaData.fondoGarantiaValor || "0"
       ).toFixed(2)}\n`;
     }
@@ -880,7 +881,7 @@ export default function FacturaPage() {
     // Línea 3: Tercera cuenta | Monto detracción
     const cuenta3 = cuentasPago[2].padEnd(52);
     const montoDetraccion = nuevaFacturaData.aplicarDetraccion
-      ? `Monto detracción S/: ${nuevaFacturaData.detraccion.monto.toFixed(2)}`
+      ? `Monto detracción ${simbolo}: ${nuevaFacturaData.detraccion.monto.toFixed(2)}`
       : "";
     observacion += cuenta3 + montoDetraccion;
 
@@ -2857,6 +2858,7 @@ export default function FacturaPage() {
                       <div className="flex justify-between text-sm">
                         <span className="font-semibold">Subtotal:</span>
                         <span className="font-mono">
+                          {nuevaFacturaData.moneda === "DOLARES" ? "$" : "S/"}{" "}
                           {nuevaFacturaData.subtotal.toFixed(2)}
                         </span>
                       </div>
@@ -2921,6 +2923,7 @@ export default function FacturaPage() {
                           </Select>
                         </div>
                         <span className="font-mono">
+                          {nuevaFacturaData.moneda === "DOLARES" ? "$" : "S/"}{" "}
                           {nuevaFacturaData.igv.toFixed(2)}
                         </span>
                       </div>
@@ -2929,6 +2932,7 @@ export default function FacturaPage() {
                       <div className="flex justify-between text-sm font-bold border-t pt-2">
                         <span>Total:</span>
                         <span className="font-mono">
+                          {nuevaFacturaData.moneda === "DOLARES" ? "$" : "S/"}{" "}
                           {nuevaFacturaData.total.toFixed(2)}
                         </span>
                       </div>
@@ -2939,7 +2943,8 @@ export default function FacturaPage() {
                           <div className="flex justify-between items-start text-sm mb-2">
                             <span className="font-semibold">Detracción:</span>
                             <span className="font-mono text-red-600">
-                              -{nuevaFacturaData.detraccion.monto.toFixed(2)}
+                              -{nuevaFacturaData.moneda === "DOLARES" ? "$" : "S/"}{" "}
+                              {nuevaFacturaData.detraccion.monto.toFixed(2)}
                             </span>
                           </div>
 
@@ -3005,7 +3010,7 @@ export default function FacturaPage() {
                               Fondo de Garantía:
                             </span>
                             <span className="font-mono text-red-600">
-                              -
+                              -{nuevaFacturaData.moneda === "DOLARES" ? "$" : "S/"}{" "}
                               {parseFloat(
                                 nuevaFacturaData.fondoGarantiaValor || "0"
                               ).toFixed(2)}
@@ -3018,6 +3023,7 @@ export default function FacturaPage() {
                       <div className="flex justify-between text-base font-bold border-t-2 pt-3 bg-blue-100 -mx-4 px-4 py-3 rounded-b-lg">
                         <span>Neto a Pagar:</span>
                         <span className="font-mono text-blue-700">
+                          {nuevaFacturaData.moneda === "DOLARES" ? "$" : "S/"}{" "}
                           {nuevaFacturaData.netoAPagar.toFixed(2)}
                         </span>
                       </div>

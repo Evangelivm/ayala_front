@@ -1493,7 +1493,7 @@ function OrdenesCompraTab() {
                     <div className="flex flex-col items-start min-w-[80px]">
                       <span className="text-xs text-slate-500 font-medium">Total</span>
                       <span className="text-sm font-bold font-mono">
-                        S/ {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                        {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="flex flex-col items-start min-w-[100px]">
@@ -1525,19 +1525,19 @@ function OrdenesCompraTab() {
                           <div>
                             <p className="text-xs text-slate-500">Subtotal</p>
                             <p className="text-sm font-semibold font-mono">
-                              {Number(item.subtotal).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                              {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.subtotal).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
                             </p>
                           </div>
                           <div>
                             <p className="text-xs text-slate-500">IGV</p>
                             <p className="text-sm font-semibold font-mono">
-                              {Number(item.igv).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                              {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.igv).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
                             </p>
                           </div>
                           <div>
                             <p className="text-xs text-slate-500">Total</p>
                             <p className="text-sm font-bold font-mono">
-                              {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                              {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
                             </p>
                           </div>
                         </div>
@@ -2181,7 +2181,7 @@ function OrdenesServicioTab() {
                     <div className="flex flex-col items-start min-w-[80px]">
                       <span className="text-xs text-slate-500 font-medium">Total</span>
                       <span className="text-sm font-bold font-mono">
-                        S/ {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                        {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="flex flex-col items-start min-w-[100px]">
@@ -2215,19 +2215,19 @@ function OrdenesServicioTab() {
                           <div>
                             <p className="text-xs text-slate-500">Subtotal</p>
                             <p className="text-sm font-semibold font-mono">
-                              {Number(item.subtotal).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                              {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.subtotal).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
                             </p>
                           </div>
                           <div>
                             <p className="text-xs text-slate-500">IGV</p>
                             <p className="text-sm font-semibold font-mono">
-                              {Number(item.igv).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                              {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.igv).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
                             </p>
                           </div>
                           <div>
                             <p className="text-xs text-slate-500">Total</p>
                             <p className="text-sm font-bold font-mono">
-                              {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                              {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
                             </p>
                           </div>
                         </div>
@@ -2779,7 +2779,7 @@ function FacturasTab() {
                     <div className="flex flex-col items-start min-w-[90px]">
                       <span className="text-xs text-slate-500 font-medium">Total</span>
                       <span className="text-sm font-bold font-mono">
-                        S/ {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                        {item.moneda === 2 ? "$" : "S/"} {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="flex flex-col items-start min-w-[110px]">
