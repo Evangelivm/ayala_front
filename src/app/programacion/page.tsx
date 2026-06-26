@@ -44,6 +44,7 @@ import { CamionSelectDialog } from "@/components/camion-select-dialog";
 import { ProyectoSelect } from "@/components/proyecto-select";
 import { AddCamionDialog } from "@/components/add-camion-dialog";
 import { AddEmpresaDialog } from "@/components/add-empresa-dialog";
+import { EditEmpresasDialog } from "@/components/edit-empresas-dialog";
 import { ubigeosLima } from "@/lib/ubigeos-lima";
 import {
   getManualRows,
@@ -1007,6 +1008,7 @@ export default function ProgramacionPage() {
                 onEmpresaAdded={loadEmpresas}
                 buttonText="Agregar Empresa"
               />
+              <EditEmpresasDialog onEmpresaUpdated={loadEmpresas} />
               <AddCamionDialog
                 empresas={empresas}
                 onCamionAdded={loadCamiones}

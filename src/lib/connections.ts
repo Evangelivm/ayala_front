@@ -3196,11 +3196,16 @@ export const empresasApi = {
   },
 
   // Crear nueva empresa
-  create: async (
-    data: Omit<EmpresaData, "codigo">
-  ): Promise<EmpresaData> => {
+  create: async (data: EmpresaData): Promise<EmpresaData> => {
     try {
-      const response = await api.post("/empresas", data);
+      const payload = {
+        C_digo: data.codigo,
+        Raz_n_social: data.razon_social,
+        N__documento: data.nro_documento,
+        Tipo: data.tipo,
+        Direcci_n: data.direccion,
+      };
+      const response = await api.post("/empresas", payload);
       return response.data;
     } catch (error) {
       console.error("Empresas API error:", error);
@@ -3214,7 +3219,12 @@ export const empresasApi = {
     data: Partial<EmpresaData>
   ): Promise<EmpresaData> => {
     try {
-      const response = await api.put(`/empresas/${codigo}`, data);
+      const payload: Record<string, string | null | undefined> = {};
+      if (data.razon_social !== undefined) payload.Raz_n_social = data.razon_social;
+      if (data.nro_documento !== undefined) payload.N__documento = data.nro_documento;
+      if (data.tipo !== undefined) payload.Tipo = data.tipo;
+      if (data.direccion !== undefined) payload.Direcci_n = data.direccion;
+      const response = await api.put(`/empresas/${codigo}`, payload);
       return response.data;
     } catch (error) {
       console.error("Empresas API error:", error);
@@ -3697,6 +3707,7 @@ export interface OrdenCompraData {
   url_cotizacion?: string | null;
   url_factura?: string | null;
   nro_factura?: string | null; // Número de factura
+  multifacturas_nros?: string | null; // Números de factura de multifacturas (comma-separated)
   url_comprobante_retencion?: string | null; // URL del comprobante de retención
   nro_serie?: string | null; // Número de serie del comprobante de retención
   placa_unidad?: string | null; // Placa del camión/unidad asignada
@@ -4148,6 +4159,7 @@ export interface OrdenServicioData {
   url_cotizacion?: string | null;
   url_factura?: string | null;
   nro_factura?: string | null; // Número de factura
+  multifacturas_nros?: string | null; // Números de factura de multifacturas (comma-separated)
   url_comprobante_retencion?: string | null; // URL del comprobante de retención
   nro_serie?: string | null; // Número de serie del comprobante de retención
   placa_unidad?: string | null; // Placa del camión/unidad asignada

@@ -398,6 +398,15 @@ export default function RegistroAdministracionPage() {
                                   </span>
                                 </div>
 
+                                {(orden.nro_factura || orden.multifacturas_nros) && (
+                                  <div className="flex flex-col items-start min-w-[150px] max-w-[220px]">
+                                    <span className="text-xs text-gray-500 font-medium">N° Factura</span>
+                                    <span className="text-sm font-mono text-slate-700 break-all leading-tight">
+                                      {orden.nro_factura || orden.multifacturas_nros}
+                                    </span>
+                                  </div>
+                                )}
+
                                 <div className="flex flex-col items-start min-w-[120px]">
                                   <span className="text-xs text-gray-500 font-medium">Total</span>
                                   <span className="text-sm font-bold font-mono text-green-700">
@@ -707,6 +716,15 @@ export default function RegistroAdministracionPage() {
                                     {orden.nombre_proveedor || <span className="text-gray-400 italic">Sin proveedor</span>}
                                   </span>
                                 </div>
+
+                                {(orden.nro_factura || orden.multifacturas_nros) && (
+                                  <div className="flex flex-col items-start min-w-[150px] max-w-[220px]">
+                                    <span className="text-xs text-gray-500 font-medium">N° Factura</span>
+                                    <span className="text-sm font-mono text-slate-700 break-all leading-tight">
+                                      {orden.nro_factura || orden.multifacturas_nros}
+                                    </span>
+                                  </div>
+                                )}
 
                                 <div className="flex flex-col items-start min-w-[120px]">
                                   <span className="text-xs text-gray-500 font-medium">Total</span>
