@@ -196,9 +196,9 @@ export default function ProgramacionPage() {
   const loadEmpresas = async () => {
     try {
       const empresasData = await empresasApi.getAll();
-      // Filtrar solo empresas con datos completos
+      // Filtrar solo empresas con datos mínimos requeridos
       const empresasCompletas = empresasData.filter(
-        (e) => e.nro_documento && e.razon_social && e.direccion
+        (e) => e.nro_documento && e.razon_social
       );
       setEmpresas(empresasCompletas);
     } catch (error) {
