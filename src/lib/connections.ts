@@ -4842,5 +4842,38 @@ export const urlHelpers = {
   },
 };
 
+// ============ OPCIONES PROGRAMACION API ============
+export interface OpcionProgramacion {
+  id: number;
+  nombre: string;
+  created_at?: string;
+}
+
+export const opcionesProgramacionApi = {
+  getAll: async (): Promise<OpcionProgramacion[]> => {
+    try {
+      const response = await api.get("/opciones-programacion");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error("OpcionesProgramacion API error:", error);
+      return [];
+    }
+  },
+
+  create: async (nombre: string): Promise<OpcionProgramacion> => {
+    const response = await api.post("/opciones-programacion", { nombre });
+    return response.data;
+  },
+
+  update: async (id: number, nombre: string): Promise<OpcionProgramacion> => {
+    const response = await api.put(`/opciones-programacion/${id}`, { nombre });
+    return response.data;
+  },
+
+  remove: async (id: number): Promise<void> => {
+    await api.delete(`/opciones-programacion/${id}`);
+  },
+};
+
 // Exportar la instancia de axios para uso directo si es necesario
 export { api };

@@ -24,7 +24,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Upload, Trash2, Save, Plus, X, MapPin, Folder, GitBranch, FileText, Download, CheckSquare, Truck, FileDown, Loader2, Search } from "lucide-react";
+import { Upload, Trash2, Save, Plus, X, MapPin, Folder, GitBranch, FileText, Download, CheckSquare, Truck, FileDown, Loader2, Search, Pencil, Check } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
 import {
@@ -38,6 +38,8 @@ import {
   type EmpresaData,
   proyectosApi,
   type ProyectoData,
+  opcionesProgramacionApi,
+  type OpcionProgramacion,
 } from "@/lib/connections";
 import { RutaDialog } from "@/components/ruta-dialog";
 import { CamionSelectDialog } from "@/components/camion-select-dialog";
@@ -57,7 +59,6 @@ import {
 } from "@/lib/indexeddb";
 
 // Opciones para los selects
-const PROGRAMACIONES = ["AFIRMADO", "ELIMINACION", "SUB BASE", "1 INTERNOS", "BASE GRANULAR"];
 const ESTADOS = ["OK", "EN PROCESO", "NO EJECUTADO"];
 
 export default function ProgramacionPage() {
@@ -91,6 +92,14 @@ export default function ProgramacionPage() {
   // Estado para viaje activo en la pestaña de Registros
   const [viajeActivoRegistros, setViajeActivoRegistros] = useState<Set<number>>(new Set());
   const [numeroOrdenRegistros, setNumeroOrdenRegistros] = useState<Map<number, string>>(new Map());
+
+  // Estado para programaciones desde la BD
+  const [opcionesProgramacion, setOpcionesProgramacion] = useState<OpcionProgramacion[]>([]);
+  const [programaciones, setProgramaciones] = useState<string[]>([]);
+  const [addProgramacionOpen, setAddProgramacionOpen] = useState(false);
+  const [newProgramacion, setNewProgramacion] = useState("");
+  const [editandoOpcion, setEditandoOpcion] = useState<number | null>(null);
+  const [editandoNombre, setEditandoNombre] = useState("");
 
   const toggleViajeActivoRegistro = (id: number, currentNumeroOrden: string | null) => {
     setViajeActivoRegistros((prev) => {
@@ -180,6 +189,61 @@ export default function ProgramacionPage() {
 
     loadData();
   }, []);
+
+  // Cargar opciones de programación desde la BD
+  const loadOpcionesProgramacion = async () => {
+    try {
+      const opciones = await opcionesProgramacionApi.getAll();
+      setOpcionesProgramacion(opciones);
+      setProgramaciones(opciones.map((o) => o.nombre));
+    } catch (error) {
+      console.error("Error al cargar opciones de programación:", error);
+    }
+  };
+
+  useEffect(() => {
+    loadOpcionesProgramacion();
+  }, []);
+
+  const handleAddProgramacion = async () => {
+    const trimmed = newProgramacion.trim().toUpperCase();
+    if (!trimmed) return;
+    if (programaciones.includes(trimmed)) {
+      toast.error("Ese elemento ya existe en la lista");
+      return;
+    }
+    try {
+      await opcionesProgramacionApi.create(trimmed);
+      await loadOpcionesProgramacion();
+      setNewProgramacion("");
+      toast.success(`"${trimmed}" agregado`);
+    } catch {
+      toast.error("Error al guardar la opción");
+    }
+  };
+
+  const handleEditarOpcion = async (opcion: OpcionProgramacion) => {
+    const trimmed = editandoNombre.trim().toUpperCase();
+    if (!trimmed || trimmed === opcion.nombre) { setEditandoOpcion(null); return; }
+    try {
+      await opcionesProgramacionApi.update(opcion.id, trimmed);
+      await loadOpcionesProgramacion();
+      setEditandoOpcion(null);
+      toast.success(`Actualizado a "${trimmed}"`);
+    } catch {
+      toast.error("Error al actualizar la opción");
+    }
+  };
+
+  const handleRemoveProgramacion = async (opcion: OpcionProgramacion) => {
+    try {
+      await opcionesProgramacionApi.remove(opcion.id);
+      await loadOpcionesProgramacion();
+      toast.success(`"${opcion.nombre}" eliminado`);
+    } catch {
+      toast.error("Error al eliminar la opción");
+    }
+  };
 
   // Función para cargar camiones
   const loadCamiones = async () => {
@@ -1003,7 +1067,7 @@ export default function ProgramacionPage() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <AddEmpresaDialog
                 onEmpresaAdded={loadEmpresas}
                 buttonText="Agregar Empresa"
@@ -1014,6 +1078,13 @@ export default function ProgramacionPage() {
                 onCamionAdded={loadCamiones}
                 buttonText="Agregar Unidad"
               />
+              <Button
+                variant="outline"
+                onClick={() => { setNewProgramacion(""); setAddProgramacionOpen(true); }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Agregar Programación
+              </Button>
             </div>
           </div>
         </div>
@@ -1257,7 +1328,7 @@ export default function ProgramacionPage() {
                                 <SelectValue placeholder="Seleccionar..." />
                               </SelectTrigger>
                               <SelectContent>
-                                {PROGRAMACIONES.map((prog) => (
+                                {programaciones.map((prog) => (
                                   <SelectItem key={prog} value={prog}>
                                     {prog}
                                   </SelectItem>
@@ -1651,6 +1722,97 @@ export default function ProgramacionPage() {
         </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modal para gestionar opciones de Programación */}
+      <Dialog open={addProgramacionOpen} onOpenChange={(open) => { setAddProgramacionOpen(open); setEditandoOpcion(null); setNewProgramacion(""); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-orange-600" />
+              Gestionar Opciones de Programación
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Agregar nuevo */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Nuevo elemento (Ej: RELLENO...)"
+                value={newProgramacion}
+                onChange={(e) => setNewProgramacion(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddProgramacion()}
+              />
+              <Button
+                onClick={handleAddProgramacion}
+                disabled={!newProgramacion.trim()}
+                className="bg-orange-600 hover:bg-orange-700 text-white shrink-0"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Lista de opciones */}
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-2">
+                Opciones actuales ({opcionesProgramacion.length})
+              </p>
+              <div className="space-y-1 max-h-64 overflow-y-auto border rounded-md p-2 bg-slate-50">
+                {opcionesProgramacion.length === 0 && (
+                  <p className="text-sm text-slate-400 italic text-center py-2">Sin opciones</p>
+                )}
+                {opcionesProgramacion.map((opcion) => (
+                  <div key={opcion.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-100">
+                    {editandoOpcion === opcion.id ? (
+                      <>
+                        <Input
+                          className="h-7 text-sm flex-1"
+                          value={editandoNombre}
+                          onChange={(e) => setEditandoNombre(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleEditarOpcion(opcion);
+                            if (e.key === "Escape") setEditandoOpcion(null);
+                          }}
+                          autoFocus
+                        />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-green-600 hover:bg-green-50" onClick={() => handleEditarOpcion(opcion)}>
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:bg-slate-100" onClick={() => setEditandoOpcion(null)}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-sm flex-1">{opcion.nombre}</span>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                          onClick={() => { setEditandoOpcion(opcion.id); setEditandoNombre(opcion.nombre); }}
+                          title="Editar"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleRemoveProgramacion(opcion)}
+                          title="Eliminar"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddProgramacionOpen(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Exportar a Excel */}
       <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
