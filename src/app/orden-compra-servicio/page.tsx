@@ -937,6 +937,13 @@ export default function OrdenCompraPage() {
       toast.error("Debe agregar al menos un item a la orden");
       return;
     }
+    const itemSinCentroCosto = nuevaOrdenData.items.some(
+      (item) => !item.centro_costo || !item.centro_costo.trim()
+    );
+    if (itemSinCentroCosto) {
+      toast.error("Debe ingresar el centro de costo en todos los items");
+      return;
+    }
     if (isSavingOrden) return;
 
     setIsLoginConfirmOpen(true);
@@ -3970,7 +3977,7 @@ export default function OrdenCompraPage() {
                                 Nombre
                               </TableHead>
                               <TableHead className="w-36 text-xs font-bold">
-                                Centro Costo
+                                Centro Costo <span className="text-red-500">*</span>
                               </TableHead>
                               <TableHead className="w-24 text-xs font-bold text-center">
                                 Prorrateo (%)
@@ -4026,8 +4033,13 @@ export default function OrdenCompraPage() {
                                     onChange={(e) =>
                                       handleItemChange(index, "centro_costo", e.target.value)
                                     }
-                                    className="h-8 text-xs border border-gray-300 p-2 rounded"
-                                    placeholder="Centro costo"
+                                    className={`h-8 text-xs border p-2 rounded ${
+                                      !item.centro_costo || !item.centro_costo.trim()
+                                        ? "border-red-400"
+                                        : "border-gray-300"
+                                    }`}
+                                    placeholder="Centro costo *"
+                                    required
                                   />
                                 </TableCell>
                                 <TableCell className="p-1">
