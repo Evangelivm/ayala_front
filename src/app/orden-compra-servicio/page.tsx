@@ -2236,9 +2236,9 @@ export default function OrdenCompraPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  disabled
-                                  title="La edición está disponible en Administración General"
-                                  className="flex items-center gap-1 opacity-50 cursor-not-allowed"
+                                  onClick={() => handleEditOrdenCompra(orden)}
+                                  disabled={!orden.id_orden_compra}
+                                  className="flex items-center gap-1 bg-white hover:bg-blue-50 text-blue-700 border-blue-300"
                                 >
                                   <Edit className="h-3 w-3" />
                                   Editar
@@ -2749,9 +2749,9 @@ export default function OrdenCompraPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  disabled
-                                  title="La edición está disponible en Administración General"
-                                  className="flex items-center gap-1 opacity-50 cursor-not-allowed"
+                                  onClick={() => handleEditOrdenServicio(orden)}
+                                  disabled={!orden.id_orden_servicio}
+                                  className="flex items-center gap-1 bg-white hover:bg-blue-50 text-blue-700 border-blue-300"
                                 >
                                   <Edit className="h-3 w-3" />
                                   Editar
