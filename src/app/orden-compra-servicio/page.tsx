@@ -760,6 +760,7 @@ export default function OrdenCompraPage() {
           centroCostoNivel1Codigo: "",
           centroCostoNivel2Codigo: "",
           centroCostoNivel3Codigo: "",
+          items: prev.items.map((item) => ({ ...item, centro_costo: "" })),
         };
       }
       return { ...prev, [field]: value };
@@ -937,12 +938,14 @@ export default function OrdenCompraPage() {
       toast.error("Debe agregar al menos un item a la orden");
       return;
     }
-    const itemSinCentroCosto = nuevaOrdenData.items.some(
-      (item) => !item.centro_costo || !item.centro_costo.trim()
-    );
-    if (itemSinCentroCosto) {
-      toast.error("Debe ingresar el centro de costo en todos los items");
-      return;
+    if (!nuevaOrdenData.almacenCentral) {
+      const itemSinCentroCosto = nuevaOrdenData.items.some(
+        (item) => !item.centro_costo || !item.centro_costo.trim()
+      );
+      if (itemSinCentroCosto) {
+        toast.error("Debe ingresar el centro de costo en todos los items");
+        return;
+      }
     }
     if (isSavingOrden) return;
 
@@ -3977,7 +3980,10 @@ export default function OrdenCompraPage() {
                                 Nombre
                               </TableHead>
                               <TableHead className="w-36 text-xs font-bold">
-                                Centro Costo <span className="text-red-500">*</span>
+                                Centro Costo{" "}
+                                {!nuevaOrdenData.almacenCentral && (
+                                  <span className="text-red-500">*</span>
+                                )}
                               </TableHead>
                               <TableHead className="w-24 text-xs font-bold text-center">
                                 Prorrateo (%)
@@ -4034,12 +4040,19 @@ export default function OrdenCompraPage() {
                                       handleItemChange(index, "centro_costo", e.target.value)
                                     }
                                     className={`h-8 text-xs border p-2 rounded ${
-                                      !item.centro_costo || !item.centro_costo.trim()
+                                      nuevaOrdenData.almacenCentral
+                                        ? "border-gray-200 bg-gray-100 cursor-not-allowed"
+                                        : !item.centro_costo || !item.centro_costo.trim()
                                         ? "border-red-400"
                                         : "border-gray-300"
                                     }`}
-                                    placeholder="Centro costo *"
-                                    required
+                                    placeholder={
+                                      nuevaOrdenData.almacenCentral
+                                        ? "Centro costo"
+                                        : "Centro costo *"
+                                    }
+                                    required={!nuevaOrdenData.almacenCentral}
+                                    disabled={nuevaOrdenData.almacenCentral}
                                   />
                                 </TableCell>
                                 <TableCell className="p-1">
