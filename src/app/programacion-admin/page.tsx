@@ -1095,6 +1095,11 @@ function ProgramacionTecnicaTab() {
                                     {hasLinks ? 'Completada' : isPending ? 'Procesando' : isFailed ? 'Fallida' : 'Pendiente'}
                                   </Badge>
                                 </div>
+                                {isFailed && guia.ultimo_error && (
+                                  <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mb-1">
+                                    {guia.ultimo_error}
+                                  </p>
+                                )}
                                 <div className="flex flex-wrap gap-1">
                                   {guia.enlace_del_pdf ? (
                                     <Button size="sm" variant="outline" onClick={() => window.open(guia.enlace_del_pdf!, "_blank")}

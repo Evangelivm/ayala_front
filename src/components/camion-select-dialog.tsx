@@ -33,6 +33,7 @@ interface CamionSelectDialogProps {
   emptyMessage?: string;
   empresas?: EmpresaData[];
   onCamionUpdated?: () => void;
+  disabled?: boolean;
 }
 
 export function CamionSelectDialog({
@@ -45,6 +46,7 @@ export function CamionSelectDialog({
   emptyMessage = "camiones",
   empresas = [],
   onCamionUpdated,
+  disabled = false,
 }: CamionSelectDialogProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -94,11 +96,13 @@ export function CamionSelectDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open && !disabled} onOpenChange={(value) => !disabled && setOpen(value)}>
       <DialogTrigger asChild>
         <Button
+          type="button"
           variant={currentPlaca ? "outline" : "default"}
           className="w-full"
+          disabled={disabled}
         >
           <Truck className={`h-4 w-4 ${(currentPlaca || buttonText) ? 'mr-2' : ''}`} />
           {currentPlaca || buttonText}

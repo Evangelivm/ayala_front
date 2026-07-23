@@ -218,6 +218,8 @@ export default function OrdenCompraPage() {
       subtotal: number;
       centro_costo: string;
       prorrateo: number | null;
+      unidad: string;
+      unidad_id: number;
     }>,
     subtotal: 0,
     igv: 0,
@@ -665,6 +667,19 @@ export default function OrdenCompraPage() {
     }));
   };
 
+  // Handler para seleccionar camión por ítem (cuando el centro de costo está habilitado por ítem)
+  const handleItemCamionSelect = useCallback((index: number, camion: CamionData) => {
+    setNuevaOrdenData((prev) => {
+      const updatedItems = [...prev.items];
+      updatedItems[index] = {
+        ...updatedItems[index],
+        unidad: camion.placa,
+        unidad_id: camion.id_camion,
+      };
+      return { ...prev, items: updatedItems };
+    });
+  }, []);
+
   // Handler para abrir modal de proveedores
   const handleOpenProveedoresModal = () => {
     setIsProveedoresModalOpen(true);
@@ -752,7 +767,7 @@ export default function OrdenCompraPage() {
     value: string | Date | number | boolean | { porcentaje: number; monto: number; tipo_detraccion?: string }
   ) => {
     setNuevaOrdenData((prev) => {
-      // Si se marca Almacén Central, limpiar los campos de centro de costos
+      // Si se marca Almacén Central, limpiar los campos de centro de costo
       if (field === "almacenCentral" && value === true) {
         return {
           ...prev,
@@ -882,6 +897,8 @@ export default function OrdenCompraPage() {
           subtotal: Number(item.precio_unitario) || 0,
           centro_costo: "",
           prorrateo: null,
+          unidad: "",
+          unidad_id: 0,
         };
 
         // Si estamos reemplazando un item existente
@@ -991,6 +1008,7 @@ export default function OrdenCompraPage() {
         subtotal: item.subtotal,
         centro_costo: item.centro_costo || undefined,
         prorrateo: item.prorrateo ?? undefined,
+        unidad_id: item.unidad_id > 0 ? item.unidad_id : undefined,
       }));
 
       const ordenParaEnviar = {
@@ -1117,6 +1135,8 @@ export default function OrdenCompraPage() {
         subtotal: number;
         centro_costo: string;
         prorrateo: number | null;
+        unidad: string;
+        unidad_id: number;
       }>,
       subtotal: 0,
       igv: 0,
@@ -1190,6 +1210,8 @@ export default function OrdenCompraPage() {
           subtotal: Number(item.subtotal) || 0,
           centro_costo: item.centro_costo || "",
           prorrateo: item.prorrateo != null ? Number(item.prorrateo) : null,
+          unidad: item.placa_vehiculo || "",
+          unidad_id: item.id_camion || 0,
         })),
         subtotal: Number(orden.subtotal) || 0,
         igv: Number(orden.igv) || 0,
@@ -1269,6 +1291,8 @@ export default function OrdenCompraPage() {
           subtotal: Number(item.subtotal) || 0,
           centro_costo: item.centro_costo || "",
           prorrateo: item.prorrateo != null ? Number(item.prorrateo) : null,
+          unidad: item.placa_vehiculo || "",
+          unidad_id: item.id_camion || 0,
         })),
         subtotal: Number(orden.subtotal) || 0,
         igv: Number(orden.igv) || 0,
@@ -3682,8 +3706,8 @@ export default function OrdenCompraPage() {
                         </Popover>
                       </div>
 
-                      {/* Campo de Unidad */}
-                      <div className="col-span-2">
+                      {/* Campo de Unidad (oculto: ahora se selecciona un vehículo por ítem) */}
+                      <div className="col-span-2 hidden">
                         <Label
                           htmlFor="unidad"
                           className="text-xs font-semibold"
@@ -3985,6 +4009,9 @@ export default function OrdenCompraPage() {
                                   <span className="text-red-500">*</span>
                                 )}
                               </TableHead>
+                              <TableHead className="w-32 text-xs font-bold">
+                                Vehículo
+                              </TableHead>
                               <TableHead className="w-24 text-xs font-bold text-center">
                                 Prorrateo (%)
                               </TableHead>
@@ -4054,6 +4081,18 @@ export default function OrdenCompraPage() {
                                     required={!nuevaOrdenData.almacenCentral}
                                     disabled={nuevaOrdenData.almacenCentral}
                                   />
+                                </TableCell>
+                                <TableCell className="p-1">
+                                  <div className="scale-90 origin-left">
+                                    <CamionSelectDialog
+                                      camiones={camiones}
+                                      onSelect={(camion) =>
+                                        handleItemCamionSelect(index, camion)
+                                      }
+                                      currentPlaca={item.unidad}
+                                      buttonText="Seleccionar"
+                                    />
+                                  </div>
                                 </TableCell>
                                 <TableCell className="p-1">
                                   <Input

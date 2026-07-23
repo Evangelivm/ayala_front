@@ -1408,6 +1408,7 @@ export interface GuiaRemisionData {
 
   // Estado
   estado_gre?: string;
+  ultimo_error?: string | null;
   enlace_del_pdf?: string;
   enlace_del_xml?: string;
   enlace_del_cdr?: string;
@@ -1593,6 +1594,21 @@ export const guiasRemisionExtendidoApi = {
     }
   },
 
+  // Obtener guías para múltiples identificadores en una sola petición
+  // (usar siempre que se necesiten guías de una tabla/listado completo, en vez de N llamadas a getByIdentificador)
+  getByIdentificadores: async (identificadores: string[]): Promise<Record<string, GuiaRemisionData[]>> => {
+    if (identificadores.length === 0) return {};
+    try {
+      const response = await api.post("/guias-remision-extendido/by-identificadores", {
+        identificadores,
+      });
+      return response.data || {};
+    } catch (error) {
+      console.error("Error obteniendo guías por identificadores:", error);
+      return {};
+    }
+  },
+
   // Obtener identificadores que ya tienen guías en la tabla extendida
   getIdentificadoresExistentes: async (): Promise<string[]> => {
     try {
@@ -1644,6 +1660,20 @@ export const guiasRemisionExtendidoApi = {
     } catch (error) {
       console.error("Descargar ZIP API error:", error);
       throw new Error("Error al descargar el archivo ZIP");
+    }
+  },
+
+  // Descargar PDF + XML + CDR de una guía puntual como ZIP (proxy para evitar CORS)
+  descargarZipGuia: async (idGuia: number): Promise<ArrayBuffer> => {
+    try {
+      const response = await api.post(`/guias-remision-extendido/descargar-zip-guia/${idGuia}`, {}, {
+        responseType: 'arraybuffer',
+        timeout: 60000,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Descargar ZIP de guía API error:", error);
+      throw new Error("Error al descargar el archivo ZIP de la guía");
     }
   },
 
@@ -2459,157 +2489,6 @@ export const programacionApi = {
         }
       }
       throw new Error("Error al eliminar el registro");
-    }
-  },
-
-  // ============ PROGRAMACIÓN EXTENDIDA - DUPLICACIÓN MASIVA ============
-
-  // Obtener guías originales (no duplicadas) para programación extendida
-  getAllOriginales: async (): Promise<ProgramacionTecnicaData[]> => {
-    try {
-      const response = await api.get("/programacion/tecnica/originales");
-      return Array.isArray(response.data) ? response.data : [];
-    } catch (error) {
-      console.error("Programación Técnica Originales API error:", error);
-      return [];
-    }
-  },
-
-  // Obtener guías duplicadas para programación extendida
-  getAllDuplicadas: async (): Promise<ProgramacionTecnicaData[]> => {
-    try {
-      const response = await api.get("/programacion/tecnica/duplicadas");
-      return Array.isArray(response.data) ? response.data : [];
-    } catch (error) {
-      console.error("Programación Técnica Duplicadas API error:", error);
-      return [];
-    }
-  },
-
-  // Duplicar guía
-  // ✅ NUEVO FLUJO: Duplicar guía devuelve estructura en memoria (no guarda en BD)
-  duplicarGuia: async (
-    idGuiaOriginal: number,
-    cantidad: number,
-    modificaciones?: Partial<ProgramacionTecnicaData>[]
-  ): Promise<{
-    success: boolean;
-    message: string;
-    duplicados: ProgramacionTecnicaData[] // Ya no hay loteId
-  }> => {
-    try {
-      const response = await api.post("/programacion/tecnica/duplicar", {
-        idGuiaOriginal,
-        cantidad,
-        modificaciones
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Duplicar Guía API error:", error);
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
-        if (axiosError.response?.data?.message) {
-          throw new Error(axiosError.response.data.message);
-        }
-      }
-      throw new Error("Error al duplicar la guía");
-    }
-  },
-
-  // ✅ NUEVO: Guardar duplicados editados en BD (se auto-detectarán)
-  guardarDuplicados: async (
-    duplicados: Array<Partial<ProgramacionTecnicaData>>
-  ): Promise<{
-    success: boolean;
-    message: string;
-    guiasCreadas: Array<{ id_guia: number; identificador_unico: string; serie: string; numero: number }>;
-  }> => {
-    try {
-      const response = await api.post("/programacion/tecnica/guardar-duplicados", {
-        duplicados
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Guardar Duplicados API error:", error);
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
-        if (axiosError.response?.data?.message) {
-          throw new Error(axiosError.response.data.message);
-        }
-      }
-      throw new Error("Error al guardar duplicados");
-    }
-  },
-
-  // Actualizar duplicados de un lote
-  actualizarDuplicados: async (
-    loteId: string,
-    modificaciones: {
-      peso_bruto_total?: number;
-      id_proyecto?: number;
-      id_subproyecto?: number;
-      id_etapa?: number;
-      id_sector?: number;
-      id_frente?: number;
-      id_partida?: number;
-      id_subetapa?: number;
-      id_subsector?: number;
-      id_subfrente?: number;
-      id_subpartida?: number;
-    }
-  ): Promise<{
-    success: boolean;
-    message: string;
-    registrosActualizados: number;
-  }> => {
-    try {
-      const response = await api.patch("/programacion/tecnica/duplicados/actualizar", {
-        loteId,
-        modificaciones,
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Actualizar Duplicados API error:", error);
-      throw new Error("Error al actualizar duplicados");
-    }
-  },
-
-  // Enviar duplicados a Kafka en lotes
-  enviarDuplicadosKafka: async (
-    loteId: string,
-    idsGuias: number[]
-  ): Promise<{
-    success: boolean;
-    message: string;
-    procesados: number;
-    errores: Array<{ id: number; error: string }>;
-  }> => {
-    try {
-      const response = await api.post("/programacion/tecnica/enviar-kafka", {
-        loteId,
-        idsGuias
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Enviar Duplicados Kafka API error:", error);
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
-        if (axiosError.response?.data?.message) {
-          throw new Error(axiosError.response.data.message);
-        }
-      }
-      throw new Error("Error al enviar duplicados a Kafka");
-    }
-  },
-
-  // Eliminar duplicados de un lote (antes de enviar)
-  eliminarDuplicados: async (loteId: string): Promise<{ success: boolean; message: string }> => {
-    try {
-      const response = await api.delete(`/programacion/tecnica/duplicados/${loteId}`);
-      return response.data;
-    } catch (error) {
-      console.error("Eliminar Duplicados API error:", error);
-      throw new Error("Error al eliminar duplicados");
     }
   },
 
@@ -3698,6 +3577,9 @@ export interface OrdenCompraData {
     subtotal: number;
     centro_costo?: string | null;
     prorrateo?: number | null;
+    unidad_id?: number | null;
+    id_camion?: number | null;
+    placa_vehiculo?: string | null;
   }>;
   subtotal: number;
   igv: number;
@@ -4150,6 +4032,9 @@ export interface OrdenServicioData {
     subtotal: number;
     centro_costo?: string | null;
     prorrateo?: number | null;
+    unidad_id?: number | null;
+    id_camion?: number | null;
+    placa_vehiculo?: string | null;
   }>;
   subtotal: number;
   igv: number;

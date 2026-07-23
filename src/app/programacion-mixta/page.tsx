@@ -405,6 +405,7 @@ function PestanaExtendida({
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [descargandoZip, setDescargandoZip] = useState<string | null>(null);
+  const [descargandoZipGuia, setDescargandoZipGuia] = useState<number | null>(null);
 
   useEffect(() => setPage(1), [searchQuery]);
 
@@ -506,6 +507,23 @@ function PestanaExtendida({
       toast.success("✅ Descarga completada");
     } catch { toast.error("Error al descargar el ZIP"); }
     finally { setDescargandoZip(null); }
+  };
+
+  const handleDescargarZipGuia = async (guia: GuiaRemisionData) => {
+    if (!guia.id_guia) return;
+    setDescargandoZipGuia(guia.id_guia);
+    try {
+      const response = await guiasRemisionExtendidoApi.descargarZipGuia(guia.id_guia);
+      const blob = new Blob([response], { type: "application/zip" });
+      const nombreGuia = `${guia.serie}-${String(guia.numero).padStart(4, "0")}`;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `guia_${nombreGuia}.zip`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); window.URL.revokeObjectURL(url);
+      toast.success(`✅ Descarga completada: guia_${nombreGuia}.zip`);
+    } catch { toast.error("Error al descargar el ZIP de la guía"); }
+    finally { setDescargandoZipGuia(null); }
   };
 
   const goPage = (p: number) => {
@@ -691,6 +709,11 @@ function PestanaExtendida({
                                         {hasLinks ? "Completada" : isPending ? "Procesando" : isFailed ? "Fallida" : "Pendiente"}
                                       </Badge>
                                     </div>
+                                    {isFailed && guia.ultimo_error && (
+                                      <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mb-1">
+                                        {guia.ultimo_error}
+                                      </p>
+                                    )}
                                     <div className="flex flex-wrap gap-1 items-center">
                                       {guia.enlace_del_pdf
                                         ? <Button size="sm" variant="outline" onClick={() => window.open(guia.enlace_del_pdf, "_blank")} className="h-6 px-2 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200"><Download className="h-3 w-3 mr-1" />PDF</Button>
@@ -701,6 +724,17 @@ function PestanaExtendida({
                                       {guia.enlace_del_cdr
                                         ? <Button size="sm" variant="outline" onClick={() => window.open(guia.enlace_del_cdr, "_blank")} className="h-6 px-2 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"><Download className="h-3 w-3 mr-1" />CDR</Button>
                                         : <span className="text-xs text-slate-400 px-2">-</span>}
+                                      {hasLinks && (
+                                        <Button size="sm" variant="outline"
+                                          onClick={() => handleDescargarZipGuia(guia)}
+                                          disabled={descargandoZipGuia === guia.id_guia}
+                                          className="h-6 px-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 disabled:opacity-60 disabled:cursor-not-allowed">
+                                          {descargandoZipGuia === guia.id_guia
+                                            ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                            : <Archive className="h-3 w-3 mr-1" />}
+                                          ZIP
+                                        </Button>
+                                      )}
                                       {!hasLinks && (
                                         <Button size="sm" variant="outline"
                                           onClick={() => handleRecuperarGuia(guia, item.identificador_unico!)}
@@ -710,7 +744,7 @@ function PestanaExtendida({
                                       )}
                                       <Button size="sm" variant="outline"
                                         onClick={() => handleEliminarGuia(guia, item.identificador_unico!)}
-                                        className="h-6 px-2 text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200">
+                                        className="h-6 px-2 text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 ml-auto">
                                         <Trash2 className="h-3 w-3 mr-1" />Eliminar
                                       </Button>
                                     </div>

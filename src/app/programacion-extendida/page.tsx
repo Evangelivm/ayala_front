@@ -42,6 +42,50 @@ import {
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
 import { GuiaRemisionExtendidoModal } from "@/components/guia-remision-extendido-modal";
 
+const PER_PAGE = 25;
+
+function PaginationBar({
+  page, total, onChange,
+}: { page: number; total: number; onChange: (p: number) => void }) {
+  if (total <= 1) return null;
+
+  const pages: (number | "…")[] = [];
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (page > 3) pages.push("…");
+    for (let i = Math.max(2, page - 1); i <= Math.min(total - 1, page + 1); i++) pages.push(i);
+    if (page < total - 2) pages.push("…");
+    pages.push(total);
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-1 pt-4 mt-2 border-t border-gray-100">
+      <Button
+        size="sm" variant="outline" onClick={() => onChange(page - 1)}
+        disabled={page === 1} className="h-8 px-3 text-xs"
+      >← Ant.</Button>
+      {pages.map((p, i) =>
+        p === "…" ? (
+          <span key={`d${i}`} className="px-1 text-gray-400 text-xs">…</span>
+        ) : (
+          <Button
+            key={p} size="sm"
+            variant={p === page ? "default" : "outline"}
+            onClick={() => onChange(p as number)}
+            className="h-8 w-8 p-0 text-xs"
+          >{p}</Button>
+        )
+      )}
+      <Button
+        size="sm" variant="outline" onClick={() => onChange(page + 1)}
+        disabled={page === total} className="h-8 px-3 text-xs"
+      >Sig. →</Button>
+    </div>
+  );
+}
+
 export default function ProgramacionExtendidaPage() {
   const [data, setData] = useState<ProgramacionTecnicaData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,9 +96,11 @@ export default function ProgramacionExtendidaPage() {
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [guiasExtendidas, setGuiasExtendidas] = useState<Record<string, GuiaRemisionData[]>>({});
   const [descargandoZip, setDescargandoZip] = useState<string | null>(null);
+  const [descargandoZipGuia, setDescargandoZipGuia] = useState<number | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [selectedExportProveedores, setSelectedExportProveedores] = useState<Set<string>>(new Set());
   const [exportando, setExportando] = useState(false);
+  const [page, setPage] = useState(1);
 
   const fetchGuiasExtendidas = async (identificador: string) => {
     try {
@@ -93,12 +139,17 @@ export default function ProgramacionExtendidaPage() {
       setIdentificadoresConGuia(idsConGuia);
       setIdentificadoresEnTablaRegular(idsEnTablaRegular);
 
-      // Cargar guías extendidas para cada registro que tenga identificador_unico
-      const guiasPromises = dataSinDuplicados
-        .filter((item) => item.identificador_unico)
-        .map((item) => fetchGuiasExtendidas(item.identificador_unico!));
+      // Cargar guías extendidas en una sola petición batch (evita 1 request por fila).
+      // OJO: idsConGuia viene de la tabla de guía ÚNICA (guia_remision), no de la extendida,
+      // así que NO sirve para filtrar acá — hay que consultar por todo identificador_unico presente.
+      const identificadoresAConsultar = dataSinDuplicados
+        .map((item) => item.identificador_unico)
+        .filter((id): id is string => !!id);
 
-      await Promise.all(guiasPromises);
+      const guiasPorIdentificador = await guiasRemisionExtendidoApi.getByIdentificadores(
+        identificadoresAConsultar,
+      );
+      setGuiasExtendidas(guiasPorIdentificador);
     } catch (error) {
       toast.error("Error al cargar los datos");
       console.error("Error fetching data:", error);
@@ -110,6 +161,9 @@ export default function ProgramacionExtendidaPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Volver a la página 1 cuando cambia la búsqueda
+  useEffect(() => setPage(1), [searchTerm]);
 
   useEffect(() => {
     const intervalId = setInterval(async () => {
@@ -160,16 +214,17 @@ export default function ProgramacionExtendidaPage() {
   useEffect(() => {
     const intervalId = setInterval(async () => {
       try {
-        // Recargar guías extendidas para todos los registros que las tienen
+        // Recargar guías extendidas en una sola petición batch para todo identificador_unico presente
+        // (identificadoresConGuia es de la tabla de guía ÚNICA, no sirve para filtrar acá)
         const identificadoresConGuias = data
-          .filter((item) => item.identificador_unico)
-          .map((item) => item.identificador_unico!);
+          .map((item) => item.identificador_unico)
+          .filter((id): id is string => !!id);
 
         if (identificadoresConGuias.length > 0) {
-          const guiasPromises = identificadoresConGuias.map((identificador) =>
-            fetchGuiasExtendidas(identificador)
+          const guiasPorIdentificador = await guiasRemisionExtendidoApi.getByIdentificadores(
+            identificadoresConGuias,
           );
-          await Promise.all(guiasPromises);
+          setGuiasExtendidas((prev) => ({ ...prev, ...guiasPorIdentificador }));
         }
       } catch (error) {
         console.error('Error en polling de guías extendidas:', error);
@@ -359,6 +414,33 @@ export default function ProgramacionExtendidaPage() {
     }
   };
 
+  const handleDescargarZipGuia = async (guia: GuiaRemisionData) => {
+    if (!guia.id_guia) return;
+    try {
+      setDescargandoZipGuia(guia.id_guia);
+
+      const response = await guiasRemisionExtendidoApi.descargarZipGuia(guia.id_guia);
+
+      const blob = new Blob([response], { type: 'application/zip' });
+      const nombreGuia = `${guia.serie}-${String(guia.numero).padStart(4, '0')}`;
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `guia_${nombreGuia}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`✅ Descarga completada: guia_${nombreGuia}.zip`);
+    } catch (error) {
+      console.error("Error descargando ZIP de guía:", error);
+      toast.error("Error al descargar el ZIP de la guía. Por favor intente nuevamente.");
+    } finally {
+      setDescargandoZipGuia(null);
+    }
+  };
+
   const uniqueProveedores = useMemo(() => {
     const set = new Set<string>();
     data.forEach(item => { if (item.proveedor) set.add(item.proveedor); });
@@ -417,6 +499,9 @@ export default function ProgramacionExtendidaPage() {
 
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / PER_PAGE));
+  const pagedData = filteredData.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
@@ -486,7 +571,7 @@ export default function ProgramacionExtendidaPage() {
               </div>
             ) : (
               <Accordion type="single" collapsible className="space-y-2">
-                {filteredData.map((item) => (
+                {pagedData.map((item) => (
                   <AccordionItem
                     key={item.id}
                     value={`item-${item.id}`}
@@ -722,6 +807,11 @@ export default function ProgramacionExtendidaPage() {
                                           {hasLinks ? 'Completada' : isPending ? 'Procesando' : isFailed ? 'Fallida' : 'Pendiente'}
                                         </Badge>
                                       </div>
+                                      {isFailed && guia.ultimo_error && (
+                                        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mb-1">
+                                          {guia.ultimo_error}
+                                        </p>
+                                      )}
                                       <div className="flex flex-wrap gap-1 items-center">
                                         {guia.enlace_del_pdf ? (
                                           <Button
@@ -762,6 +852,22 @@ export default function ProgramacionExtendidaPage() {
                                         ) : (
                                           <span className="text-xs text-slate-400 px-2">-</span>
                                         )}
+                                        {hasLinks && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleDescargarZipGuia(guia)}
+                                            disabled={descargandoZipGuia === guia.id_guia}
+                                            className="h-6 px-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                                          >
+                                            {descargandoZipGuia === guia.id_guia ? (
+                                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                            ) : (
+                                              <Archive className="h-3 w-3 mr-1" />
+                                            )}
+                                            ZIP
+                                          </Button>
+                                        )}
                                         {!hasLinks && (
                                           <Button
                                             size="sm"
@@ -777,7 +883,7 @@ export default function ProgramacionExtendidaPage() {
                                           size="sm"
                                           variant="outline"
                                           onClick={() => handleEliminarGuia(guia, item.identificador_unico!)}
-                                          className="h-6 px-2 text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200"
+                                          className="h-6 px-2 text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 ml-auto"
                                         >
                                           <Trash2 className="h-3 w-3 mr-1" />
                                           Eliminar
@@ -821,6 +927,7 @@ export default function ProgramacionExtendidaPage() {
                 ))}
               </Accordion>
             )}
+            <PaginationBar page={page} total={totalPages} onChange={setPage} />
           </CardContent>
         </Card>
       </div>
