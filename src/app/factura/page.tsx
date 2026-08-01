@@ -47,7 +47,7 @@ import {
   Search,
 } from "lucide-react";
 import { EstadoBadge } from "@/components/factura/EstadoBadge";
-import { EnlacesModal } from "@/components/factura/EnlacesModal";
+import { EnlacesModal, formatearSunatSoapError } from "@/components/factura/EnlacesModal";
 import { DetraccionSelectDialog } from "@/components/detraccion-select-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -154,7 +154,16 @@ export default function FacturaPage() {
     aceptada_por_sunat?: boolean | null;
     sunat_description?: string | null;
     sunat_note?: string | null;
+    sunat_soap_error?: string | null;
   } | null>(null);
+  // Factura seleccionada para confirmar el reintento (muestra el motivo
+  // del último fallo antes de volver a mandarla a NUBEFACT)
+  const [facturaAReintentar, setFacturaAReintentar] = useState<{
+    id: number;
+    numero_factura: string;
+    sunat_soap_error?: string | null;
+  } | null>(null);
+  const [reintentandoFactura, setReintentandoFactura] = useState(false);
   const [selectedProveedor, setSelectedProveedor] = useState<number | null>(
     null
   );
@@ -191,6 +200,7 @@ export default function FacturaPage() {
       aceptada_por_sunat?: boolean | null;
       sunat_description?: string | null;
       sunat_note?: string | null;
+      sunat_soap_error?: string | null;
     }>
   >([]);
 
@@ -352,11 +362,11 @@ export default function FacturaPage() {
     };
   }, [facturas]); // Dependencia: facturas
 
-  // Polling automático para facturas en FALLIDO (verificación de estado real)
+  // Polling automático para facturas en FALLADO (verificación de estado real)
   useEffect(() => {
-    // Solo hacer polling si hay facturas en FALLIDO o con errores
+    // Solo hacer polling si hay facturas en FALLADO o con errores
     const facturasConErrores = facturas.filter(
-      (f) => f.estado === "FALLIDO" || f.estado === "ERROR"
+      (f) => f.estado === "FALLADO" || f.estado === "ERROR"
     );
 
     if (facturasConErrores.length === 0) {
@@ -414,7 +424,7 @@ export default function FacturaPage() {
         }
         // Si tiene los 3 enlaces (PDF, XML, CDR) aunque SUNAT no responda -> muy probablemente COMPLETADA
         else if (tieneEnlacesPDF && tieneEnlaceXML && tieneEnlaceCDR) {
-          if (estadoReal === "FALLIDO" || estadoReal === "ERROR") {
+          if (estadoReal === "FALLADO" || estadoReal === "ERROR") {
             console.log(
               `✅ Factura ${factura.serie}-${factura.numero}: Corrigiendo estado de "${estadoReal}" a "COMPLETADO" (tiene todos los enlaces)`
             );
@@ -446,6 +456,7 @@ export default function FacturaPage() {
           aceptada_por_sunat: factura.aceptada_por_sunat ?? null,
           sunat_description: factura.sunat_description || null,
           sunat_note: factura.sunat_note || null,
+          sunat_soap_error: factura.sunat_soap_error || null,
         };
       });
 
@@ -552,13 +563,6 @@ export default function FacturaPage() {
     setNuevaFacturaData((prev) => ({
       ...prev,
       centroCostoNivel2Codigo: codigo,
-    }));
-  };
-
-  const handleCentroCostoNivel3Change = (codigo: string) => {
-    setNuevaFacturaData((prev) => ({
-      ...prev,
-      centroCostoNivel3Codigo: codigo,
     }));
   };
 
@@ -1568,10 +1572,7 @@ export default function FacturaPage() {
   };
 
   const handleReintentarFactura = async (id: number) => {
-    if (!confirm("¿Está seguro de que desea reintentar esta factura?")) {
-      return;
-    }
-
+    setReintentandoFactura(true);
     try {
       await facturaApi.reset(id);
       toast.success("Factura reseteada para reintento");
@@ -1582,6 +1583,7 @@ export default function FacturaPage() {
 
       // Recargar facturas
       await loadFacturas();
+      setFacturaAReintentar(null);
     } catch (error: unknown) {
       console.error("Error reintentando factura:", error);
 
@@ -1600,6 +1602,8 @@ export default function FacturaPage() {
       toast.error("Error al reintentar la factura", {
         description: errorMessage,
       });
+    } finally {
+      setReintentandoFactura(false);
     }
   };
 
@@ -1696,6 +1700,7 @@ export default function FacturaPage() {
         aceptada_por_sunat: facturaCompleta.aceptada_por_sunat || null,
         sunat_description: facturaCompleta.sunat_description || null,
         sunat_note: facturaCompleta.sunat_note || null,
+        sunat_soap_error: facturaCompleta.sunat_soap_error || null,
       };
 
       // Abrir modal de enlaces y detalles completos
@@ -1995,7 +2000,17 @@ export default function FacturaPage() {
                           </TableCell>
                           <TableCell className="text-xs text-center">
                             <div className="flex justify-center">
-                              <EstadoBadge estado={factura.estado} />
+                              <EstadoBadge
+                                estado={factura.estado}
+                                tooltip={
+                                  factura.estado === "FALLADO" &&
+                                  factura.sunat_soap_error
+                                    ? formatearSunatSoapError(
+                                        factura.sunat_soap_error
+                                      )
+                                    : undefined
+                                }
+                              />
                             </div>
                           </TableCell>
                           <TableCell className="text-xs text-center">
@@ -2031,7 +2046,12 @@ export default function FacturaPage() {
                               {factura.estado === "FALLADO" && (
                                 <button
                                   onClick={() =>
-                                    handleReintentarFactura(factura.id)
+                                    setFacturaAReintentar({
+                                      id: factura.id,
+                                      numero_factura: factura.numero_factura,
+                                      sunat_soap_error:
+                                        factura.sunat_soap_error,
+                                    })
                                   }
                                   className="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-white hover:bg-orange-600 rounded transition-colors"
                                   title="Reintentar"
@@ -2723,8 +2743,21 @@ export default function FacturaPage() {
                                 </span>
                               )}
                             </TableCell>
-                            <TableCell className="text-xs text-center bg-gray-50 p-2">
-                              {item.unidadMed}
+                            <TableCell>
+                              <Input
+                                type="text"
+                                value={item.unidadMed}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "unidadMed",
+                                    e.target.value.toUpperCase()
+                                  )
+                                }
+                                className="h-8 text-xs border border-gray-300 p-2 text-center rounded font-mono"
+                                title="Código de unidad de medida SUNAT (ej: NIU, ZZ, HUR, KGM)"
+                                required
+                              />
                             </TableCell>
                             <TableCell>
                               <Input
@@ -3263,6 +3296,71 @@ export default function FacturaPage() {
             onConsultar={handleConsultarNubefact}
             factura={selectedFacturaForModal}
           />
+
+          {/* Dialog de confirmación de reintento - muestra el motivo del
+              último fallo antes de volver a mandar la factura a NUBEFACT */}
+          <Dialog
+            open={facturaAReintentar !== null}
+            onOpenChange={(open) => {
+              if (!open && !reintentandoFactura) {
+                setFacturaAReintentar(null);
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>
+                  Reintentar factura {facturaAReintentar?.numero_factura}
+                </DialogTitle>
+                <DialogDescription>
+                  Se va a volver a enviar esta factura a NUBEFACT/SUNAT.
+                </DialogDescription>
+              </DialogHeader>
+
+              {facturaAReintentar?.sunat_soap_error ? (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
+                  <p className="font-medium text-red-800 mb-1">
+                    La última vez falló por:
+                  </p>
+                  {formatearSunatSoapError(
+                    facturaAReintentar.sunat_soap_error
+                  )}
+                  <p className="text-xs text-red-600 mt-2">
+                    Si el motivo es un dato de la factura (ej. unidad de
+                    medida, montos, RUC), reintentar sin corregirlo va a
+                    fallar exactamente igual. Editá la factura antes de
+                    reintentar si hace falta.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 italic">
+                  No hay un motivo de fallo registrado para esta factura.
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  disabled={reintentandoFactura}
+                  onClick={() => setFacturaAReintentar(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="bg-orange-600 hover:bg-orange-700"
+                  disabled={reintentandoFactura}
+                  onClick={() =>
+                    facturaAReintentar &&
+                    handleReintentarFactura(facturaAReintentar.id)
+                  }
+                >
+                  {reintentandoFactura
+                    ? "Reintentando..."
+                    : "Reintentar de todas formas"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>

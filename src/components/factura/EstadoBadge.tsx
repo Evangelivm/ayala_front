@@ -4,9 +4,10 @@ import { CheckCircle2, Clock, XCircle, AlertCircle, FileQuestion } from "lucide-
 interface EstadoBadgeProps {
   estado: string | null;
   className?: string;
+  tooltip?: string | null;
 }
 
-export function EstadoBadge({ estado, className = "" }: EstadoBadgeProps) {
+export function EstadoBadge({ estado, className = "", tooltip }: EstadoBadgeProps) {
   const getEstadoConfig = (estado: string | null) => {
     switch (estado) {
       case null:
@@ -53,7 +54,10 @@ export function EstadoBadge({ estado, className = "" }: EstadoBadgeProps) {
   const Icon = config.icon;
 
   return (
-    <Badge className={`${config.color} flex items-center gap-1 ${className}`}>
+    <Badge
+      className={`${config.color} flex items-center gap-1 ${className}`}
+      title={tooltip || undefined}
+    >
       <Icon className="h-3 w-3" />
       {config.label}
     </Badge>

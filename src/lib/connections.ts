@@ -4469,6 +4469,7 @@ export interface FacturaData {
   aceptada_por_sunat?: boolean | null;
   sunat_description?: string | null;
   sunat_note?: string | null;
+  sunat_soap_error?: string | null;
   created_at?: string;
   updated_at?: string;
   backend_logs?: string | null;

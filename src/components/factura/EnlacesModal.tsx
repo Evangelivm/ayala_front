@@ -49,7 +49,27 @@ interface EnlacesModalProps {
     aceptada_por_sunat?: boolean | null;
     sunat_description?: string | null;
     sunat_note?: string | null;
+    sunat_soap_error?: string | null;
   } | null;
+}
+
+// El backend guarda el error crudo de NUBEFACT/SUNAT, a veces como JSON
+// (ej. {"errors":"Unidad de medida no válida","codigo":21}) y a veces como
+// texto plano (ej. "Error en procesamiento: ..."). Esto intenta extraer
+// el mensaje legible en ambos casos.
+export function formatearSunatSoapError(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      const mensaje = parsed.errors || parsed.message || parsed.error;
+      if (mensaje) {
+        return parsed.codigo ? `${mensaje} (código ${parsed.codigo})` : mensaje;
+      }
+    }
+  } catch {
+    // No era JSON, se muestra el texto tal cual
+  }
+  return raw;
 }
 
 export function EnlacesModal({ isOpen, onClose, onConsultar, factura }: EnlacesModalProps) {
@@ -232,6 +252,20 @@ export function EnlacesModal({ isOpen, onClose, onConsultar, factura }: EnlacesM
                   </Badge>
                 )}
               </div>
+
+              {factura.sunat_soap_error && (
+                <div className="flex gap-2 bg-red-50 border border-red-200 rounded-md p-3">
+                  <XCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-red-800">
+                      Motivo del fallo:
+                    </span>
+                    <p className="text-sm text-red-700 mt-0.5">
+                      {formatearSunatSoapError(factura.sunat_soap_error)}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {factura.sunat_description && (
                 <div className="flex gap-2">
