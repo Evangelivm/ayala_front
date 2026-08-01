@@ -4499,6 +4499,11 @@ export interface FacturaPollingStatus {
   };
 }
 
+export interface FacturaUnidadMedida {
+  codigo: string;
+  descripcion: string;
+}
+
 export const facturaApi = {
   // Listar todas las facturas
   getAll: async (): Promise<FacturaData[]> => {
@@ -4509,6 +4514,12 @@ export const facturaApi = {
   // Obtener una factura por ID
   getById: async (id: number): Promise<FacturaData> => {
     const response = await api.get(`/facturas/${id}`);
+    return response.data;
+  },
+
+  // Catálogo de unidades de medida seleccionables para items de factura
+  getUnidadesMedida: async (): Promise<FacturaUnidadMedida[]> => {
+    const response = await api.get("/facturas/unidades-medida");
     return response.data;
   },
 

@@ -16,6 +16,7 @@ import {
   type RubroData,
   facturaApi,
   type FacturaData,
+  type FacturaUnidadMedida,
 } from "@/lib/connections";
 import {
   Dialog,
@@ -181,6 +182,9 @@ export default function FacturaPage() {
   );
   const [fases, setFases] = useState<FaseControlData[]>([]);
   const [rubros, setRubros] = useState<RubroData[]>([]);
+  const [unidadesMedida, setUnidadesMedida] = useState<FacturaUnidadMedida[]>(
+    []
+  );
   const [facturas, setFacturas] = useState<
     Array<{
       id: number;
@@ -552,6 +556,16 @@ export default function FacturaPage() {
     }
   };
 
+  const loadUnidadesMedida = async () => {
+    try {
+      const data = await facturaApi.getUnidadesMedida();
+      setUnidadesMedida(data);
+    } catch (error) {
+      console.error("Error loading unidades de medida:", error);
+      setUnidadesMedida([]);
+    }
+  };
+
   const handleCentroCostoNivel1Change = (codigo: string) => {
     setNuevaFacturaData((prev) => ({
       ...prev,
@@ -693,7 +707,10 @@ export default function FacturaPage() {
           codigo_item: item.codigo,
           descripcion_item: item.descripcion,
           cantidad_solicitada: 1,
-          unidadMed: item.u_m || "UNIDAD",
+          // Unidad de medida ya NO se hereda del catálogo de items: el
+          // usuario tiene que elegirla del select obligatorio (ver Fase
+          // "unidad de medida seleccionable" del 2026-07-31).
+          unidadMed: "",
           precio_unitario: Number(item.precio_unitario) || 0,
           subtotal: Number(item.precio_unitario) || 0,
         };
@@ -912,6 +929,17 @@ export default function FacturaPage() {
 
       if (nuevaFacturaData.items.length === 0) {
         toast.error("Debe agregar al menos un item a la factura");
+        return;
+      }
+
+      // Validar que cada item tenga una unidad de medida seleccionada
+      const indiceSinUnidad = nuevaFacturaData.items.findIndex(
+        (item) => !item.unidadMed
+      );
+      if (indiceSinUnidad !== -1) {
+        toast.error(
+          `Debe seleccionar la unidad de medida del ítem ${indiceSinUnidad + 1}`
+        );
         return;
       }
 
@@ -2744,20 +2772,31 @@ export default function FacturaPage() {
                               )}
                             </TableCell>
                             <TableCell>
-                              <Input
-                                type="text"
-                                value={item.unidadMed}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    "unidadMed",
-                                    e.target.value.toUpperCase()
-                                  )
+                              <Select
+                                value={item.unidadMed || undefined}
+                                onValueChange={(value) =>
+                                  handleItemChange(index, "unidadMed", value)
                                 }
-                                className="h-8 text-xs border border-gray-300 p-2 text-center rounded font-mono"
-                                title="Código de unidad de medida SUNAT (ej: NIU, ZZ, HUR, KGM)"
-                                required
-                              />
+                                onOpenChange={(open) => {
+                                  if (open && unidadesMedida.length === 0) {
+                                    loadUnidadesMedida();
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Seleccionar..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {unidadesMedida.map((unidad) => (
+                                    <SelectItem
+                                      key={unidad.codigo}
+                                      value={unidad.codigo}
+                                    >
+                                      {unidad.descripcion}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </TableCell>
                             <TableCell>
                               <Input
