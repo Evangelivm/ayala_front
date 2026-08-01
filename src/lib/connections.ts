@@ -4523,6 +4523,14 @@ export const facturaApi = {
     return response.data;
   },
 
+  // Agregar una nueva unidad de medida al catálogo
+  createUnidadMedida: async (
+    data: FacturaUnidadMedida
+  ): Promise<FacturaUnidadMedida> => {
+    const response = await api.post("/facturas/unidades-medida", data);
+    return response.data;
+  },
+
   // Crear nueva factura
   create: async (data: Partial<FacturaData>): Promise<FacturaData> => {
     const response = await api.post("/facturas", data);

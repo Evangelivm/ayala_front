@@ -185,6 +185,10 @@ export default function FacturaPage() {
   const [unidadesMedida, setUnidadesMedida] = useState<FacturaUnidadMedida[]>(
     []
   );
+  const [isNuevaUnidadModalOpen, setIsNuevaUnidadModalOpen] = useState(false);
+  const [nuevaUnidadCodigo, setNuevaUnidadCodigo] = useState("");
+  const [nuevaUnidadDescripcion, setNuevaUnidadDescripcion] = useState("");
+  const [creandoUnidadMedida, setCreandoUnidadMedida] = useState(false);
   const [facturas, setFacturas] = useState<
     Array<{
       id: number;
@@ -563,6 +567,48 @@ export default function FacturaPage() {
     } catch (error) {
       console.error("Error loading unidades de medida:", error);
       setUnidadesMedida([]);
+    }
+  };
+
+  const handleCrearUnidadMedida = async () => {
+    if (!nuevaUnidadCodigo.trim() || !nuevaUnidadDescripcion.trim()) {
+      toast.error("Debe completar el código y la descripción");
+      return;
+    }
+
+    setCreandoUnidadMedida(true);
+    try {
+      await facturaApi.createUnidadMedida({
+        codigo: nuevaUnidadCodigo.trim().toUpperCase(),
+        descripcion: nuevaUnidadDescripcion.trim().toUpperCase(),
+      });
+
+      toast.success("Unidad de medida agregada al catálogo");
+      await loadUnidadesMedida();
+
+      setNuevaUnidadCodigo("");
+      setNuevaUnidadDescripcion("");
+      setIsNuevaUnidadModalOpen(false);
+    } catch (error: unknown) {
+      console.error("Error creando unidad de medida:", error);
+
+      let errorMessage = "Error desconocido";
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.error("Error al agregar la unidad de medida", {
+        description: errorMessage,
+      });
+    } finally {
+      setCreandoUnidadMedida(false);
     }
   };
 
@@ -1020,6 +1066,16 @@ export default function FacturaPage() {
         return;
       }
 
+      // cliente_direccion es TEXT en factura (sin límite práctico).
+      // cliente_denominacion sigue siendo VARCHAR(255): avisar si el
+      // proveedor tiene una razón social más larga que eso.
+      if ((proveedorSeleccionado.nombre_proveedor || "").length > 255) {
+        toast.warning(
+          "La razón social del proveedor supera los 255 caracteres y se va a recortar en la factura",
+          { duration: 4000 }
+        );
+      }
+
       // Transformar datos del frontend al formato del backend
       const dataParaBackend = {
         // Datos principales de la factura
@@ -1031,9 +1087,14 @@ export default function FacturaPage() {
         sunat_transaction: 1,
 
         // Cliente (usar datos del proveedor)
+        // cliente_denominacion se recorta a 255: la columna en factura
+        // es VARCHAR(255). cliente_direccion es TEXT, no hace falta
+        // recortarla.
         cliente_tipo_documento: 6, // 6 = RUC
         cliente_numero_documento: proveedorSeleccionado.ruc || "",
-        cliente_denominacion: proveedorSeleccionado.nombre_proveedor || "",
+        cliente_denominacion: (
+          proveedorSeleccionado.nombre_proveedor || ""
+        ).slice(0, 255),
         cliente_direccion: proveedorSeleccionado.direccion || "",
         cliente_email: proveedorSeleccionado.email || null,
         cliente_email_1: null,
@@ -2715,14 +2776,26 @@ export default function FacturaPage() {
                 <div className="border rounded-lg">
                   <div className="flex justify-between items-center p-3 bg-gray-100 border-b">
                     <h3 className="text-sm font-semibold">Detalle</h3>
-                    <Button
-                      onClick={addItem}
-                      size="sm"
-                      className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Agregar ítem
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => setIsNuevaUnidadModalOpen(true)}
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        title="Agregar una unidad de medida al catálogo"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Unidad de medida
+                      </Button>
+                      <Button
+                        onClick={addItem}
+                        size="sm"
+                        className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Agregar ítem
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="overflow-x-auto">
@@ -3396,6 +3469,84 @@ export default function FacturaPage() {
                   {reintentandoFactura
                     ? "Reintentando..."
                     : "Reintentar de todas formas"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Dialog para agregar una unidad de medida nueva al catálogo
+              (factura_unidad_medida) */}
+          <Dialog
+            open={isNuevaUnidadModalOpen}
+            onOpenChange={(open) => {
+              if (!open && !creandoUnidadMedida) {
+                setIsNuevaUnidadModalOpen(false);
+                setNuevaUnidadCodigo("");
+                setNuevaUnidadDescripcion("");
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-[420px]">
+              <DialogHeader>
+                <DialogTitle>Nueva unidad de medida</DialogTitle>
+                <DialogDescription>
+                  Se agrega al catálogo y queda disponible para elegir en
+                  cualquier factura a partir de ahora.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="nueva-unidad-codigo" className="text-xs">
+                    Código SUNAT (el que se manda a NUBEFACT)
+                  </Label>
+                  <Input
+                    id="nueva-unidad-codigo"
+                    value={nuevaUnidadCodigo}
+                    onChange={(e) =>
+                      setNuevaUnidadCodigo(e.target.value.toUpperCase())
+                    }
+                    placeholder="Ej: KGM"
+                    maxLength={5}
+                    className="font-mono"
+                  />
+                </div>
+                <div>
+                  <Label
+                    htmlFor="nueva-unidad-descripcion"
+                    className="text-xs"
+                  >
+                    Descripción (la que se ve en el select)
+                  </Label>
+                  <Input
+                    id="nueva-unidad-descripcion"
+                    value={nuevaUnidadDescripcion}
+                    onChange={(e) =>
+                      setNuevaUnidadDescripcion(e.target.value.toUpperCase())
+                    }
+                    placeholder="Ej: KILOGRAMO"
+                    maxLength={50}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  disabled={creandoUnidadMedida}
+                  onClick={() => {
+                    setIsNuevaUnidadModalOpen(false);
+                    setNuevaUnidadCodigo("");
+                    setNuevaUnidadDescripcion("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  disabled={creandoUnidadMedida}
+                  onClick={handleCrearUnidadMedida}
+                >
+                  {creandoUnidadMedida ? "Guardando..." : "Guardar"}
                 </Button>
               </div>
             </DialogContent>
