@@ -24,13 +24,15 @@ import {
   Truck, User, Download, Archive, Loader2, FileDown, MapPin, Package, Trash2,
 } from "lucide-react";
 import {
-  programacionApi, guiasRemisionExtendidoApi, guiasRemisionApi,
-  type ProgramacionTecnicaData, type GuiaRemisionData,
+  programacionApi, guiasRemisionExtendidoApi, guiasRemisionApi, searchApi,
+  opcionesProgramacionApi,
+  type ProgramacionTecnicaData, type GuiaRemisionData, type OpcionProgramacion,
 } from "@/lib/connections";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
 import { GuiaRemisionExtendidoModal } from "@/components/guia-remision-extendido-modal";
 
 const PER_PAGE = 25;
+const ESTADOS_PROGRAMACION = ["OK", "EN PROCESO", "NO EJECUTADO"];
 
 // ── Debounce hook ─────────────────────────────────────────────────────────────
 function useDebounce<T>(value: T, ms: number): T {
@@ -85,52 +87,77 @@ function PaginationBar({
   );
 }
 
-// ── Pestaña Técnica (recibe datos del padre, sin fetch propio) ────────────────
-interface TecnicaProps {
-  data: ProgramacionTecnicaData[];
-  isLoading: boolean;
-  identificadoresConGuia: string[];
-  onUpdate: (id: number, patch: Partial<ProgramacionTecnicaData>) => void;
-}
-
-function PestanaTecnica({ data, isLoading, identificadoresConGuia, onUpdate }: TecnicaProps) {
+// ── Pestaña Técnica (fetch propio vía Elasticsearch, paginado en servidor) ────
+function PestanaTecnica() {
   const router = useRouter();
+  const [data, setData] = useState<ProgramacionTecnicaData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [identificadoresConGuia, setIdentificadoresConGuia] = useState<string[]>([]);
+  const [opcionesProgramacion, setOpcionesProgramacion] = useState<OpcionProgramacion[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+
   const [searchInput, setSearchInput] = useState("");
   const searchQuery = useDebounce(searchInput, 300);
   const [filtroProg, setFiltroProg] = useState("TODOS");
   const [filtroEstado, setFiltroEstado] = useState("TODOS");
   const [page, setPage] = useState(1);
 
+  const totalPages = Math.max(1, Math.ceil(totalItems / PER_PAGE));
+
   // Volver a página 1 cuando cambian los filtros
   useEffect(() => setPage(1), [searchQuery, filtroProg, filtroEstado]);
 
-  const valoresProg = useMemo(
-    () => Array.from(new Set(data.map((d) => d.programacion).filter(Boolean))) as string[],
-    [data]
-  );
-  const valoresEstado = useMemo(
-    () => Array.from(new Set(data.map((d) => d.estado_programacion).filter(Boolean))) as string[],
-    [data]
-  );
+  useEffect(() => {
+    opcionesProgramacionApi.getAll().then(setOpcionesProgramacion).catch(() => {});
+  }, []);
 
-  const dataFiltrada = useMemo(() => {
-    const q = searchQuery.toLowerCase();
-    return data.filter((item) => {
-      if (q &&
-          !(item.unidad ?? "").toLowerCase().includes(q) &&
-          !(item.proveedor ?? "").toLowerCase().includes(q) &&
-          !(item.apellidos_nombres ?? "").toLowerCase().includes(q)) return false;
-      if (filtroProg !== "TODOS" && item.programacion !== filtroProg) return false;
-      if (filtroEstado !== "TODOS" && item.estado_programacion !== filtroEstado) return false;
-      return true;
-    });
-  }, [data, searchQuery, filtroProg, filtroEstado]);
+  useEffect(() => {
+    let cancelado = false;
+    setIsLoading(true);
+    Promise.all([
+      searchApi.programacionTecnica(searchQuery, page, PER_PAGE, {
+        programacion: filtroProg !== "TODOS" ? filtroProg : undefined,
+        estadoProgramacion: filtroEstado !== "TODOS" ? filtroEstado : undefined,
+      }),
+      programacionApi.getIdentificadoresConGuia(),
+    ])
+      .then(([result, idsConGuia]) => {
+        if (cancelado) return;
+        const seen = new Set<number>();
+        setData(result.data.filter((i) => (seen.has(i.id) ? false : (seen.add(i.id), true))));
+        setTotalItems(result.total);
+        setIdentificadoresConGuia(idsConGuia);
+      })
+      .catch(() => { if (!cancelado) toast.error("Error al cargar los datos"); })
+      .finally(() => { if (!cancelado) setIsLoading(false); });
+    return () => { cancelado = true; };
+  }, [searchQuery, page, filtroProg, filtroEstado]);
 
-  const totalPages = Math.max(1, Math.ceil(dataFiltrada.length / PER_PAGE));
-  const pageData = useMemo(
-    () => dataFiltrada.slice((page - 1) * PER_PAGE, page * PER_PAGE),
-    [dataFiltrada, page]
-  );
+  // Polling cada 10s: solo actualiza registros ya visibles en la página actual
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      try {
+        const recienCompletados = await programacionApi.getRecienCompletados(30);
+        if (recienCompletados.length === 0) return;
+        setData((prev) => {
+          const next = [...prev];
+          let changed = false;
+          recienCompletados.forEach((c) => {
+            const idx = next.findIndex((i) => i.id === c.id);
+            if (idx !== -1) { next[idx] = c; changed = true; toast.success(`Guía completada: ${c.identificador_unico}`); }
+            if (c.identificador_unico) {
+              setIdentificadoresConGuia((p) => p.includes(c.identificador_unico!) ? p : [...p, c.identificador_unico!]);
+            }
+          });
+          return changed ? next : prev;
+        });
+      } catch { /* silenciar */ }
+    }, 10000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const valoresProg = useMemo(() => opcionesProgramacion.map((o) => o.nombre), [opcionesProgramacion]);
+  const valoresEstado = ESTADOS_PROGRAMACION;
 
   const hasArchivos = (item: ProgramacionTecnicaData) =>
     !!(item.enlace_del_pdf && item.enlace_del_xml && item.enlace_del_cdr);
@@ -143,12 +170,13 @@ function PestanaTecnica({ data, isLoading, identificadoresConGuia, onUpdate }: T
       const result = await programacionApi.recuperarArchivosGuia(item.id);
       if (result.success && result.data) {
         toast.success(result.message);
-        onUpdate(item.id, {
-          enlace_del_pdf: result.data.enlace_del_pdf,
-          enlace_del_xml: result.data.enlace_del_xml,
-          enlace_del_cdr: result.data.enlace_del_cdr,
-          estado_gre: result.data.estado_gre,
-        });
+        setData((prev) => prev.map((r) => r.id === item.id ? {
+          ...r,
+          enlace_del_pdf: result.data!.enlace_del_pdf,
+          enlace_del_xml: result.data!.enlace_del_xml,
+          enlace_del_cdr: result.data!.enlace_del_cdr,
+          estado_gre: result.data!.estado_gre,
+        } : r));
       } else {
         toast.warning(result.message);
       }
@@ -208,7 +236,7 @@ function PestanaTecnica({ data, isLoading, identificadoresConGuia, onUpdate }: T
           </div>
           <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
             <Filter className="h-4 w-4" />
-            {dataFiltrada.length} de {data.length} registros · Página {page}/{totalPages}
+            {totalItems} registros · Página {page}/{totalPages}
           </div>
         </CardContent>
       </Card>
@@ -221,7 +249,7 @@ function PestanaTecnica({ data, isLoading, identificadoresConGuia, onUpdate }: T
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
             </div>
-          ) : pageData.length === 0 ? (
+          ) : data.length === 0 ? (
             <div className="text-center py-12 text-gray-400 flex flex-col items-center gap-2">
               <FileText className="h-12 w-12 opacity-50" />
               <p className="text-sm">No hay registros disponibles</p>
@@ -229,7 +257,7 @@ function PestanaTecnica({ data, isLoading, identificadoresConGuia, onUpdate }: T
           ) : (
             <>
               <Accordion type="single" collapsible className="w-full space-y-2">
-                {pageData.map((item) => (
+                {data.map((item) => (
                   <AccordionItem
                     key={item.id}
                     value={`tec-${item.id}`}
@@ -435,7 +463,7 @@ function PestanaExtendida({
         onFetchGuias(item.identificador_unico);
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [pageData]);
 
   // Polling solo para ítems de la página actual con guías pendientes
@@ -449,7 +477,7 @@ function PestanaExtendida({
       });
     }, 15000);
     return () => clearInterval(intervalId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [pageData, guiasExtendidas]);
 
   const hasGuiasCompletadas = (item: ProgramacionTecnicaData) => {
@@ -800,7 +828,6 @@ function PestanaExtendida({
 export default function ProgramacionMixtaPage() {
   const [data, setData] = useState<ProgramacionTecnicaData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [identificadoresConGuia, setIdentificadoresConGuia] = useState<string[]>([]);
   const [identificadoresEnTablaRegular, setIdentificadoresEnTablaRegular] = useState<string[]>([]);
   const [guiasExtendidas, setGuiasExtendidas] = useState<Record<string, GuiaRemisionData[]>>({});
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -810,9 +837,8 @@ export default function ProgramacionMixtaPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [tecnicaData, idsConGuia, idsRegular] = await Promise.all([
+      const [tecnicaData, idsRegular] = await Promise.all([
         programacionApi.getAllTecnica(),
-        programacionApi.getIdentificadoresConGuia(),
         guiasRemisionApi.getIdentificadoresExistentes(),
       ]);
       const seen = new Set<number>();
@@ -822,7 +848,6 @@ export default function ProgramacionMixtaPage() {
         return true;
       });
       setData(clean);
-      setIdentificadoresConGuia(idsConGuia);
       setIdentificadoresEnTablaRegular(idsRegular);
     } catch {
       toast.error("Error al cargar los datos");
@@ -846,11 +871,6 @@ export default function ProgramacionMixtaPage() {
             const idx = next.findIndex((i) => i.id === c.id);
             if (idx !== -1) { next[idx] = c; changed = true; }
             else { next.unshift(c); changed = true; }
-            if (c.identificador_unico) {
-              setIdentificadoresConGuia((p) =>
-                p.includes(c.identificador_unico!) ? p : [...p, c.identificador_unico!]
-              );
-            }
           });
           return changed ? next : prev;
         });
@@ -865,10 +885,6 @@ export default function ProgramacionMixtaPage() {
       const guias = await guiasRemisionExtendidoApi.getByIdentificador(identificador);
       setGuiasExtendidas((prev) => ({ ...prev, [identificador]: guias }));
     } catch { /* silenciar */ }
-  }, []);
-
-  const handleUpdateItem = useCallback((id: number, patch: Partial<ProgramacionTecnicaData>) => {
-    setData((prev) => prev.map((r) => r.id === id ? { ...r, ...patch } : r));
   }, []);
 
   // Proveedores derivados del estado ya cargado — cero llamadas extra al exportar
@@ -950,12 +966,7 @@ export default function ProgramacionMixtaPage() {
             </TabsList>
 
             <TabsContent value="tecnica">
-              <PestanaTecnica
-                data={data}
-                isLoading={isLoading}
-                identificadoresConGuia={identificadoresConGuia}
-                onUpdate={handleUpdateItem}
-              />
+              <PestanaTecnica />
             </TabsContent>
 
             <TabsContent value="extendida">

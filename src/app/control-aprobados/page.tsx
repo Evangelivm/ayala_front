@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  ordenesCompraApi,
+  searchApi,
   type OrdenCompraData,
-  ordenesServicioApi,
   type OrdenServicioData,
 } from "@/lib/connections";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,9 +37,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWebSocket } from "@/lib/useWebSocket";
 
+const PAGE_SIZE = 20;
+
 export default function ControlAprobadosPage() {
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
   const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
+  const [totalCompra, setTotalCompra] = useState(0);
+  const [totalServicio, setTotalServicio] = useState(0);
+  const [pageCompra, setPageCompra] = useState(1);
+  const [pageServicio, setPageServicio] = useState(1);
 
   // Estados para filtros y busqueda
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,32 +58,46 @@ export default function ControlAprobadosPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
+  const filtrosOrdenes = useMemo(() => ({
+    estado: filtroEstado !== "TODOS" ? filtroEstado : undefined,
+    fecha: fechaFiltro ? format(fechaFiltro, "yyyy-MM-dd") : undefined,
+  }), [filtroEstado, fechaFiltro]);
+
+  // Volver a página 1 cuando cambian búsqueda/filtros
+  useEffect(() => { setPageCompra(1); setPageServicio(1); }, [searchQuery, filtroEstado, fechaFiltro]);
+
   // Funciones para cargar ordenes
   const loadOrdenesCompra = useCallback(async () => {
     try {
-      const data = await ordenesCompraApi.getAll();
-      setOrdenesCompra(data);
+      const result = await searchApi.ordenesCompra(searchQuery, pageCompra, PAGE_SIZE, filtrosOrdenes);
+      setOrdenesCompra(result.data);
+      setTotalCompra(result.total);
     } catch (error) {
       console.error("Error loading ordenes compra:", error);
       setOrdenesCompra([]);
     }
-  }, []);
+  }, [searchQuery, pageCompra, filtrosOrdenes]);
 
   const loadOrdenesServicio = useCallback(async () => {
     try {
-      const data = await ordenesServicioApi.getAll();
-      setOrdenesServicio(data);
+      const result = await searchApi.ordenesServicio(searchQuery, pageServicio, PAGE_SIZE, filtrosOrdenes);
+      setOrdenesServicio(result.data);
+      setTotalServicio(result.total);
     } catch (error) {
       console.error("Error loading ordenes servicio:", error);
       setOrdenesServicio([]);
     }
-  }, []);
+  }, [searchQuery, pageServicio, filtrosOrdenes]);
 
-  // Cargar ordenes al montar el componente
+  // Cargar ordenes con debounce en la búsqueda de texto
   useEffect(() => {
-    loadOrdenesCompra();
-    loadOrdenesServicio();
-  }, [loadOrdenesCompra, loadOrdenesServicio]);
+    const timer = setTimeout(() => {
+      loadOrdenesCompra();
+      loadOrdenesServicio();
+    }, searchQuery ? 400 : 0);
+    return () => clearTimeout(timer);
+     
+  }, [searchQuery, pageCompra, pageServicio, filtrosOrdenes]);
 
   // WebSocket: Escuchar actualizaciones en tiempo real
   const handleOrdenCompraUpdate = useCallback(() => {
@@ -159,53 +178,20 @@ export default function ControlAprobadosPage() {
     });
   };
 
-  // Funcion para filtrar ordenes de compra
-  const ordenesFiltradas = useMemo(() => {
-    const filtered = ordenesCompra.filter((orden) => {
-      // Filtro por busqueda (numero de orden, proveedor)
-      const matchSearch = searchQuery === "" ||
-        orden.numero_orden?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        orden.nombre_proveedor?.toLowerCase().includes(searchQuery.toLowerCase());
+  // Búsqueda/estado/fecha ya se resuelven en el servidor (ES); acá solo
+  // ordenamos la página actual por las columnas de autorización.
+  const ordenesFiltradas = useMemo(
+    () => sortOrdenes(ordenesCompra),
+    [ordenesCompra, sortColumn, sortDirection]
+  );
 
-      // Filtro por estado
-      const matchEstado = filtroEstado === "TODOS" || orden.estado === filtroEstado;
+  const ordenesServicioFiltradas = useMemo(
+    () => sortOrdenes(ordenesServicio),
+    [ordenesServicio, sortColumn, sortDirection]
+  );
 
-      // Filtro por fecha
-      const matchFecha = !fechaFiltro || (() => {
-        const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
-        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
-        return fechaOrden === fechaFiltroStr;
-      })();
-
-      return matchSearch && matchEstado && matchFecha;
-    });
-
-    return sortOrdenes(filtered);
-  }, [ordenesCompra, searchQuery, filtroEstado, fechaFiltro, sortColumn, sortDirection]);
-
-  // Funcion para filtrar ordenes de servicio
-  const ordenesServicioFiltradas = useMemo(() => {
-    const filtered = ordenesServicio.filter((orden) => {
-      // Filtro por busqueda (numero de orden, proveedor)
-      const matchSearch = searchQuery === "" ||
-        orden.numero_orden?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        orden.nombre_proveedor?.toLowerCase().includes(searchQuery.toLowerCase());
-
-      // Filtro por estado
-      const matchEstado = filtroEstado === "TODOS" || orden.estado === filtroEstado;
-
-      // Filtro por fecha
-      const matchFecha = !fechaFiltro || (() => {
-        const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
-        const fechaOrden = orden.fecha_orden ? format(new Date(orden.fecha_orden), 'yyyy-MM-dd') : null;
-        return fechaOrden === fechaFiltroStr;
-      })();
-
-      return matchSearch && matchEstado && matchFecha;
-    });
-
-    return sortOrdenes(filtered);
-  }, [ordenesServicio, searchQuery, filtroEstado, fechaFiltro, sortColumn, sortDirection]);
+  const totalPagesCompra = Math.max(1, Math.ceil(totalCompra / PAGE_SIZE));
+  const totalPagesServicio = Math.max(1, Math.ceil(totalServicio / PAGE_SIZE));
 
   // Componente para renderizar el icono de ordenamiento
   const SortIcon = ({ column }: { column: SortColumn }) => {
@@ -515,9 +501,9 @@ export default function ControlAprobadosPage() {
               <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
                 <Filter className="h-4 w-4" />
                 <span>
-                  Mostrando {ordenesFiltradas.length} de {ordenesCompra.length} ordenes de compra
+                  {totalCompra} ordenes de compra
                   {" | "}
-                  {ordenesServicioFiltradas.length} de {ordenesServicio.length} ordenes de servicio
+                  {totalServicio} ordenes de servicio
                 </span>
               </div>
             </CardContent>
@@ -527,10 +513,10 @@ export default function ControlAprobadosPage() {
           <Tabs defaultValue="compra" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="compra">
-                Ordenes de Compra ({ordenesFiltradas.length})
+                Ordenes de Compra ({totalCompra})
               </TabsTrigger>
               <TabsTrigger value="servicio">
-                Ordenes de Servicio ({ordenesServicioFiltradas.length})
+                Ordenes de Servicio ({totalServicio})
               </TabsTrigger>
             </TabsList>
 
@@ -544,6 +530,13 @@ export default function ControlAprobadosPage() {
                 </CardHeader>
                 <CardContent>
                   <TablaOrdenes ordenes={ordenesFiltradas} tipo="compra" />
+                  {totalPagesCompra > 1 && (
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+                      <Button variant="outline" size="sm" onClick={() => setPageCompra((p) => Math.max(1, p - 1))} disabled={pageCompra <= 1}>← Anterior</Button>
+                      <span className="text-sm text-slate-600">Página {pageCompra} de {totalPagesCompra}</span>
+                      <Button variant="outline" size="sm" onClick={() => setPageCompra((p) => Math.min(totalPagesCompra, p + 1))} disabled={pageCompra >= totalPagesCompra}>Siguiente →</Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -558,6 +551,13 @@ export default function ControlAprobadosPage() {
                 </CardHeader>
                 <CardContent>
                   <TablaOrdenes ordenes={ordenesServicioFiltradas} tipo="servicio" />
+                  {totalPagesServicio > 1 && (
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+                      <Button variant="outline" size="sm" onClick={() => setPageServicio((p) => Math.max(1, p - 1))} disabled={pageServicio <= 1}>← Anterior</Button>
+                      <span className="text-sm text-slate-600">Página {pageServicio} de {totalPagesServicio}</span>
+                      <Button variant="outline" size="sm" onClick={() => setPageServicio((p) => Math.min(totalPagesServicio, p + 1))} disabled={pageServicio >= totalPagesServicio}>Siguiente →</Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

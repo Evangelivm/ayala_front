@@ -33,9 +33,15 @@ import {
 } from "lucide-react";
 import {
   programacionApi,
+  searchApi,
+  opcionesProgramacionApi,
   type ProgramacionTecnicaData,
+  type OpcionProgramacion,
 } from "@/lib/connections";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
+
+const ESTADOS_PROGRAMACION = ["OK", "EN PROCESO", "NO EJECUTADO"];
+const PAGE_SIZE = 20;
 
 export default function ProgTecnicaPage() {
   const router = useRouter();
@@ -47,27 +53,34 @@ export default function ProgTecnicaPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filtroProgramacion, setFiltroProgramacion] = useState("TODOS");
   const [filtroEstado, setFiltroEstado] = useState("TODOS");
+  const [opcionesProgramacion, setOpcionesProgramacion] = useState<OpcionProgramacion[]>([]);
 
-  const fetchData = async () => {
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+
+  const fetchData = async (q: string, page: number, programacion: string, estado: string) => {
     setIsLoading(true);
     try {
-      const [tecnicaData, idsConGuia] = await Promise.all([
-        programacionApi.getAllTecnica(),
+      const [result, idsConGuia] = await Promise.all([
+        searchApi.programacionTecnica(q, page, PAGE_SIZE, {
+          programacion: programacion !== "TODOS" ? programacion : undefined,
+          estadoProgramacion: estado !== "TODOS" ? estado : undefined,
+        }),
         programacionApi.getIdentificadoresConGuia(),
       ]);
 
       // Eliminar duplicados por ID (por si acaso)
       const idsVistos = new Set();
-      const dataSinDuplicados = tecnicaData.filter((item) => {
-        if (idsVistos.has(item.id)) {
-          console.warn(`Duplicado encontrado en datos iniciales: ID ${item.id}`);
-          return false;
-        }
+      const dataSinDuplicados = result.data.filter((item) => {
+        if (idsVistos.has(item.id)) return false;
         idsVistos.add(item.id);
         return true;
       });
 
       setData(dataSinDuplicados);
+      setTotalItems(result.total);
       setIdentificadoresConGuia(idsConGuia);
     } catch (error) {
       toast.error("Error al cargar los datos");
@@ -78,8 +91,17 @@ export default function ProgTecnicaPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    opcionesProgramacionApi.getAll().then(setOpcionesProgramacion).catch(() => {});
   }, []);
+
+  // Fetch con búsqueda y filtros (debounce 400ms en texto, inmediato en filtros/página)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData(searchQuery, currentPage, filtroProgramacion, filtroEstado);
+    }, searchQuery ? 400 : 0);
+    return () => clearTimeout(timer);
+     
+  }, [searchQuery, currentPage, filtroProgramacion, filtroEstado]);
 
   // 🔄 Polling cada 10 segundos para verificar registros recién completados
   useEffect(() => {
@@ -102,8 +124,9 @@ export default function ProgTecnicaPage() {
                 updated = true;
                 console.log(`🔄 Registro ${completado.id} actualizado con archivos completos`);
                 toast.success(`Guía completada: ${completado.identificador_unico}`);
-              } else {
+              } else if (currentPage === 1) {
                 newData.unshift(completado);
+                if (newData.length > PAGE_SIZE) newData.pop();
                 updated = true;
                 console.log(`➕ Nuevo registro ${completado.id} agregado`);
                 toast.success(`Nueva guía completada: ${completado.identificador_unico}`);
@@ -129,7 +152,7 @@ export default function ProgTecnicaPage() {
     }, 10000); // Cada 10 segundos
 
     return () => clearInterval(intervalId);
-  }, []);
+  }, [currentPage]);
 
   const handleGenerarGuia = (id: number) => {
     router.push(`/guia-remision?id=${id}`);
@@ -193,37 +216,6 @@ export default function ProgTecnicaPage() {
   // Las funciones de formateo ahora usan dayjs con timezone de Perú
   // Ver: @/lib/date-utils.ts
 
-  // Valores únicos para selects de filtro
-  const valoresProgramacion = useMemo(() => {
-    const valores = new Set(data.map((d) => d.programacion).filter(Boolean));
-    return Array.from(valores) as string[];
-  }, [data]);
-
-  const valoresEstado = useMemo(() => {
-    const valores = new Set(data.map((d) => d.estado_programacion).filter(Boolean));
-    return Array.from(valores) as string[];
-  }, [data]);
-
-  // Datos filtrados
-  const dataFiltrada = useMemo(() => {
-    return data.filter((item) => {
-      const q = searchQuery.toLowerCase();
-      const coincideBusqueda =
-        !q ||
-        (item.unidad ?? "").toLowerCase().includes(q) ||
-        (item.proveedor ?? "").toLowerCase().includes(q) ||
-        (item.apellidos_nombres ?? "").toLowerCase().includes(q);
-
-      const coincideProgramacion =
-        filtroProgramacion === "TODOS" || item.programacion === filtroProgramacion;
-
-      const coincideEstado =
-        filtroEstado === "TODOS" || item.estado_programacion === filtroEstado;
-
-      return coincideBusqueda && coincideProgramacion && coincideEstado;
-    });
-  }, [data, searchQuery, filtroProgramacion, filtroEstado]);
-
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min p-6">
@@ -252,7 +244,7 @@ export default function ProgTecnicaPage() {
                       id="search"
                       placeholder="Buscar por unidad, proveedor o conductor..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                       className="pl-10"
                     />
                   </div>
@@ -263,14 +255,17 @@ export default function ProgTecnicaPage() {
                   <Label htmlFor="filtro-prog" className="text-sm font-semibold mb-2 block">
                     Programación
                   </Label>
-                  <Select value={filtroProgramacion} onValueChange={setFiltroProgramacion}>
+                  <Select
+                    value={filtroProgramacion}
+                    onValueChange={(v) => { setFiltroProgramacion(v); setCurrentPage(1); }}
+                  >
                     <SelectTrigger id="filtro-prog">
                       <SelectValue placeholder="Todas" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="TODOS">Todas</SelectItem>
-                      {valoresProgramacion.map((v) => (
-                        <SelectItem key={v} value={v}>{v}</SelectItem>
+                      {opcionesProgramacion.map((o) => (
+                        <SelectItem key={o.id} value={o.nombre}>{o.nombre}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -281,13 +276,16 @@ export default function ProgTecnicaPage() {
                   <Label htmlFor="filtro-estado" className="text-sm font-semibold mb-2 block">
                     Estado
                   </Label>
-                  <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+                  <Select
+                    value={filtroEstado}
+                    onValueChange={(v) => { setFiltroEstado(v); setCurrentPage(1); }}
+                  >
                     <SelectTrigger id="filtro-estado">
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="TODOS">Todos</SelectItem>
-                      {valoresEstado.map((v) => (
+                      {ESTADOS_PROGRAMACION.map((v) => (
                         <SelectItem key={v} value={v}>{v}</SelectItem>
                       ))}
                     </SelectContent>
@@ -298,9 +296,7 @@ export default function ProgTecnicaPage() {
               {/* Indicador de resultados */}
               <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
                 <Filter className="h-4 w-4" />
-                <span>
-                  Mostrando {dataFiltrada.length} de {data.length} registros
-                </span>
+                <span>{totalItems} registros</span>
               </div>
             </CardContent>
           </Card>
@@ -318,20 +314,22 @@ export default function ProgTecnicaPage() {
               ) : data.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
                   <div className="flex flex-col items-center gap-2">
-                    <FileText className="h-12 w-12 opacity-50" />
-                    <p className="text-sm">No hay registros disponibles</p>
-                  </div>
-                </div>
-              ) : dataFiltrada.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
-                  <div className="flex flex-col items-center gap-2">
-                    <Search className="h-12 w-12 opacity-50" />
-                    <p className="text-sm">Sin resultados para los filtros aplicados</p>
+                    {searchQuery || filtroProgramacion !== "TODOS" || filtroEstado !== "TODOS" ? (
+                      <>
+                        <Search className="h-12 w-12 opacity-50" />
+                        <p className="text-sm">Sin resultados para los filtros aplicados</p>
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-12 w-12 opacity-50" />
+                        <p className="text-sm">No hay registros disponibles</p>
+                      </>
+                    )}
                   </div>
                 </div>
               ) : (
                 <Accordion type="single" collapsible className="w-full space-y-2">
-                  {dataFiltrada.map((item) => (
+                  {data.map((item) => (
                     <AccordionItem
                       key={item.id}
                       value={`item-${item.id}`}
@@ -559,6 +557,30 @@ export default function ProgTecnicaPage() {
                     </AccordionItem>
                   ))}
                 </Accordion>
+              )}
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1 || isLoading}
+                  >
+                    ← Anterior
+                  </Button>
+                  <span className="text-sm text-slate-600">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages || isLoading}
+                  >
+                    Siguiente →
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>

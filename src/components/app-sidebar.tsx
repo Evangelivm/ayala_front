@@ -19,6 +19,7 @@ import {
   Package,
   TrendingUp,
   Network,
+  FileSpreadsheet,
 } from "lucide-react"
 
 import {
@@ -83,6 +84,12 @@ const menuItems = [
         title: "Orden de Compra",
         url: "/orden-compra",
         icon: ShoppingCart,
+        isActive: false,
+      },
+      {
+        title: "Importación de Contabilidad",
+        url: "/contabilidad",
+        icon: FileSpreadsheet,
         isActive: false,
       },
       {

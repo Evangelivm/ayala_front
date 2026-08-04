@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   ordenesCompraApi,
-  type OrdenCompraData,
   ordenesServicioApi,
+  searchApi,
+  type OrdenCompraData,
   type OrdenServicioData,
   urlHelpers,
 } from "@/lib/connections";
@@ -67,12 +68,18 @@ const formatDateString = (dateString: string | null | undefined): string => {
   }
 };
 
+const PAGE_SIZE = 20;
+
 export default function RegistroAdministracionPage() {
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
+  const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
+  const [totalCompra, setTotalCompra] = useState(0);
+  const [totalServicio, setTotalServicio] = useState(0);
+  const [pageCompra, setPageCompra] = useState(1);
+  const [pageServicio, setPageServicio] = useState(1);
   const [isMultifacturasOpen, setIsMultifacturasOpen] = useState(false);
   const [multifacturasOrdenId, setMultifacturasOrdenId] = useState<number | null>(null);
   const [multifacturasOrdenTipo, setMultifacturasOrdenTipo] = useState<"compra" | "servicio" | null>(null);
-  const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
 
   // Estados para filtros y búsqueda
   const [searchQuery, setSearchQuery] = useState("");
@@ -80,43 +87,58 @@ export default function RegistroAdministracionPage() {
   const [filtroAdministracion, setFiltroAdministracion] = useState<string>("TODOS");
   const [fechaFiltro, setFechaFiltro] = useState<Date | undefined>(undefined);
 
-  // Cargar órdenes al montar el componente
-  useEffect(() => {
-    loadOrdenesCompra();
-    loadOrdenesServicio();
-  }, []);
+  const filtrosOrdenes = useMemo(() => ({
+    estado: filtroEstado !== "TODOS" ? filtroEstado : undefined,
+    fecha: fechaFiltro ? format(fechaFiltro, "yyyy-MM-dd") : undefined,
+    autoAdministrador: filtroAdministracion === "TODOS" ? undefined : filtroAdministracion === "APROBADO",
+  }), [filtroEstado, fechaFiltro, filtroAdministracion]);
 
-  // WebSocket: Escuchar actualizaciones en tiempo real
-  const handleOrdenCompraUpdate = useCallback(() => {
-    loadOrdenesCompra();
-  }, []);
-
-  const handleOrdenServicioUpdate = useCallback(() => {
-    loadOrdenesServicio();
-  }, []);
-
-  useWebSocket('ordenCompraUpdated', handleOrdenCompraUpdate);
-  useWebSocket('ordenServicioUpdated', handleOrdenServicioUpdate);
-
-  const loadOrdenesCompra = async () => {
+  const loadOrdenesCompra = useCallback(async () => {
     try {
-      const data = await ordenesCompraApi.getAll();
-      setOrdenesCompra(data);
+      const result = await searchApi.ordenesCompra(searchQuery, pageCompra, PAGE_SIZE, filtrosOrdenes);
+      setOrdenesCompra(result.data);
+      setTotalCompra(result.total);
     } catch (error) {
       console.error("Error loading ordenes compra:", error);
       setOrdenesCompra([]);
     }
-  };
+  }, [searchQuery, pageCompra, filtrosOrdenes]);
 
-  const loadOrdenesServicio = async () => {
+  const loadOrdenesServicio = useCallback(async () => {
     try {
-      const data = await ordenesServicioApi.getAll();
-      setOrdenesServicio(data);
+      const result = await searchApi.ordenesServicio(searchQuery, pageServicio, PAGE_SIZE, filtrosOrdenes);
+      setOrdenesServicio(result.data);
+      setTotalServicio(result.total);
     } catch (error) {
       console.error("Error loading ordenes servicio:", error);
       setOrdenesServicio([]);
     }
-  };
+  }, [searchQuery, pageServicio, filtrosOrdenes]);
+
+  // Volver a página 1 cuando cambian búsqueda/filtros
+  useEffect(() => { setPageCompra(1); setPageServicio(1); }, [searchQuery, filtrosOrdenes]);
+
+  // Cargar órdenes (debounce en la búsqueda de texto)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadOrdenesCompra();
+      loadOrdenesServicio();
+    }, searchQuery ? 400 : 0);
+    return () => clearTimeout(timer);
+     
+  }, [searchQuery, pageCompra, pageServicio, filtrosOrdenes]);
+
+  // WebSocket: Escuchar actualizaciones en tiempo real
+  const handleOrdenCompraUpdate = useCallback(() => {
+    loadOrdenesCompra();
+  }, [loadOrdenesCompra]);
+
+  const handleOrdenServicioUpdate = useCallback(() => {
+    loadOrdenesServicio();
+  }, [loadOrdenesServicio]);
+
+  useWebSocket('ordenCompraUpdated', handleOrdenCompraUpdate);
+  useWebSocket('ordenServicioUpdated', handleOrdenServicioUpdate);
 
   // Función para aprobar orden de compra
   const handleAprobarOrdenCompra = async (id: number) => {
@@ -160,59 +182,12 @@ export default function RegistroAdministracionPage() {
     }
   };
 
-  // Función para filtrar órdenes de compra
-  const ordenesFiltradas = useMemo(() => {
-    return ordenesCompra.filter((orden) => {
-      // Filtro por búsqueda (número de orden, proveedor)
-      const matchSearch = searchQuery === "" ||
-        orden.numero_orden?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        orden.nombre_proveedor?.toLowerCase().includes(searchQuery.toLowerCase());
-
-      // Filtro por estado
-      const matchEstado = filtroEstado === "TODOS" || orden.estado === filtroEstado;
-
-      // Filtro por aprobación administración
-      const matchAdministracion =
-        filtroAdministracion === "TODOS" ||
-        (filtroAdministracion === "APROBADO" && orden.auto_administrador === true) ||
-        (filtroAdministracion === "PENDIENTE" && (orden.auto_administrador === false || !orden.auto_administrador));
-
-      // Filtro por fecha
-      const matchFecha = !fechaFiltro || (() => {
-        const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
-        return orden.fecha_orden === fechaFiltroStr;
-      })();
-
-      return matchSearch && matchEstado && matchAdministracion && matchFecha;
-    });
-  }, [ordenesCompra, searchQuery, filtroEstado, filtroAdministracion, fechaFiltro]);
-
-  // Función para filtrar órdenes de servicio
-  const ordenesServicioFiltradas = useMemo(() => {
-    return ordenesServicio.filter((orden) => {
-      // Filtro por búsqueda (número de orden, proveedor)
-      const matchSearch = searchQuery === "" ||
-        orden.numero_orden?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        orden.nombre_proveedor?.toLowerCase().includes(searchQuery.toLowerCase());
-
-      // Filtro por estado
-      const matchEstado = filtroEstado === "TODOS" || orden.estado === filtroEstado;
-
-      // Filtro por aprobación administración
-      const matchAdministracion =
-        filtroAdministracion === "TODOS" ||
-        (filtroAdministracion === "APROBADO" && orden.auto_administrador === true) ||
-        (filtroAdministracion === "PENDIENTE" && (orden.auto_administrador === false || !orden.auto_administrador));
-
-      // Filtro por fecha
-      const matchFecha = !fechaFiltro || (() => {
-        const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
-        return orden.fecha_orden === fechaFiltroStr;
-      })();
-
-      return matchSearch && matchEstado && matchAdministracion && matchFecha;
-    });
-  }, [ordenesServicio, searchQuery, filtroEstado, filtroAdministracion, fechaFiltro]);
+  // Búsqueda, estado, fecha y aprobación de administración ya se resuelven
+  // en el servidor vía Elasticsearch (ver loadOrdenesCompra/loadOrdenesServicio).
+  const ordenesFiltradas = ordenesCompra;
+  const ordenesServicioFiltradas = ordenesServicio;
+  const totalPagesCompra = Math.max(1, Math.ceil(totalCompra / PAGE_SIZE));
+  const totalPagesServicio = Math.max(1, Math.ceil(totalServicio / PAGE_SIZE));
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -333,9 +308,9 @@ export default function RegistroAdministracionPage() {
               <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
                 <Filter className="h-4 w-4" />
                 <span>
-                  Mostrando {ordenesFiltradas.length} de {ordenesCompra.length} órdenes de compra
+                  {totalCompra} órdenes de compra
                   {" | "}
-                  {ordenesServicioFiltradas.length} de {ordenesServicio.length} órdenes de servicio
+                  {totalServicio} órdenes de servicio
                 </span>
               </div>
             </CardContent>
@@ -359,7 +334,7 @@ export default function RegistroAdministracionPage() {
                       <div className="flex flex-col items-center gap-2">
                         <ClipboardList className="h-12 w-12 opacity-50" />
                         <p className="text-sm">
-                          {ordenesCompra.length === 0
+                          {totalCompra === 0
                             ? "No hay órdenes de compra registradas"
                             : "No se encontraron órdenes de compra con los filtros seleccionados"}
                         </p>
@@ -678,7 +653,7 @@ export default function RegistroAdministracionPage() {
                       <div className="flex flex-col items-center gap-2">
                         <ClipboardList className="h-12 w-12 opacity-50" />
                         <p className="text-sm">
-                          {ordenesServicio.length === 0
+                          {totalServicio === 0
                             ? "No hay órdenes de servicio registradas"
                             : "No se encontraron órdenes de servicio con los filtros seleccionados"}
                         </p>
@@ -981,6 +956,13 @@ export default function RegistroAdministracionPage() {
                         </AccordionItem>
                       ))}
                     </Accordion>
+                  )}
+                  {totalPagesServicio > 1 && (
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+                      <Button variant="outline" size="sm" onClick={() => setPageServicio((p) => Math.max(1, p - 1))} disabled={pageServicio <= 1}>← Anterior</Button>
+                      <span className="text-sm text-slate-600">Página {pageServicio} de {totalPagesServicio}</span>
+                      <Button variant="outline" size="sm" onClick={() => setPageServicio((p) => Math.min(totalPagesServicio, p + 1))} disabled={pageServicio >= totalPagesServicio}>Siguiente →</Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>

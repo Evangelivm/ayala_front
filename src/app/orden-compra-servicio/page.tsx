@@ -24,6 +24,7 @@ import {
   type OrdenServicioData,
   type MultifacturaDetalle,
   urlHelpers,
+  searchApi,
 } from "@/lib/connections";
 import {
   Dialog,
@@ -138,6 +139,10 @@ export default function OrdenCompraPage() {
   const [fases, setFases] = useState<FaseControlData[]>([]);
   const [rubros, setRubros] = useState<RubroData[]>([]);
   const [camiones, setCamiones] = useState<CamionData[]>([]);
+  // Copia completa (capada a 300 por el backend) usada SOLO para validaciones
+  // (duplicado de número de orden / factura) y para poblar los selects de
+  // placa/chofer/tipo. El listado visible en pantalla usa búsqueda paginada
+  // por Elasticsearch (ver listadoCompra/listadoServicio más abajo).
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompraData[]>([]);
   const [ordenesServicio, setOrdenesServicio] = useState<OrdenServicioData[]>([]);
   const [fechaFiltro, setFechaFiltro] = useState<Date | undefined>(undefined);
@@ -145,6 +150,17 @@ export default function OrdenCompraPage() {
   const [filtroPlaca, setFiltroPlaca] = useState<string>("todos");
   const [filtroChofer, setFiltroChofer] = useState<string>("todos");
   const [filtroTipo, setFiltroTipo] = useState<string>("todos");
+
+  // Listado visible (búsqueda + paginación vía Elasticsearch)
+  const PAGE_SIZE_ORDENES = 20;
+  const [listadoCompra, setListadoCompra] = useState<OrdenCompraData[]>([]);
+  const [listadoServicio, setListadoServicio] = useState<OrdenServicioData[]>([]);
+  const [totalListadoCompra, setTotalListadoCompra] = useState(0);
+  const [totalListadoServicio, setTotalListadoServicio] = useState(0);
+  const [pageListadoCompra, setPageListadoCompra] = useState(1);
+  const [pageListadoServicio, setPageListadoServicio] = useState(1);
+  const totalPagesListadoCompra = Math.max(1, Math.ceil(totalListadoCompra / PAGE_SIZE_ORDENES));
+  const totalPagesListadoServicio = Math.max(1, Math.ceil(totalListadoServicio / PAGE_SIZE_ORDENES));
 
   // Estados para subida de archivos (Cotización y Factura)
   const [isUploadCotizacionDialogOpen, setIsUploadCotizacionDialogOpen] = useState(false);
@@ -625,6 +641,63 @@ export default function OrdenCompraPage() {
       setOrdenesServicio([]);
     }
   };
+
+  const filtrosListado = useCallback(() => ({
+    fecha: fechaFiltro ? format(fechaFiltro, "yyyy-MM-dd") : undefined,
+    placa: filtroPlaca !== "todos" ? filtroPlaca : undefined,
+    chofer: filtroChofer !== "todos" ? filtroChofer : undefined,
+    tipo: filtroTipo !== "todos" ? filtroTipo : undefined,
+  }), [fechaFiltro, filtroPlaca, filtroChofer, filtroTipo]);
+
+  const fetchListadoCompra = useCallback(async () => {
+    try {
+      const result = await searchApi.ordenesCompra(searchTerm, pageListadoCompra, PAGE_SIZE_ORDENES, filtrosListado());
+      setListadoCompra(result.data);
+      setTotalListadoCompra(result.total);
+    } catch (error) {
+      console.error("Error loading listado de ordenes de compra:", error);
+    }
+  }, [searchTerm, pageListadoCompra, filtrosListado]);
+
+  const fetchListadoServicio = useCallback(async () => {
+    try {
+      const result = await searchApi.ordenesServicio(searchTerm, pageListadoServicio, PAGE_SIZE_ORDENES, filtrosListado());
+      setListadoServicio(result.data);
+      setTotalListadoServicio(result.total);
+    } catch (error) {
+      console.error("Error loading listado de ordenes de servicio:", error);
+    }
+  }, [searchTerm, pageListadoServicio, filtrosListado]);
+
+  // Refresca el listado visible cada vez que se recarga la copia completa
+  // (tras crear/editar/aprobar una orden, eventos de WebSocket, etc.)
+  // Solo depende de ordenesCompra/ordenesServicio a propósito: no queremos
+  // que esto dispare un fetch inmediato (sin debounce) al tipear en el buscador.
+  useEffect(() => {
+    fetchListadoCompra();
+     
+  }, [ordenesCompra]);
+  useEffect(() => {
+    fetchListadoServicio();
+     
+  }, [ordenesServicio]);
+
+  // Búsqueda/filtros con debounce en el texto libre
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchListadoCompra();
+      fetchListadoServicio();
+    }, searchTerm ? 400 : 0);
+    return () => clearTimeout(timer);
+     
+  }, [searchTerm, filtrosListado, pageListadoCompra, pageListadoServicio]);
+
+  // Volver a página 1 cuando cambian búsqueda o filtros
+  useEffect(() => {
+    setPageListadoCompra(1);
+    setPageListadoServicio(1);
+     
+  }, [searchTerm, fechaFiltro, filtroPlaca, filtroChofer, filtroTipo]);
 
   // Funciones para centros de costo - Selects independientes (deprecado, se usará las nuevas)
   const loadCentrosCosto = async () => {
@@ -1519,94 +1592,10 @@ export default function OrdenCompraPage() {
     }
   };
 
-  // Filtrar órdenes por fecha y búsqueda
-  const ordenesFiltradas = useMemo(() => {
-    let filtered = ordenesCompra;
-
-    // Filtrar por fecha
-    if (fechaFiltro) {
-      const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
-      filtered = filtered.filter((orden) => {
-        // El backend ya envía la fecha como string YYYY-MM-DD, comparar directamente
-        return orden.fecha_orden === fechaFiltroStr;
-      });
-    }
-
-    // Filtrar por término de búsqueda
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter((orden) => {
-        const numero = orden.numero_orden?.toString().toLowerCase() || '';
-        const proveedor = orden.nombre_proveedor?.toLowerCase() || '';
-        const placa = orden.placa_unidad?.toLowerCase() || '';
-        return numero.includes(searchLower) || proveedor.includes(searchLower) || placa.includes(searchLower);
-      });
-    }
-
-    // Filtrar por placa
-    if (filtroPlaca !== "todos") {
-      filtered = filtered.filter((orden) => orden.placa_unidad === filtroPlaca);
-    }
-
-    // Filtrar por chofer
-    if (filtroChofer !== "todos") {
-      filtered = filtered.filter((orden) => {
-        const chofer = [orden.nombre_chofer, orden.apellido_chofer].filter(Boolean).join(" ");
-        return chofer === filtroChofer;
-      });
-    }
-
-    // Filtrar por tipo de unidad
-    if (filtroTipo !== "todos") {
-      filtered = filtered.filter((orden) => orden.tipo_unidad === filtroTipo);
-    }
-
-    return filtered.sort((a, b) => b.numero_orden.localeCompare(a.numero_orden));
-  }, [ordenesCompra, fechaFiltro, searchTerm, filtroPlaca, filtroChofer, filtroTipo]);
-
-  const ordenesServicioFiltradas = useMemo(() => {
-    let filtered = ordenesServicio;
-
-    // Filtrar por fecha
-    if (fechaFiltro) {
-      const fechaFiltroStr = format(fechaFiltro, 'yyyy-MM-dd');
-      filtered = filtered.filter((orden) => {
-        // El backend ya envía la fecha como string YYYY-MM-DD, comparar directamente
-        return orden.fecha_orden === fechaFiltroStr;
-      });
-    }
-
-    // Filtrar por término de búsqueda
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter((orden) => {
-        const numero = orden.numero_orden?.toString().toLowerCase() || '';
-        const proveedor = orden.nombre_proveedor?.toLowerCase() || '';
-        const placa = orden.placa_unidad?.toLowerCase() || '';
-        return numero.includes(searchLower) || proveedor.includes(searchLower) || placa.includes(searchLower);
-      });
-    }
-
-    // Filtrar por placa
-    if (filtroPlaca !== "todos") {
-      filtered = filtered.filter((orden) => orden.placa_unidad === filtroPlaca);
-    }
-
-    // Filtrar por chofer
-    if (filtroChofer !== "todos") {
-      filtered = filtered.filter((orden) => {
-        const chofer = [orden.nombre_chofer, orden.apellido_chofer].filter(Boolean).join(" ");
-        return chofer === filtroChofer;
-      });
-    }
-
-    // Filtrar por tipo de unidad
-    if (filtroTipo !== "todos") {
-      filtered = filtered.filter((orden) => orden.tipo_unidad === filtroTipo);
-    }
-
-    return filtered.sort((a, b) => b.numero_orden.localeCompare(a.numero_orden));
-  }, [ordenesServicio, fechaFiltro, searchTerm, filtroPlaca, filtroChofer, filtroTipo]);
+  // Búsqueda, filtros y paginación ya resueltos en el servidor vía
+  // Elasticsearch (ver fetchListadoCompra/fetchListadoServicio más arriba).
+  const ordenesFiltradas = listadoCompra;
+  const ordenesServicioFiltradas = listadoServicio;
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -2323,6 +2312,13 @@ export default function OrdenCompraPage() {
                       ))}
                     </Accordion>
                   )}
+                  {totalPagesListadoCompra > 1 && (
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+                      <Button variant="outline" size="sm" onClick={() => setPageListadoCompra((p) => Math.max(1, p - 1))} disabled={pageListadoCompra <= 1}>← Anterior</Button>
+                      <span className="text-sm text-slate-600">Página {pageListadoCompra} de {totalPagesListadoCompra}</span>
+                      <Button variant="outline" size="sm" onClick={() => setPageListadoCompra((p) => Math.min(totalPagesListadoCompra, p + 1))} disabled={pageListadoCompra >= totalPagesListadoCompra}>Siguiente →</Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -2835,6 +2831,13 @@ export default function OrdenCompraPage() {
                         </AccordionItem>
                       ))}
                     </Accordion>
+                  )}
+                  {totalPagesListadoServicio > 1 && (
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+                      <Button variant="outline" size="sm" onClick={() => setPageListadoServicio((p) => Math.max(1, p - 1))} disabled={pageListadoServicio <= 1}>← Anterior</Button>
+                      <span className="text-sm text-slate-600">Página {pageListadoServicio} de {totalPagesListadoServicio}</span>
+                      <Button variant="outline" size="sm" onClick={() => setPageListadoServicio((p) => Math.min(totalPagesListadoServicio, p + 1))} disabled={pageListadoServicio >= totalPagesListadoServicio}>Siguiente →</Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>
