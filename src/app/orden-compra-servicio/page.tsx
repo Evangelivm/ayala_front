@@ -1703,7 +1703,7 @@ export default function OrdenCompraPage() {
                   <Input
                     id="search-term"
                     type="text"
-                    placeholder="Buscar por código o proveedor"
+                    placeholder="Buscar por código, proveedor, placa o chofer"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-8"
