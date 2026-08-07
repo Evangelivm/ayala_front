@@ -93,6 +93,12 @@ const menuItems = [
         isActive: false,
       },
       {
+        title: "Registro de Compras",
+        url: "/registro-compras",
+        icon: FileSpreadsheet,
+        isActive: false,
+      },
+      {
         title: "Reportes Semanales",
         url: "/reportes/semanales",
         icon: Calendar,

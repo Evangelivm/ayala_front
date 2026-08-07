@@ -4989,5 +4989,52 @@ export const contabilidadApi = {
   },
 };
 
+// ============ REGISTRO DE COMPRAS -> ASIENTOS (tabla masivo) ============
+export interface MasivoRow {
+  campo: number;
+  sub_diario: number;
+  num_comprobante: string;
+  fecha_documento: string;
+  fecha_vencimiento: string;
+  tipo_documento?: string;
+  numero_documento?: string;
+  codigo_anexo?: string;
+  glosa_principal?: string;
+  importe_original: number;
+  debe_haber: "D" | "H";
+  cod_moneda: string;
+  tasa_igv?: string;
+  cuenta_contable: string;
+  codigo_auxiliar?: string;
+  tipo_doc_referencia?: string;
+  num_doc_referencia?: string;
+  fecha_doc_referencia?: string | null;
+  tipo_conversion?: string;
+  flag_conversion?: string;
+}
+
+export interface MasivoBatchResponse {
+  message: string;
+  totalRecords: number;
+  successCount: number;
+  processingTime: number;
+  first_reg: number | null;
+  last_reg: number | null;
+}
+
+export const registroComprasApi = {
+  // Insertar líneas de asiento en lote (arreglo ya desdoblado en debe/haber)
+  createBatch: async (data: MasivoRow[]): Promise<MasivoBatchResponse> => {
+    const response = await api.post("/registro-compras", { data });
+    return response.data;
+  },
+
+  // Último número de registro (id) insertado en la tabla masivo
+  getUltimoNumero: async (): Promise<{ nextId: number }> => {
+    const response = await api.get("/registro-compras/ultimo-numero");
+    return response.data;
+  },
+};
+
 // Exportar la instancia de axios para uso directo si es necesario
 export { api };
