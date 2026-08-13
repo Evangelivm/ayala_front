@@ -37,6 +37,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -180,6 +181,9 @@ export default function OrdenCompraPage() {
   const [editingFacturaOrdenId, setEditingFacturaOrdenId] = useState<number | null>(null);
   const [editingFacturaTipo, setEditingFacturaTipo] = useState<"compra" | "servicio" | null>(null);
   const [nroFacturaEdit, setNroFacturaEdit] = useState("");
+  const [editingRHOrdenId, setEditingRHOrdenId] = useState<number | null>(null);
+  const [editingRHTipo, setEditingRHTipo] = useState<"compra" | "servicio" | null>(null);
+  const [nroRHEdit, setNroRHEdit] = useState("");
 
   // Estados para modal Multifacturas
   const [isMultifacturasOpen, setIsMultifacturasOpen] = useState(false);
@@ -201,6 +205,7 @@ export default function OrdenCompraPage() {
     retencionProveedor: "",
     almacenCentral: false, // Checkbox Almacén Central
     anticipo: false, // Checkbox Anticipo
+    tipoComprobante: "FACTURA" as "FACTURA" | "RH", // Emitirá Factura / Emitir Recibo por Honorarios
     serie: "0001",
     nroDoc: "",
     fechaEmision: new Date(),
@@ -1105,6 +1110,7 @@ export default function OrdenCompraPage() {
         almacen_central: nuevaOrdenData.almacenCentral ? "SI" : "NO",
         has_anticipo: nuevaOrdenData.anticipo ? 1 : 0,
         tiene_anticipo: nuevaOrdenData.anticipo ? "SI" : "NO",
+        tipo_comprobante: nuevaOrdenData.tipoComprobante,
         items: itemsParaBackend,
         subtotal: nuevaOrdenData.subtotal,
         igv: nuevaOrdenData.igv,
@@ -1175,6 +1181,7 @@ export default function OrdenCompraPage() {
       retencionProveedor: "",
       almacenCentral: false,
       anticipo: false,
+      tipoComprobante: "FACTURA",
       serie: "0001",
       nroDoc: "",
       fechaEmision: new Date(),
@@ -1250,6 +1257,7 @@ export default function OrdenCompraPage() {
         retencionProveedor: orden.retencion || "",
         almacenCentral: orden.almacen_central === "SI",
         anticipo: orden.tiene_anticipo === "SI" || orden.tiene_anticipo === 1,
+        tipoComprobante: orden.tipo_comprobante === "RH" ? "RH" : "FACTURA",
         serie: serie || "0001",
         nroDoc: nroDoc || "",
         fechaEmision: parseDateSafe(orden.fecha_orden),
@@ -1331,6 +1339,7 @@ export default function OrdenCompraPage() {
         retencionProveedor: orden.detraccion || "",
         almacenCentral: orden.almacen_central === "SI",
         anticipo: orden.tiene_anticipo === "SI" || orden.tiene_anticipo === 1,
+        tipoComprobante: orden.tipo_comprobante === "RH" ? "RH" : "FACTURA",
         serie: serie || "0001",
         nroDoc: nroDoc || "",
         fechaEmision: parseDateSafe(orden.fecha_orden),
@@ -1455,6 +1464,37 @@ export default function OrdenCompraPage() {
       console.error("Error al actualizar número de factura:", error);
       toast.dismiss();
       toast.error("Error al actualizar el número de factura", {
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
+  // ===== HANDLER PARA ACTUALIZAR NÚMERO DE RH =====
+  const handleUpdateNroRH = async (ordenId: number, tipo: "compra" | "servicio", nroRH: string) => {
+    try {
+      toast.loading("Actualizando número de RH...");
+
+      const api = tipo === "compra" ? ordenesCompraApi : ordenesServicioApi;
+      await api.actualizarNumeroRH(ordenId, nroRH);
+
+      toast.dismiss();
+      toast.success("Número de RH actualizado exitosamente");
+
+      // Recargar las órdenes
+      if (tipo === "compra") {
+        loadOrdenesCompra();
+      } else {
+        loadOrdenesServicio();
+      }
+
+      // Limpiar estados de edición
+      setEditingRHOrdenId(null);
+      setEditingRHTipo(null);
+      setNroRHEdit("");
+    } catch (error) {
+      console.error("Error al actualizar número de RH:", error);
+      toast.dismiss();
+      toast.error("Error al actualizar el número de RH", {
         description: error instanceof Error ? error.message : "Error desconocido",
       });
     }
@@ -2123,55 +2163,100 @@ export default function OrdenCompraPage() {
                                     </div>
                                   )}
 
-                                  {/* Campo de Número de Factura */}
-                                  <div className="mt-3 pt-3 border-t border-gray-200">
-                                    <label className="text-xs font-semibold text-gray-700 mb-1 block">
-                                      Número de Factura:
-                                    </label>
-                                    <div className="flex gap-2">
-                                      <Input
-                                        type="text"
-                                        placeholder="Ej: F001-00001234"
-                                        value={
-                                          editingFacturaOrdenId === orden.id_orden_compra && editingFacturaTipo === "compra"
-                                            ? nroFacturaEdit
-                                            : orden.nro_factura || ""
-                                        }
-                                        onChange={(e) => {
-                                          if (editingFacturaOrdenId === orden.id_orden_compra) {
-                                            setNroFacturaEdit(e.target.value);
+                                  {/* Campo de Número de Factura / Número de RH */}
+                                  {orden.tipo_comprobante === "RH" ? (
+                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                      <label className="text-xs font-semibold text-gray-700 mb-1 block">
+                                        Número de RH:
+                                      </label>
+                                      <div className="flex gap-2">
+                                        <Input
+                                          type="text"
+                                          placeholder="Ej: RH001-00001234"
+                                          value={
+                                            editingRHOrdenId === orden.id_orden_compra && editingRHTipo === "compra"
+                                              ? nroRHEdit
+                                              : orden.nro_rh || ""
                                           }
-                                        }}
-                                        onFocus={() => {
-                                          setEditingFacturaOrdenId(orden.id_orden_compra || null);
-                                          setEditingFacturaTipo("compra");
-                                          setNroFacturaEdit(orden.nro_factura || "");
-                                        }}
-                                        disabled={!!orden.nro_factura}
-                                        className="h-8 text-xs flex-1"
-                                      />
-                                      <Button
-                                        size="sm"
-                                        onClick={() => {
-                                          if (orden.id_orden_compra) {
-                                            handleUpdateNroFactura(orden.id_orden_compra, "compra", nroFacturaEdit);
-                                          }
-                                        }}
-                                        disabled={editingFacturaOrdenId !== orden.id_orden_compra || !!orden.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_compra || null, "compra", orden.id_proveedor || null)}
-                                        className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
-                                      >
-                                        Guardar
-                                      </Button>
+                                          onChange={(e) => {
+                                            if (editingRHOrdenId === orden.id_orden_compra) {
+                                              setNroRHEdit(e.target.value);
+                                            }
+                                          }}
+                                          onFocus={() => {
+                                            setEditingRHOrdenId(orden.id_orden_compra || null);
+                                            setEditingRHTipo("compra");
+                                            setNroRHEdit(orden.nro_rh || "");
+                                          }}
+                                          disabled={!!orden.nro_rh}
+                                          className="h-8 text-xs flex-1"
+                                        />
+                                        <Button
+                                          size="sm"
+                                          onClick={() => {
+                                            if (orden.id_orden_compra) {
+                                              handleUpdateNroRH(orden.id_orden_compra, "compra", nroRHEdit);
+                                            }
+                                          }}
+                                          disabled={editingRHOrdenId !== orden.id_orden_compra || !!orden.nro_rh}
+                                          className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
+                                        >
+                                          Guardar
+                                        </Button>
+                                      </div>
                                     </div>
-                                    {editingFacturaOrdenId === orden.id_orden_compra && editingFacturaTipo === "compra" && isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_compra || null, "compra", orden.id_proveedor || null) && (
-                                      <p className="text-xs text-red-600 mt-1">Este proveedor ya tiene una orden con ese número de factura, evite pagos duplicados</p>
-                                    )}
-                                  </div>
+                                  ) : (
+                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                      <label className="text-xs font-semibold text-gray-700 mb-1 block">
+                                        Número de Factura:
+                                      </label>
+                                      <div className="flex gap-2">
+                                        <Input
+                                          type="text"
+                                          placeholder="Ej: F001-00001234"
+                                          value={
+                                            editingFacturaOrdenId === orden.id_orden_compra && editingFacturaTipo === "compra"
+                                              ? nroFacturaEdit
+                                              : orden.nro_factura || ""
+                                          }
+                                          onChange={(e) => {
+                                            if (editingFacturaOrdenId === orden.id_orden_compra) {
+                                              setNroFacturaEdit(e.target.value);
+                                            }
+                                          }}
+                                          onFocus={() => {
+                                            setEditingFacturaOrdenId(orden.id_orden_compra || null);
+                                            setEditingFacturaTipo("compra");
+                                            setNroFacturaEdit(orden.nro_factura || "");
+                                          }}
+                                          disabled={!!orden.nro_factura}
+                                          className="h-8 text-xs flex-1"
+                                        />
+                                        <Button
+                                          size="sm"
+                                          onClick={() => {
+                                            if (orden.id_orden_compra) {
+                                              handleUpdateNroFactura(orden.id_orden_compra, "compra", nroFacturaEdit);
+                                            }
+                                          }}
+                                          disabled={editingFacturaOrdenId !== orden.id_orden_compra || !!orden.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_compra || null, "compra", orden.id_proveedor || null)}
+                                          className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
+                                        >
+                                          Guardar
+                                        </Button>
+                                      </div>
+                                      {editingFacturaOrdenId === orden.id_orden_compra && editingFacturaTipo === "compra" && isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_compra || null, "compra", orden.id_proveedor || null) && (
+                                        <p className="text-xs text-red-600 mt-1">Este proveedor ya tiene una orden con ese número de factura, evite pagos duplicados</p>
+                                      )}
+                                    </div>
+                                  )}
 
                                   {/* Botón Multifacturas */}
                                   <div className="mt-2">
                                     <Button
                                       size="sm"
+                                      disabled={orden.tipo_comprobante === "RH"}
+                                      title={orden.tipo_comprobante === "RH" ? "No disponible para Recibo por Honorarios" : undefined}
                                       onClick={async () => {
                                         const ordenId = orden.id_orden_compra || null;
                                         setMultifacturasOrdenId(ordenId);
@@ -2643,55 +2728,100 @@ export default function OrdenCompraPage() {
                                     </div>
                                   )}
 
-                                  {/* Campo de Número de Factura */}
-                                  <div className="mt-3 pt-3 border-t border-gray-200">
-                                    <label className="text-xs font-semibold text-gray-700 mb-1 block">
-                                      Número de Factura:
-                                    </label>
-                                    <div className="flex gap-2">
-                                      <Input
-                                        type="text"
-                                        placeholder="Ej: F001-00001234"
-                                        value={
-                                          editingFacturaOrdenId === orden.id_orden_servicio && editingFacturaTipo === "servicio"
-                                            ? nroFacturaEdit
-                                            : orden.nro_factura || ""
-                                        }
-                                        onChange={(e) => {
-                                          if (editingFacturaOrdenId === orden.id_orden_servicio) {
-                                            setNroFacturaEdit(e.target.value);
+                                  {/* Campo de Número de Factura / Número de RH */}
+                                  {orden.tipo_comprobante === "RH" ? (
+                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                      <label className="text-xs font-semibold text-gray-700 mb-1 block">
+                                        Número de RH:
+                                      </label>
+                                      <div className="flex gap-2">
+                                        <Input
+                                          type="text"
+                                          placeholder="Ej: RH001-00001234"
+                                          value={
+                                            editingRHOrdenId === orden.id_orden_servicio && editingRHTipo === "servicio"
+                                              ? nroRHEdit
+                                              : orden.nro_rh || ""
                                           }
-                                        }}
-                                        onFocus={() => {
-                                          setEditingFacturaOrdenId(orden.id_orden_servicio || null);
-                                          setEditingFacturaTipo("servicio");
-                                          setNroFacturaEdit(orden.nro_factura || "");
-                                        }}
-                                        disabled={!!orden.nro_factura}
-                                        className="h-8 text-xs flex-1"
-                                      />
-                                      <Button
-                                        size="sm"
-                                        onClick={() => {
-                                          if (orden.id_orden_servicio) {
-                                            handleUpdateNroFactura(orden.id_orden_servicio, "servicio", nroFacturaEdit);
-                                          }
-                                        }}
-                                        disabled={editingFacturaOrdenId !== orden.id_orden_servicio || !!orden.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_servicio || null, "servicio", orden.id_proveedor || null)}
-                                        className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
-                                      >
-                                        Guardar
-                                      </Button>
+                                          onChange={(e) => {
+                                            if (editingRHOrdenId === orden.id_orden_servicio) {
+                                              setNroRHEdit(e.target.value);
+                                            }
+                                          }}
+                                          onFocus={() => {
+                                            setEditingRHOrdenId(orden.id_orden_servicio || null);
+                                            setEditingRHTipo("servicio");
+                                            setNroRHEdit(orden.nro_rh || "");
+                                          }}
+                                          disabled={!!orden.nro_rh}
+                                          className="h-8 text-xs flex-1"
+                                        />
+                                        <Button
+                                          size="sm"
+                                          onClick={() => {
+                                            if (orden.id_orden_servicio) {
+                                              handleUpdateNroRH(orden.id_orden_servicio, "servicio", nroRHEdit);
+                                            }
+                                          }}
+                                          disabled={editingRHOrdenId !== orden.id_orden_servicio || !!orden.nro_rh}
+                                          className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
+                                        >
+                                          Guardar
+                                        </Button>
+                                      </div>
                                     </div>
-                                    {editingFacturaOrdenId === orden.id_orden_servicio && editingFacturaTipo === "servicio" && isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_servicio || null, "servicio", orden.id_proveedor || null) && (
-                                      <p className="text-xs text-red-600 mt-1">Este proveedor ya tiene una orden con ese número de factura, evite pagos duplicados</p>
-                                    )}
-                                  </div>
+                                  ) : (
+                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                      <label className="text-xs font-semibold text-gray-700 mb-1 block">
+                                        Número de Factura:
+                                      </label>
+                                      <div className="flex gap-2">
+                                        <Input
+                                          type="text"
+                                          placeholder="Ej: F001-00001234"
+                                          value={
+                                            editingFacturaOrdenId === orden.id_orden_servicio && editingFacturaTipo === "servicio"
+                                              ? nroFacturaEdit
+                                              : orden.nro_factura || ""
+                                          }
+                                          onChange={(e) => {
+                                            if (editingFacturaOrdenId === orden.id_orden_servicio) {
+                                              setNroFacturaEdit(e.target.value);
+                                            }
+                                          }}
+                                          onFocus={() => {
+                                            setEditingFacturaOrdenId(orden.id_orden_servicio || null);
+                                            setEditingFacturaTipo("servicio");
+                                            setNroFacturaEdit(orden.nro_factura || "");
+                                          }}
+                                          disabled={!!orden.nro_factura}
+                                          className="h-8 text-xs flex-1"
+                                        />
+                                        <Button
+                                          size="sm"
+                                          onClick={() => {
+                                            if (orden.id_orden_servicio) {
+                                              handleUpdateNroFactura(orden.id_orden_servicio, "servicio", nroFacturaEdit);
+                                            }
+                                          }}
+                                          disabled={editingFacturaOrdenId !== orden.id_orden_servicio || !!orden.nro_factura || isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_servicio || null, "servicio", orden.id_proveedor || null)}
+                                          className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
+                                        >
+                                          Guardar
+                                        </Button>
+                                      </div>
+                                      {editingFacturaOrdenId === orden.id_orden_servicio && editingFacturaTipo === "servicio" && isNroFacturaDuplicado(nroFacturaEdit, orden.id_orden_servicio || null, "servicio", orden.id_proveedor || null) && (
+                                        <p className="text-xs text-red-600 mt-1">Este proveedor ya tiene una orden con ese número de factura, evite pagos duplicados</p>
+                                      )}
+                                    </div>
+                                  )}
 
                                   {/* Botón Multifacturas */}
                                   <div className="mt-2">
                                     <Button
                                       size="sm"
+                                      disabled={orden.tipo_comprobante === "RH"}
+                                      title={orden.tipo_comprobante === "RH" ? "No disponible para Recibo por Honorarios" : undefined}
                                       onClick={async () => {
                                         const ordenId = orden.id_orden_servicio || null;
                                         setMultifacturasOrdenId(ordenId);
@@ -3728,50 +3858,86 @@ export default function OrdenCompraPage() {
                       </div>
 
                       {/* Segunda fila */}
-                      <div className="col-span-2">
+                      <div className="col-span-4">
                         <Label className="text-xs font-semibold mb-2 block">
                           Opciones
                         </Label>
-                        <div className="flex flex-col space-y-2">
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              id="almacen-central"
-                              checked={nuevaOrdenData.almacenCentral}
-                              onChange={(e) =>
-                                handleNuevaOrdenInputChange(
-                                  "almacenCentral",
-                                  e.target.checked
-                                )
-                              }
-                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <label
-                              htmlFor="almacen-central"
-                              className="text-xs font-medium text-gray-700 cursor-pointer"
-                            >
-                              Almacén Central
-                            </label>
+                        <div className="flex flex-row gap-4">
+                          <div className="flex flex-col space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="almacen-central"
+                                checked={nuevaOrdenData.almacenCentral}
+                                onChange={(e) =>
+                                  handleNuevaOrdenInputChange(
+                                    "almacenCentral",
+                                    e.target.checked
+                                  )
+                                }
+                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <label
+                                htmlFor="almacen-central"
+                                className="text-xs font-medium text-gray-700 cursor-pointer"
+                              >
+                                Almacén Central
+                              </label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="anticipo"
+                                checked={nuevaOrdenData.anticipo}
+                                onChange={(e) =>
+                                  handleNuevaOrdenInputChange(
+                                    "anticipo",
+                                    e.target.checked
+                                  )
+                                }
+                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <label
+                                htmlFor="anticipo"
+                                className="text-xs font-medium text-gray-700 cursor-pointer"
+                              >
+                                Anticipo
+                              </label>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              id="anticipo"
-                              checked={nuevaOrdenData.anticipo}
-                              onChange={(e) =>
-                                handleNuevaOrdenInputChange(
-                                  "anticipo",
-                                  e.target.checked
-                                )
-                              }
-                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <label
-                              htmlFor="anticipo"
-                              className="text-xs font-medium text-gray-700 cursor-pointer"
-                            >
-                              Anticipo
-                            </label>
+                          <div className="flex flex-col space-y-2 pl-4 border-l border-gray-200">
+                            <Label className="text-xs font-semibold text-gray-700">
+                              Emitirá
+                            </Label>
+                            <div className="flex items-center space-x-2">
+                              <span
+                                className="text-xs font-medium text-blue-700 cursor-pointer"
+                                onClick={() =>
+                                  handleNuevaOrdenInputChange("tipoComprobante", "FACTURA")
+                                }
+                              >
+                                Factura
+                              </span>
+                              <Switch
+                                id="comprobante-switch"
+                                checked={nuevaOrdenData.tipoComprobante === "RH"}
+                                onCheckedChange={(checked) =>
+                                  handleNuevaOrdenInputChange(
+                                    "tipoComprobante",
+                                    checked ? "RH" : "FACTURA"
+                                  )
+                                }
+                                className="data-[state=unchecked]:bg-blue-600 data-[state=checked]:bg-green-600"
+                              />
+                              <span
+                                className="text-xs font-medium text-green-700 cursor-pointer"
+                                onClick={() =>
+                                  handleNuevaOrdenInputChange("tipoComprobante", "RH")
+                                }
+                              >
+                                Recibo por Honorarios
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>

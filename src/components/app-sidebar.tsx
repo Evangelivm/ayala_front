@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Network,
   FileSpreadsheet,
+  FolderKanban,
 } from "lucide-react"
 
 import {
@@ -96,6 +97,12 @@ const menuItems = [
         title: "Registro de Compras",
         url: "/registro-compras",
         icon: FileSpreadsheet,
+        isActive: false,
+      },
+      {
+        title: "Reporte Centro de Costos",
+        url: "/reporte-centro-costos",
+        icon: FolderKanban,
         isActive: false,
       },
       {

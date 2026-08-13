@@ -3589,6 +3589,8 @@ export interface OrdenCompraData {
   url_cotizacion?: string | null;
   url_factura?: string | null;
   nro_factura?: string | null; // Número de factura
+  tipo_comprobante?: string | null; // "FACTURA" o "RH"
+  nro_rh?: string | null; // Número de recibo por honorarios
   multifacturas_nros?: string | null; // Números de factura de multifacturas (comma-separated)
   url_comprobante_retencion?: string | null; // URL del comprobante de retención
   nro_serie?: string | null; // Número de serie del comprobante de retención
@@ -3764,6 +3766,16 @@ export const ordenesCompraApi = {
       await api.patch(`/ordenes-compra/${id}/numero-factura`, { nro_factura: nroFactura });
     } catch (error) {
       console.error("Error actualizando número de factura:", error);
+      throw error;
+    }
+  },
+
+  // Actualizar número de recibo por honorarios
+  actualizarNumeroRH: async (id: number, nroRH: string): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-compra/${id}/numero-rh`, { nro_rh: nroRH });
+    } catch (error) {
+      console.error("Error actualizando número de RH:", error);
       throw error;
     }
   },
@@ -4044,6 +4056,8 @@ export interface OrdenServicioData {
   url_cotizacion?: string | null;
   url_factura?: string | null;
   nro_factura?: string | null; // Número de factura
+  tipo_comprobante?: string | null; // "FACTURA" o "RH"
+  nro_rh?: string | null; // Número de recibo por honorarios
   multifacturas_nros?: string | null; // Números de factura de multifacturas (comma-separated)
   url_comprobante_retencion?: string | null; // URL del comprobante de retención
   nro_serie?: string | null; // Número de serie del comprobante de retención
@@ -4219,6 +4233,16 @@ export const ordenesServicioApi = {
       await api.patch(`/ordenes-servicio/${id}/numero-factura`, { nro_factura: nroFactura });
     } catch (error) {
       console.error("Error actualizando número de factura:", error);
+      throw error;
+    }
+  },
+
+  // Actualizar número de recibo por honorarios
+  actualizarNumeroRH: async (id: number, nroRH: string): Promise<void> => {
+    try {
+      await api.patch(`/ordenes-servicio/${id}/numero-rh`, { nro_rh: nroRH });
+    } catch (error) {
+      console.error("Error actualizando número de RH:", error);
       throw error;
     }
   },
@@ -4700,6 +4724,41 @@ export const searchApi = {
     };
   }> => {
     const response = await api.post("/search/reindex");
+    return response.data;
+  },
+};
+
+// ============ REPORTE CENTRO DE COSTOS API ============
+export interface CentroCostoRow {
+  tipo_orden: "compra" | "servicio";
+  id_orden: number;
+  numero_orden: string;
+  fecha_orden: string | null;
+  nro_factura: string | null;
+  url: string | null;
+  centro_costo_nivel1: string | null;
+  centro_costo_nivel2: string | null;
+  centro_costo_nivel3: string | null;
+  id_detalle: number;
+  codigo_item: string;
+  descripcion_item: string;
+  centro_costo_item: string | null;
+}
+
+export const reporteCentroCostosApi = {
+  getAll: async (
+    q: string,
+    page: number,
+    limit: number,
+    tipoOrden?: "compra" | "servicio"
+  ): Promise<{ data: CentroCostoRow[]; total: number }> => {
+    const params = new URLSearchParams({
+      q,
+      page: page.toString(),
+      limit: limit.toString(),
+      ...(tipoOrden ? { tipo_orden: tipoOrden } : {}),
+    });
+    const response = await api.get(`/reporte-centro-costos?${params}`);
     return response.data;
   },
 };
