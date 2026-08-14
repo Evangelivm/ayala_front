@@ -2,70 +2,118 @@ pipeline {
     agent any
     environment {
         NEXT_PUBLIC_API_URL = credentials('next-public-api-url')
+        WORKDIR = '/var/jenkins_home/workspace/front/ayala_front'
     }
     stages {
-        stage('Preparar entorno') {
-            steps {
-                echo '🔹 STAGE 1: Deteniendo contenedores anteriores y limpiando'
-                sh '''
-                cd /var/jenkins_home/workspace/front/ayala_front
-                docker compose down || echo "No había contenedores corriendo"
-                '''
-            }
-        }
-
         stage('Obtener código') {
             steps {
-                echo '🔹 STAGE 2: Obteniendo última versión del código'
+                echo '🔹 STAGE 1: Obteniendo última versión del código'
                 sh '''
-                cd /var/jenkins_home/workspace/front/ayala_front
+                cd $WORKDIR
                 git pull origin master
                 echo "✅ Código actualizado"
                 '''
             }
         }
 
+        stage('Determinar color activo') {
+            steps {
+                script {
+                    def active = sh(
+                        script: "cat $WORKDIR/.active_color 2>/dev/null || echo blue",
+                        returnStdout: true
+                    ).trim()
+                    env.ACTIVE_COLOR = active
+                    env.IDLE_COLOR = (active == 'blue') ? 'green' : 'blue'
+                    echo "🔹 Activo actualmente: ${env.ACTIVE_COLOR} — Se desplegará: ${env.IDLE_COLOR}"
+                }
+            }
+        }
+
+        stage('Asegurar Caddy corriendo') {
+            steps {
+                echo '🔹 STAGE 2: Verificando que Caddy esté arriba'
+                sh '''
+                cd $WORKDIR
+                docker compose up -d caddy
+                '''
+            }
+        }
+
         stage('Construir imagen') {
             steps {
-                echo '🔹 STAGE 3: Construyendo imagen Docker con variables de entorno'
+                echo '🔹 STAGE 3: Construyendo imagen para la instancia idle'
                 sh '''
-                cd /var/jenkins_home/workspace/front/ayala_front
-                docker compose build --no-cache \
+                cd $WORKDIR
+                docker compose build --no-cache app-${IDLE_COLOR} \
                     --build-arg NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
                 echo "✅ Imagen construida exitosamente"
                 '''
             }
         }
 
-        stage('Desplegar') {
+        stage('Levantar nueva instancia') {
             steps {
-                echo '🔹 STAGE 4: Iniciando contenedores'
+                echo '🔹 STAGE 4: Levantando instancia nueva sin tocar la que sirve tráfico'
                 sh '''
-                cd /var/jenkins_home/workspace/front/ayala_front
-                docker compose up -d
-                echo "🚀 Aplicación desplegada en http://<tu-servidor>:3002"
+                cd $WORKDIR
+                docker compose up -d app-${IDLE_COLOR}
                 '''
             }
         }
-        
-        stage('Verificación') {
+
+        stage('Esperar healthcheck') {
             steps {
-                echo '🔹 STAGE 5: Comprobando estado del contenedor'
+                echo '🔹 STAGE 5: Esperando a que la instancia nueva esté healthy'
                 sh '''
-                cd /var/jenkins_home/workspace/front/ayala_front
-                docker ps --filter "name=app" --format "{{.Status}}"
+                cd $WORKDIR
+                for i in $(seq 1 20); do
+                    STATUS=$(docker inspect --format='{{.State.Health.Status}}' ayala_front_${IDLE_COLOR} 2>/dev/null || echo "starting")
+                    echo "Intento $i/20: $STATUS"
+                    if [ "$STATUS" = "healthy" ]; then
+                        echo "✅ Instancia ${IDLE_COLOR} healthy"
+                        exit 0
+                    fi
+                    sleep 5
+                done
+                echo "❌ La instancia ${IDLE_COLOR} no llegó a healthy a tiempo"
+                exit 1
                 '''
-                echo "✔️ Pipeline completado"
+            }
+        }
+
+        stage('Cambiar tráfico en Caddy') {
+            steps {
+                echo '🔹 STAGE 6: Redirigiendo tráfico hacia la instancia nueva'
+                sh '''
+                cd $WORKDIR
+                sed -i "s/ayala_front_${ACTIVE_COLOR}:3002/ayala_front_${IDLE_COLOR}:3002/" Caddyfile
+                docker exec ayala_front_caddy caddy reload --config /etc/caddy/Caddyfile
+                echo "🚀 Tráfico ahora en ${IDLE_COLOR} — http://161.132.54.103:3002/"
+                '''
+            }
+        }
+
+        stage('Bajar instancia anterior') {
+            steps {
+                echo '🔹 STAGE 7: Apagando la instancia anterior'
+                sh '''
+                cd $WORKDIR
+                docker compose stop app-${ACTIVE_COLOR} || true
+                docker compose rm -f app-${ACTIVE_COLOR} || true
+                echo ${IDLE_COLOR} > $WORKDIR/.active_color
+                echo "✅ Color activo actualizado a ${IDLE_COLOR}"
+                '''
             }
         }
     }
-    
+
     post {
         failure {
-            echo '❌ Pipeline fallido - Revisar logs'
+            echo '❌ Pipeline fallido - Revisar logs (la instancia anterior sigue sirviendo tráfico, no hubo downtime)'
         }
         success {
-            echo '🎉 ¡Despliegue exitoso!'
+            echo '🎉 ¡Despliegue blue-green exitoso! http://161.132.54.103:3002/'
         }
     }
 }

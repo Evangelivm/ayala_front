@@ -1,0 +1,3 @@
+:3002 {
+    reverse_proxy ayala_front_blue:3002
+}
