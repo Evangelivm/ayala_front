@@ -116,7 +116,7 @@ export default function ReporteCentroCostosPage() {
       </div>
 
       {/* Contenido */}
-      <div className="px-4 sm:px-6 py-6 max-w-7xl mx-auto space-y-4">
+      <div className="px-4 sm:px-6 py-6 max-w-[1600px] mx-auto space-y-4">
         {/* Filtros */}
         <Card>
           <CardContent className="pt-6">
@@ -259,7 +259,7 @@ export default function ReporteCentroCostosPage() {
                           {row.codigo_item}
                         </TableCell>
                         <TableCell
-                          className="text-xs max-w-[220px] truncate"
+                          className="text-xs max-w-[420px] truncate"
                           title={row.descripcion_item}
                         >
                           {row.descripcion_item}
