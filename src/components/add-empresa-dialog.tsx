@@ -23,7 +23,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
-import { proveedoresApi, empresasApi } from "@/lib/connections";
+import { proveedoresApi } from "@/lib/connections";
 
 interface AddEmpresaDialogProps {
   onEmpresaAdded?: () => void;
@@ -129,22 +129,14 @@ export function AddEmpresaDialog({
         activo: true,
       };
 
-      await proveedoresApi.create(dataToSend);
-
-      // También registrar en empresas_2025 para que aparezca en el select de proveedor
-      try {
-        await empresasApi.create({
-          codigo: formData.ruc.trim(),
-          razon_social: formData.nombre_proveedor.trim().toUpperCase(),
-          nro_documento: formData.ruc.trim(),
-          tipo: "PROVEEDOR",
-          direccion: formData.direccion.trim().toUpperCase() || null,
-        });
-      } catch {
-        // Si ya existe en empresas_2025 o falla, no interrumpir al usuario
-      }
+      const proveedorCreado = await proveedoresApi.create(dataToSend);
 
       toast.success("Empresa agregada exitosamente");
+      if ((proveedorCreado as { empresaSincronizada?: boolean })?.empresaSincronizada === false) {
+        toast.warning(
+          "El proveedor se creó, pero no se pudo sincronizar con la lista de selección. Avisa a soporte."
+        );
+      }
       resetForm();
       setOpen(false);
 
