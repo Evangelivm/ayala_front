@@ -35,7 +35,7 @@ pipeline {
                 echo '🔹 STAGE 2: Verificando que Caddy esté arriba'
                 sh '''
                 cd $WORKDIR
-                docker compose up -d caddy
+                docker compose up -d --build --remove-orphans caddy
                 '''
             }
         }
@@ -87,7 +87,7 @@ pipeline {
                 echo '🔹 STAGE 6: Redirigiendo tráfico hacia la instancia nueva'
                 sh '''
                 cd $WORKDIR
-                sed -i "s/ayala_front_${ACTIVE_COLOR}:3002/ayala_front_${IDLE_COLOR}:3002/" Caddyfile
+                docker exec ayala_front_caddy sh -c "sed -i 's/ayala_front_${ACTIVE_COLOR}:3002/ayala_front_${IDLE_COLOR}:3002/' /etc/caddy/Caddyfile"
                 docker exec ayala_front_caddy caddy reload --config /etc/caddy/Caddyfile
                 echo "🚀 Tráfico ahora en ${IDLE_COLOR} — http://161.132.54.103:3002/"
                 '''

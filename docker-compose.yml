@@ -48,12 +48,13 @@ services:
       - shared_network
 
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
     container_name: ayala_front_caddy
     ports:
       - "3002:3002"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     restart: unless-stopped
