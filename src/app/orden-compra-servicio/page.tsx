@@ -1438,8 +1438,25 @@ export default function OrdenCompraPage() {
     }
   };
 
+  // ===== FORMATO DE NÚMERO DE FACTURA/RH: SSSS-NNNNNNNNNN (serie 4 caracteres + 10 dígitos) =====
+  const NRO_DOCUMENTO_REGEX = /^[A-Z][A-Z0-9]{3}-\d{10}$/;
+
+  const formatNroDocumento = (raw: string) => {
+    const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const serie = clean.slice(0, 4);
+    const numero = clean.slice(4).replace(/[^0-9]/g, "").slice(0, 10);
+    return numero ? `${serie}-${numero}` : serie;
+  };
+
   // ===== HANDLER PARA ACTUALIZAR NÚMERO DE FACTURA =====
   const handleUpdateNroFactura = async (ordenId: number, tipo: "compra" | "servicio", nroFactura: string) => {
+    if (!NRO_DOCUMENTO_REGEX.test(nroFactura)) {
+      toast.error("Formato de número de factura inválido", {
+        description: "Debe tener el formato SSSS-NNNNNNNNNN (serie de 4 caracteres iniciando con letra, guion y 10 dígitos). Ej: F001-0000001234",
+      });
+      return;
+    }
+
     try {
       toast.loading("Actualizando número de factura...");
 
@@ -1469,19 +1486,9 @@ export default function OrdenCompraPage() {
     }
   };
 
-  // ===== FORMATO DE NÚMERO DE RH: SSSS-NNNNNNNNNN (serie 4 caracteres + 10 dígitos) =====
-  const NRO_RH_REGEX = /^[A-Z][A-Z0-9]{3}-\d{10}$/;
-
-  const formatNroRH = (raw: string) => {
-    const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
-    const serie = clean.slice(0, 4);
-    const numero = clean.slice(4).replace(/[^0-9]/g, "").slice(0, 10);
-    return numero ? `${serie}-${numero}` : serie;
-  };
-
   // ===== HANDLER PARA ACTUALIZAR NÚMERO DE RH =====
   const handleUpdateNroRH = async (ordenId: number, tipo: "compra" | "servicio", nroRH: string) => {
-    if (!NRO_RH_REGEX.test(nroRH)) {
+    if (!NRO_DOCUMENTO_REGEX.test(nroRH)) {
       toast.error("Formato de número de RH inválido", {
         description: "Debe tener el formato SSSS-NNNNNNNNNN (serie de 4 caracteres iniciando con letra, guion y 10 dígitos). Ej: E001-0000001234",
       });
@@ -2198,7 +2205,7 @@ export default function OrdenCompraPage() {
                                           }
                                           onChange={(e) => {
                                             if (editingRHOrdenId === orden.id_orden_compra) {
-                                              setNroRHEdit(formatNroRH(e.target.value));
+                                              setNroRHEdit(formatNroDocumento(e.target.value));
                                             }
                                           }}
                                           onFocus={() => {
@@ -2231,7 +2238,8 @@ export default function OrdenCompraPage() {
                                       <div className="flex gap-2">
                                         <Input
                                           type="text"
-                                          placeholder="Ej: F001-00001234"
+                                          placeholder="Ej: F001-0000001234"
+                                          maxLength={15}
                                           value={
                                             editingFacturaOrdenId === orden.id_orden_compra && editingFacturaTipo === "compra"
                                               ? nroFacturaEdit
@@ -2239,7 +2247,7 @@ export default function OrdenCompraPage() {
                                           }
                                           onChange={(e) => {
                                             if (editingFacturaOrdenId === orden.id_orden_compra) {
-                                              setNroFacturaEdit(e.target.value);
+                                              setNroFacturaEdit(formatNroDocumento(e.target.value));
                                             }
                                           }}
                                           onFocus={() => {
@@ -2764,7 +2772,7 @@ export default function OrdenCompraPage() {
                                           }
                                           onChange={(e) => {
                                             if (editingRHOrdenId === orden.id_orden_servicio) {
-                                              setNroRHEdit(formatNroRH(e.target.value));
+                                              setNroRHEdit(formatNroDocumento(e.target.value));
                                             }
                                           }}
                                           onFocus={() => {
@@ -2797,7 +2805,8 @@ export default function OrdenCompraPage() {
                                       <div className="flex gap-2">
                                         <Input
                                           type="text"
-                                          placeholder="Ej: F001-00001234"
+                                          placeholder="Ej: F001-0000001234"
+                                          maxLength={15}
                                           value={
                                             editingFacturaOrdenId === orden.id_orden_servicio && editingFacturaTipo === "servicio"
                                               ? nroFacturaEdit
@@ -2805,7 +2814,7 @@ export default function OrdenCompraPage() {
                                           }
                                           onChange={(e) => {
                                             if (editingFacturaOrdenId === orden.id_orden_servicio) {
-                                              setNroFacturaEdit(e.target.value);
+                                              setNroFacturaEdit(formatNroDocumento(e.target.value));
                                             }
                                           }}
                                           onFocus={() => {
