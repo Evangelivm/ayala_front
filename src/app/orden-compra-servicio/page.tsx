@@ -1438,9 +1438,6 @@ export default function OrdenCompraPage() {
     }
   };
 
-  // ===== FORMATO DE NÚMERO DE FACTURA/RH: SSSS-NNNNNNNNNN (serie 4 caracteres + 10 dígitos) =====
-  const NRO_DOCUMENTO_REGEX = /^[A-Z][A-Z0-9]{3}-\d{10}$/;
-
   const formatNroDocumento = (raw: string) => {
     const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
     const serie = clean.slice(0, 4);
@@ -1450,13 +1447,6 @@ export default function OrdenCompraPage() {
 
   // ===== HANDLER PARA ACTUALIZAR NÚMERO DE FACTURA =====
   const handleUpdateNroFactura = async (ordenId: number, tipo: "compra" | "servicio", nroFactura: string) => {
-    if (!NRO_DOCUMENTO_REGEX.test(nroFactura)) {
-      toast.error("Formato de número de factura inválido", {
-        description: "Debe tener el formato SSSS-NNNNNNNNNN (serie de 4 caracteres iniciando con letra, guion y 10 dígitos). Ej: F001-0000001234",
-      });
-      return;
-    }
-
     try {
       toast.loading("Actualizando número de factura...");
 
@@ -1488,13 +1478,6 @@ export default function OrdenCompraPage() {
 
   // ===== HANDLER PARA ACTUALIZAR NÚMERO DE RH =====
   const handleUpdateNroRH = async (ordenId: number, tipo: "compra" | "servicio", nroRH: string) => {
-    if (!NRO_DOCUMENTO_REGEX.test(nroRH)) {
-      toast.error("Formato de número de RH inválido", {
-        description: "Debe tener el formato SSSS-NNNNNNNNNN (serie de 4 caracteres iniciando con letra, guion y 10 dígitos). Ej: E001-0000001234",
-      });
-      return;
-    }
-
     try {
       toast.loading("Actualizando número de RH...");
 
