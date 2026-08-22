@@ -105,6 +105,7 @@ interface Partida {
   unidad_medida?: string;
   cantidad: number;
   precio_unitario?: number;
+  centro_costos?: string;
 }
 
 interface Frente {
@@ -231,6 +232,7 @@ interface PartidaFormData {
   unidad_medida: string;
   cantidad: string;
   precio_unitario: string;
+  centro_costos: string;
   id_etapa: string;
   id_sector: string;
   id_frente: string;
@@ -319,6 +321,11 @@ function PartidaItem({
         >
           {partida.status}
         </Badge>
+        {partida.centro_costos && (
+          <span className="text-xs text-muted-foreground">
+            Centro de costos: {partida.centro_costos}
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <div className="w-16 bg-gray-200 rounded-full h-2">
@@ -983,6 +990,7 @@ export default function ProyectosDashboard() {
                         unidad_medida: partida.unidad_medida,
                         cantidad: partida.cantidad,
                         precio_unitario: partida.precio_unitario,
+                        centro_costos: partida.centro_costos,
                       })) || [],
                   })) || [],
               })) || [],
@@ -1174,6 +1182,7 @@ export default function ProyectosDashboard() {
       unidad_medida: "",
       cantidad: "",
       precio_unitario: "",
+      centro_costos: "",
       id_etapa: "",
       id_sector: "",
       id_frente: "",
@@ -1390,6 +1399,7 @@ export default function ProyectosDashboard() {
           precio_unitario: data.precio_unitario
             ? parseFloat(data.precio_unitario)
             : undefined,
+          centro_costos: data.centro_costos || undefined,
         });
       } else {
         // Crear nueva partida
@@ -1405,6 +1415,7 @@ export default function ProyectosDashboard() {
           precio_unitario: data.precio_unitario
             ? parseFloat(data.precio_unitario)
             : undefined,
+          centro_costos: data.centro_costos || undefined,
           orden: undefined, // Se calculará automáticamente en el backend
           activo: true,
         };
@@ -1894,6 +1905,7 @@ export default function ProyectosDashboard() {
       precio_unitario: partida.precio_unitario
         ? partida.precio_unitario.toString()
         : "",
+      centro_costos: partida.centro_costos || "",
       id_etapa: "",
       id_sector: "",
       id_frente: "",
@@ -3115,6 +3127,19 @@ export default function ProyectosDashboard() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={partidaForm.control}
+                name="centro_costos"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Centro de Costos (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: 1010-112" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <DialogFooter>
                 <Button
                   type="button"
@@ -3477,6 +3502,19 @@ export default function ProyectosDashboard() {
                         placeholder="0.00"
                         {...field}
                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={partidaForm.control}
+                name="centro_costos"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Centro de Costos (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: 1010-112" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
