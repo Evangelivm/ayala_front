@@ -3040,6 +3040,7 @@ function ConsolaTab() {
 
 function ConfiguracionTab() {
   const [isReindexing, setIsReindexing] = useState(false);
+  const [isRecreating, setIsRecreating] = useState(false);
   const [lastResult, setLastResult] = useState<{
     counts: { programacion_tecnica: number; ordenes_compra: number; ordenes_servicio: number };
     at: string;
@@ -3066,6 +3067,31 @@ function ConfiguracionTab() {
     }
   };
 
+  const handleRecreateIndices = async () => {
+    if (
+      !confirm(
+        "¿Recrear los índices de Elasticsearch desde cero?\n\nEsto BORRA los 3 índices (programación técnica, órdenes de compra y órdenes de servicio) y los vuelve a crear con la estructura actual antes de repoblarlos desde la base de datos.\n\nÚsalo solo si 'Sincronizar ES' no corrige un problema de búsqueda (ej. un campo que dejó de filtrar bien). Durante el proceso la búsqueda seguirá funcionando vía base de datos."
+      )
+    )
+      return;
+    setIsRecreating(true);
+    setError(null);
+    setLastResult(null);
+    try {
+      const result = await searchApi.recreateIndices();
+      setLastResult({ counts: result.counts, at: new Date().toLocaleString("es-PE") });
+      toast.success(
+        `Índices recreados: ${result.counts.programacion_tecnica} prog. técnica, ${result.counts.ordenes_compra} ó. compra, ${result.counts.ordenes_servicio} ó. servicio`
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error al recrear los índices";
+      setError(msg);
+      toast.error(`Error al recrear índices: ${msg}`);
+    } finally {
+      setIsRecreating(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-xl">
       <div>
@@ -3084,11 +3110,30 @@ function ConfiguracionTab() {
           </div>
           <Button
             onClick={handleReindex}
-            disabled={isReindexing}
+            disabled={isReindexing || isRecreating}
             className="flex items-center gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${isReindexing ? "animate-spin" : ""}`} />
             {isReindexing ? "Sincronizando..." : "Sincronizar ES"}
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium text-slate-700">Recrear índices ES</p>
+            <p className="text-xs text-slate-500">
+              Borra y recrea los 3 índices con la estructura actual (corrige problemas de
+              búsqueda que &quot;Sincronizar ES&quot; no resuelve)
+            </p>
+          </div>
+          <Button
+            onClick={handleRecreateIndices}
+            disabled={isReindexing || isRecreating}
+            variant="destructive"
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRecreating ? "animate-spin" : ""}`} />
+            {isRecreating ? "Recreando..." : "Recrear índices"}
           </Button>
         </div>
 

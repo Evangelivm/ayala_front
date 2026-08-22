@@ -93,6 +93,7 @@ export interface ProyectoData {
           cantidad: number;
           precio_unitario?: number;
           total?: number;
+          centro_costos?: string;
           orden?: number;
         }>;
       }>;
@@ -4725,6 +4726,20 @@ export const searchApi = {
     };
   }> => {
     const response = await api.post("/search/reindex");
+    return response.data;
+  },
+
+  // Borra y recrea los índices desde cero (corrige conflictos de mapping
+  // que un reindex normal no puede resolver) y repuebla desde la BD.
+  recreateIndices: async (): Promise<{
+    message: string;
+    counts: {
+      programacion_tecnica: number;
+      ordenes_compra: number;
+      ordenes_servicio: number;
+    };
+  }> => {
+    const response = await api.post("/search/recreate-indices");
     return response.data;
   },
 };
