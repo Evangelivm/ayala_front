@@ -2702,6 +2702,7 @@ export interface SubpartidaData {
   cantidad: number;
   precio_unitario?: number;
   total?: number;
+  centro_costos?: string;
   orden?: number;
   activo?: boolean;
   created_at?: string;

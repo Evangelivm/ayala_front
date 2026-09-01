@@ -201,6 +201,7 @@ interface SubpartidaFormData {
   unidad_medida: string;
   cantidad: string;
   precio_unitario: string;
+  centro_costos: string;
   id_sub_etapa: string;
   id_subsector: string;
   id_subfrente: string;
@@ -938,6 +939,7 @@ export default function ProyectosDashboard() {
                         unidad_medida: subpartida.unidad_medida,
                         cantidad: subpartida.cantidad,
                         precio_unitario: subpartida.precio_unitario,
+                        centro_costos: subpartida.centro_costos,
                       })) || [],
                   })) || [],
               })) || [],
@@ -1231,6 +1233,7 @@ export default function ProyectosDashboard() {
       unidad_medida: "",
       cantidad: "",
       precio_unitario: "",
+      centro_costos: "",
       id_sub_etapa: "",
       id_subsector: "",
       id_subfrente: "",
@@ -1592,6 +1595,7 @@ export default function ProyectosDashboard() {
           precio_unitario: data.precio_unitario
             ? parseFloat(data.precio_unitario)
             : undefined,
+          centro_costos: data.centro_costos || undefined,
         });
       } else {
         // Crear nueva subpartida
@@ -1607,6 +1611,7 @@ export default function ProyectosDashboard() {
           precio_unitario: data.precio_unitario
             ? parseFloat(data.precio_unitario)
             : undefined,
+          centro_costos: data.centro_costos || undefined,
           activo: true,
         };
 
@@ -1957,6 +1962,7 @@ export default function ProyectosDashboard() {
       precio_unitario: subpartida.precio_unitario
         ? subpartida.precio_unitario.toString()
         : "",
+      centro_costos: subpartida.centro_costos || "",
       id_sub_etapa: "",
       id_subsector: "",
       id_subfrente: "",
@@ -4304,6 +4310,19 @@ export default function ProyectosDashboard() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={subpartidaForm.control}
+                name="centro_costos"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Centro de Costos (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: 1010-112" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <DialogFooter>
                 <Button
                   type="button"
@@ -4669,6 +4688,19 @@ export default function ProyectosDashboard() {
                         placeholder="0.00"
                         {...field}
                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subpartidaForm.control}
+                name="centro_costos"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Centro de Costos (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: 1010-112" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
