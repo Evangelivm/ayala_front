@@ -27,7 +27,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Users, Search, Loader2, FileText, CalendarIcon, X } from "lucide-react";
+import { Users, Search, Loader2, FileText, ExternalLink, CalendarIcon, X } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -69,6 +69,71 @@ function AutorizacionBadge({ value }: { value: boolean | null | undefined }) {
     return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pendiente</Badge>;
   }
   return <span className="text-slate-400 text-xs">-</span>;
+}
+
+function DocLink({
+  href,
+  label,
+  icon,
+  className,
+}: {
+  href: string | null | undefined;
+  label: string;
+  icon: React.ReactNode;
+  className: string;
+}) {
+  if (!href) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed whitespace-nowrap">
+        {icon}
+        {label}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors whitespace-nowrap ${className}`}
+    >
+      {icon}
+      {label}
+    </a>
+  );
+}
+
+function DocumentosLinks({
+  pdfUrl,
+  url,
+  urlCotizacion,
+  urlFactura,
+  urlComprobanteRetencion,
+  nroSerie,
+}: {
+  pdfUrl: string;
+  url: string | null | undefined;
+  urlCotizacion: string | null | undefined;
+  urlFactura: string | null | undefined;
+  urlComprobanteRetencion: string | null | undefined;
+  nroSerie: string | null | undefined;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap gap-1">
+        <DocLink href={pdfUrl} label="PDF" icon={<FileText className="h-3 w-3" />} className="bg-red-100 text-red-700 hover:bg-red-200" />
+        <DocLink href={url} label="Operación" icon={<ExternalLink className="h-3 w-3" />} className="bg-blue-100 text-blue-700 hover:bg-blue-200" />
+        <DocLink href={urlCotizacion} label="Cotización" icon={<ExternalLink className="h-3 w-3" />} className="bg-purple-100 text-purple-700 hover:bg-purple-200" />
+        <DocLink href={urlFactura} label="Factura" icon={<ExternalLink className="h-3 w-3" />} className="bg-orange-100 text-orange-700 hover:bg-orange-200" />
+        <DocLink href={urlComprobanteRetencion} label="Comp. Ret." icon={<FileText className="h-3 w-3" />} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200" />
+      </div>
+      {urlComprobanteRetencion && nroSerie && (
+        <span className="text-[11px] text-slate-500">
+          N° Serie: <span className="font-mono text-indigo-700">{nroSerie}</span>
+        </span>
+      )}
+    </div>
+  );
 }
 
 function EstadoBadge({ estado }: { estado: string | null | undefined }) {
@@ -159,7 +224,7 @@ export default function RegistroRecursosHumanosPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
       <div className="bg-white shadow-md border-b border-slate-200 mb-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center gap-4">
               <div className="flex aspect-square size-10 items-center justify-center rounded-lg bg-indigo-600 text-white">
@@ -178,7 +243,7 @@ export default function RegistroRecursosHumanosPage() {
         </div>
       </div>
 
-      <div className="mx-auto px-4 sm:px-6 pb-8 space-y-6 max-w-7xl">
+      <div className="mx-auto px-4 sm:px-6 pb-8 space-y-6 max-w-[1800px]">
         <Tabs value={tab} onValueChange={(v) => setTab(v as "compra" | "servicio")} className="w-full">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="compra">Órdenes de Compra</TabsTrigger>
@@ -299,7 +364,7 @@ export default function RegistroRecursosHumanosPage() {
                           <TableHead>Admin.</TableHead>
                           <TableHead>Jefe Proy.</TableHead>
                           <TableHead>Contab.</TableHead>
-                          <TableHead className="w-[70px] text-center">PDF</TableHead>
+                          <TableHead className="min-w-[320px]">Documentos</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -330,17 +395,16 @@ export default function RegistroRecursosHumanosPage() {
                             <TableCell>
                               <AutorizacionBadge value={orden.auto_contabilidad} />
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell>
                               {orden.id_orden_compra && (
-                                <a
-                                  href={urlHelpers.getOrdenCompraPdfUrl(orden.id_orden_compra)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-red-100 text-red-700 hover:bg-red-200"
-                                  title="Ver PDF"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </a>
+                                <DocumentosLinks
+                                  pdfUrl={urlHelpers.getOrdenCompraPdfUrl(orden.id_orden_compra)}
+                                  url={orden.url}
+                                  urlCotizacion={orden.url_cotizacion}
+                                  urlFactura={orden.url_factura}
+                                  urlComprobanteRetencion={orden.url_comprobante_retencion}
+                                  nroSerie={orden.nro_serie}
+                                />
                               )}
                             </TableCell>
                           </TableRow>
@@ -411,7 +475,7 @@ export default function RegistroRecursosHumanosPage() {
                           <TableHead>Admin.</TableHead>
                           <TableHead>Jefe Proy.</TableHead>
                           <TableHead>Contab.</TableHead>
-                          <TableHead className="w-[70px] text-center">PDF</TableHead>
+                          <TableHead className="min-w-[320px]">Documentos</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -442,17 +506,16 @@ export default function RegistroRecursosHumanosPage() {
                             <TableCell>
                               <AutorizacionBadge value={orden.auto_contabilidad} />
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell>
                               {orden.id_orden_servicio && (
-                                <a
-                                  href={urlHelpers.getOrdenServicioPdfUrl(orden.id_orden_servicio)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-red-100 text-red-700 hover:bg-red-200"
-                                  title="Ver PDF"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </a>
+                                <DocumentosLinks
+                                  pdfUrl={urlHelpers.getOrdenServicioPdfUrl(orden.id_orden_servicio)}
+                                  url={orden.url}
+                                  urlCotizacion={orden.url_cotizacion}
+                                  urlFactura={orden.url_factura}
+                                  urlComprobanteRetencion={orden.url_comprobante_retencion}
+                                  nroSerie={orden.nro_serie}
+                                />
                               )}
                             </TableCell>
                           </TableRow>
