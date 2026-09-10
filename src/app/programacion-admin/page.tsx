@@ -50,6 +50,8 @@ import {
   Upload,
   X,
   Plus,
+  ArrowDown,
+  ArrowUp,
 } from "lucide-react";
 import {
   Dialog,
@@ -680,6 +682,8 @@ function ProgramacionTecnicaTab() {
   const [identificadoresConGuiaExtendida, setIdentificadoresConGuiaExtendida] = useState<string[]>([]);
   const [guiasExtendidas, setGuiasExtendidas] = useState<Record<string, GuiaRemisionData[]>>({});
   const [searchTerm, setSearchTerm] = useState("");
+  const [fechaFilter, setFechaFilter] = useState("");
+  const [orden, setOrden] = useState<"asc" | "desc">("desc");
   const [editItem, setEditItem] = useState<ProgramacionTecnicaData | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const { addLog, clearLogs, getLogsFor, initLogs } = useBackendLogs<number>();
@@ -702,7 +706,10 @@ function ProgramacionTecnicaTab() {
     const timer = setTimeout(() => {
       setIsLoading(true);
       searchApi
-        .programacionTecnica(searchTerm, page, LIMIT)
+        .programacionTecnica(searchTerm, page, LIMIT, {
+          fecha: fechaFilter || undefined,
+          orden,
+        })
         .then((result) => {
           const seen = new Set<number>();
           const deduped = result.data.filter((item) => {
@@ -719,7 +726,7 @@ function ProgramacionTecnicaTab() {
         .finally(() => setIsLoading(false));
     }, searchTerm ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [searchTerm, page]);
+  }, [searchTerm, page, fechaFilter, orden]);
 
   // Cargar guías extendidas para los registros visibles que las tengan
   useEffect(() => {
@@ -843,15 +850,50 @@ function ProgramacionTecnicaTab() {
           )}
           <Badge variant="outline" className="text-slate-500">{total} total</Badge>
         </div>
-        <div className="relative w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            type="text"
-            placeholder="Buscar por proveedor, conductor, proyecto..."
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-            className="pl-10 bg-white"
-          />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              type="text"
+              placeholder="Buscar por proveedor, conductor, proyecto..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+              className="pl-10 bg-white"
+            />
+          </div>
+          <div className="relative w-44">
+            <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              type="date"
+              value={fechaFilter}
+              onChange={(e) => { setFechaFilter(e.target.value); setPage(1); }}
+              className="pl-10 bg-white"
+            />
+          </div>
+          {fechaFilter && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setFechaFilter(""); setPage(1); }}
+              className="h-9 px-2 text-slate-500"
+              title="Limpiar filtro de fecha"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setOrden((o) => (o === "desc" ? "asc" : "desc")); setPage(1); }}
+            className="h-9 bg-white"
+            title={orden === "desc" ? "Mostrando más recientes primero" : "Mostrando más antiguos primero"}
+          >
+            {orden === "desc" ? (
+              <>Más reciente <ArrowDown className="h-4 w-4 ml-2" /></>
+            ) : (
+              <>Más antiguo <ArrowUp className="h-4 w-4 ml-2" /></>
+            )}
+          </Button>
         </div>
       </div>
 
@@ -863,7 +905,7 @@ function ProgramacionTecnicaTab() {
         <div className="text-center py-12">
           <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500">
-            {searchTerm ? "No se encontraron registros con ese criterio" : "No hay registros disponibles"}
+            {searchTerm || fechaFilter ? "No se encontraron registros con ese criterio" : "No hay registros disponibles"}
           </p>
         </div>
       ) : (

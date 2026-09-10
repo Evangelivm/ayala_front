@@ -301,9 +301,20 @@ export default function RegistroContabilidadPage() {
     } catch (error) {
       console.error("Error al subir comprobante de retención:", error);
       toast.dismiss();
-      toast.error("Error al subir el comprobante de retención", {
-        description: error instanceof Error ? error.message : "Error desconocido",
-      });
+
+      // "NetworkError" = el navegador nunca obtuvo respuesta (problema de conexión
+      // con nuestro servidor). Cualquier otro error sí llegó al backend, por lo que
+      // puede originarse en la validación o en la subida a Dropbox.
+      const esErrorDeRed = error instanceof Error && error.name === "NetworkError";
+
+      toast.error(
+        esErrorDeRed
+          ? "No se pudo conectar con el servidor"
+          : "Error al subir el comprobante de retención",
+        {
+          description: error instanceof Error ? error.message : "Error desconocido",
+        },
+      );
     }
   };
 
