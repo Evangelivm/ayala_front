@@ -5143,5 +5143,50 @@ export const registroComprasApi = {
   },
 };
 
+export interface ReciboOcrLine {
+  text: string;
+  confidence: number;
+  box: number[][];
+}
+
+export interface CamposRecibo {
+  ruc: string | null;
+  tipoComprobante: "FACTURA" | "BOLETA" | "TICKET" | "NOTA_VENTA" | null;
+  serie: string | null;
+  correlativo: string | null;
+  fecha: string | null;
+  moneda: "PEN" | "USD" | null;
+  subtotal: number | null;
+  igv: number | null;
+  total: number | null;
+}
+
+export interface ReciboOcrResult {
+  texto: string;
+  lines: ReciboOcrLine[];
+  campos: CamposRecibo;
+}
+
+export const reciboOcrApi = {
+  // Envía la foto de un recibo/boleta al backend, que a su vez la manda al
+  // servicio de OCR y devuelve el texto reconocido + los campos extraídos.
+  extraer: async (file: File): Promise<ReciboOcrResult> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await uploadFileWithRetry(
+      `${API_BASE_URL}/recibo-ocr/extraer`,
+      formData,
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      throw new Error(error?.message || "Error al extraer datos del recibo");
+    }
+
+    return response.json();
+  },
+};
+
 // Exportar la instancia de axios para uso directo si es necesario
 export { api };
