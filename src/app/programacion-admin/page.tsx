@@ -951,6 +951,14 @@ function ProgramacionTecnicaTab() {
                           {item.proveedor || <span className="text-slate-400 italic">-</span>}
                         </span>
                       </div>
+                      <div className="flex flex-col items-start min-w-[100px]">
+                        <span className="text-xs text-slate-500 font-medium">Hora Registro</span>
+                        <span className="text-sm font-mono text-slate-600">
+                          {item.hora_registro
+                            ? new Date(item.hora_registro).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })
+                            : <span className="text-slate-400 italic">-</span>}
+                        </span>
+                      </div>
                       <div className="flex flex-col items-start flex-1 min-w-[180px]">
                         <span className="text-xs text-slate-500 font-medium">Conductor</span>
                         <span className="text-sm font-medium truncate max-w-full">

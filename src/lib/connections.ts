@@ -2253,6 +2253,7 @@ export interface ProgramacionTecnicaData {
   tipo_proyecto: 'proyecto' | 'subproyecto' | null;
   programacion: string | null;
   hora_partida: string | null;
+  hora_registro: string | null;
   estado_programacion: string | null;
   comentarios: string | null;
   validacion: string | null;
