@@ -173,6 +173,24 @@ const ordenVacia = () => ({
 });
 type NuevaOrdenForm = ReturnType<typeof ordenVacia>;
 
+// Clave aleatoria para identificar las reservas de un dialog. crypto.randomUUID
+// solo existe en contextos seguros (HTTPS/localhost); si la página se abre por
+// http://<ip> hay que usar getRandomValues, que sí está disponible.
+const generarClaveReserva = (): string => {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    }
+  } catch {
+    // cae al respaldo de abajo
+  }
+  return `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`.padEnd(16, "0");
+};
+
 // Campos mínimos que usa el listado para mostrar un grupo de multifactura
 type OrdenGrupable = {
   grupo_id?: string | null;
@@ -394,7 +412,7 @@ export default function OrdenCompraPage() {
     }
     if (ordenEditandoId !== null || reservaRef.current) return;
 
-    const reserva = { owner: crypto.randomUUID(), tipo: tipoOrden };
+    const reserva = { owner: generarClaveReserva(), tipo: tipoOrden };
     reservaRef.current = reserva;
     numeracionOrdenApi
       .reservar(reserva.tipo, reserva.owner)
