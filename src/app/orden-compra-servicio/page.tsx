@@ -22,6 +22,8 @@ import {
   type OrdenCompraData,
   ordenesServicioApi,
   type OrdenServicioData,
+  numeracionOrdenApi,
+  type NumeroOrdenRenovado,
   type MultifacturaDetalle,
   urlHelpers,
   searchApi,
@@ -116,6 +118,104 @@ type MultifacturaRow = {
   dragging_guia?: boolean;
 };
 
+// Formulario de una orden (una por tab en multifactura)
+const ordenVacia = () => ({
+  // Campos para el backend
+  id_proveedor: 0,
+  // Campos visuales
+  nroCliente: "",
+  razonSocial: "",
+  retencionProveedor: "",
+  almacenCentral: false, // Checkbox Almacén Central
+  anticipo: false, // Checkbox Anticipo
+  tipoComprobante: "FACTURA" as "FACTURA" | "RH", // Emitirá Factura / Emitir Recibo por Honorarios
+  serie: "0001",
+  nroDoc: "",
+  fechaEmision: new Date(),
+  moneda: "SOLES",
+  tipoCambio: 0, // Tipo de cambio de SUNAT
+  fechaServicio: new Date(),
+  estado: "PENDIENTE",
+  centroCostoNivel1Codigo: "", // Código de centroproyecto
+  centroCostoNivel2Codigo: "", // Código de fasecontrol
+  centroCostoNivel3Codigo: "", // Código de rubro
+  unidad: "", // Placa del camión
+  unidad_id: 0, // ID del camión
+  igvPorcentaje: 18,
+  aplicarRetencion: false, // Si/No para aplicar retención
+  retencion: {
+    porcentaje: 3,
+    monto: 0,
+  },
+  aplicarDetraccion: false, // Si/No para aplicar detracción
+  detraccion: {
+    porcentaje: 3,
+    monto: 0,
+    tipo_detraccion: "", // Código del tipo de detracción
+  },
+  items: [] as Array<{
+    codigo_item: string;
+    descripcion_item: string;
+    cantidad_solicitada: number;
+    unidadMed: string;
+    precio_unitario: number;
+    subtotal: number;
+    centro_costo: string;
+    prorrateo: number | null;
+    unidad: string;
+    unidad_id: number;
+  }>,
+  subtotal: 0,
+  igv: 0,
+  total: 0,
+  netoAPagar: 0,
+  observacion: "",
+});
+type NuevaOrdenForm = ReturnType<typeof ordenVacia>;
+
+// Campos mínimos que usa el listado para mostrar un grupo de multifactura
+type OrdenGrupable = {
+  grupo_id?: string | null;
+  numero_orden: string;
+  fecha_orden: string;
+  nombre_proveedor?: string | null;
+  moneda: string;
+  total: number | string;
+  estado: string;
+  url_cotizacion?: string | null;
+};
+
+// Agrupa las órdenes que comparten grupo_id (multifactura) en el lugar de la
+// primera que aparece; las demás quedan como grupos de una sola orden.
+function agruparOrdenes<T extends OrdenGrupable>(ordenes: T[]): T[][] {
+  const resultado: T[][] = [];
+  const porGrupo = new Map<string, T[]>();
+  for (const orden of ordenes) {
+    if (!orden.grupo_id) {
+      resultado.push([orden]);
+      continue;
+    }
+    let grupo = porGrupo.get(orden.grupo_id);
+    if (!grupo) {
+      grupo = [];
+      porGrupo.set(orden.grupo_id, grupo);
+      resultado.push(grupo);
+    }
+    grupo.push(orden);
+  }
+  resultado.forEach((g) => g.sort((a, b) => a.numero_orden.localeCompare(b.numero_orden)));
+  return resultado;
+}
+
+const estadoOrdenClase = (estado: string) =>
+  estado === "PENDIENTE"
+    ? "bg-yellow-100 text-yellow-800"
+    : estado === "APROBADA"
+      ? "bg-green-100 text-green-800"
+      : estado === "COMPLETADA"
+        ? "bg-blue-100 text-blue-800"
+        : "bg-gray-100 text-gray-800";
+
 export default function OrdenCompraPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCentroCostoModalOpen, setIsCentroCostoModalOpen] = useState(false);
@@ -196,57 +296,37 @@ export default function OrdenCompraPage() {
   const [multifacturasSaving, setMultifacturasSaving] = useState(false);
 
   // Estado para Nueva Orden
-  const [nuevaOrdenData, setNuevaOrdenData] = useState({
-    // Campos para el backend
-    id_proveedor: 0,
-    // Campos visuales
-    nroCliente: "",
-    razonSocial: "",
-    retencionProveedor: "",
-    almacenCentral: false, // Checkbox Almacén Central
-    anticipo: false, // Checkbox Anticipo
-    tipoComprobante: "FACTURA" as "FACTURA" | "RH", // Emitirá Factura / Emitir Recibo por Honorarios
-    serie: "0001",
-    nroDoc: "",
-    fechaEmision: new Date(),
-    moneda: "SOLES",
-    tipoCambio: 0, // Tipo de cambio de SUNAT
-    fechaServicio: new Date(),
-    estado: "PENDIENTE",
-    centroCostoNivel1Codigo: "", // Código de centroproyecto
-    centroCostoNivel2Codigo: "", // Código de fasecontrol
-    centroCostoNivel3Codigo: "", // Código de rubro
-    unidad: "", // Placa del camión
-    unidad_id: 0, // ID del camión
-    igvPorcentaje: 18,
-    aplicarRetencion: false, // Si/No para aplicar retención
-    retencion: {
-      porcentaje: 3,
-      monto: 0,
-    },
-    aplicarDetraccion: false, // Si/No para aplicar detracción
-    detraccion: {
-      porcentaje: 3,
-      monto: 0,
-      tipo_detraccion: "", // Código del tipo de detracción
-    },
-    items: [] as Array<{
-      codigo_item: string;
-      descripcion_item: string;
-      cantidad_solicitada: number;
-      unidadMed: string;
-      precio_unitario: number;
-      subtotal: number;
-      centro_costo: string;
-      prorrateo: number | null;
-      unidad: string;
-      unidad_id: number;
-    }>,
-    subtotal: 0,
-    igv: 0,
-    total: 0,
-    netoAPagar: 0,
-    observacion: "",
+  const [nuevaOrdenData, setNuevaOrdenData] = useState<NuevaOrdenForm>(ordenVacia);
+
+  // ── Multifactura: varias órdenes (tabs) creadas juntas ──────────────────────
+  // El formulario de la tab activa vive en nuevaOrdenData (así todo el dialog
+  // sigue funcionando igual); las demás tabs se guardan aquí como copias.
+  const [modoMulti, setModoMulti] = useState(false);
+  const [tabsOrden, setTabsOrden] = useState<NuevaOrdenForm[]>([]);
+  const [tabActiva, setTabActiva] = useState(0);
+  const [cambiandoModoMulti, setCambiandoModoMulti] = useState(false);
+  // Clave de reserva de números del dialog abierto (una por apertura)
+  const reservaRef = useRef<{ owner: string; tipo: "compra" | "servicio" } | null>(null);
+  const numerosActualesRef = useRef<string[]>([]);
+  // Últimos valores del formulario/tabs, para las acciones que esperan al servidor
+  const nuevaOrdenDataRef = useRef(nuevaOrdenData);
+  const tabsOrdenRef = useRef(tabsOrden);
+  const tabActivaRef = useRef(tabActiva);
+  useEffect(() => {
+    nuevaOrdenDataRef.current = nuevaOrdenData;
+    tabsOrdenRef.current = tabsOrden;
+    tabActivaRef.current = tabActiva;
+  });
+
+  // Todas las órdenes del dialog (la tab activa se toma del formulario vivo)
+  const ordenesDelDialog: NuevaOrdenForm[] = modoMulti
+    ? tabsOrden.map((t, i) => (i === tabActiva ? nuevaOrdenData : t))
+    : [nuevaOrdenData];
+  // El latido de las reservas lee los números vigentes desde este ref
+  useEffect(() => {
+    numerosActualesRef.current = ordenesDelDialog
+      .filter((t) => t.nroDoc)
+      .map((t) => `${t.serie}-${t.nroDoc}`);
   });
 
   const [formData, setFormData] = useState({
@@ -298,27 +378,84 @@ export default function OrdenCompraPage() {
     };
   }, []);
 
-  // Cargar el siguiente número de orden cuando se abre el modal SOLO si es una nueva orden
+  // ── Reserva de números de orden ───────────────────────────────────────────
+  // Al abrir el dialog de una orden NUEVA el servidor reserva un número para
+  // este formulario (nadie más lo verá). Se renueva con un latido y se libera
+  // al cerrar el dialog. En multifactura cada tab reserva su propio número.
   useEffect(() => {
-    if (isNuevaOrdenModalOpen && ordenEditandoId === null) {
-      cargarSiguienteNumeroOrden();
+    if (!isNuevaOrdenModalOpen) {
+      // Al cerrar (por cualquier vía): liberar reservas y salir de multifactura
+      const reserva = reservaRef.current;
+      if (reserva) {
+        reservaRef.current = null;
+        numeracionOrdenApi.liberar(reserva.tipo, reserva.owner).catch(() => {});
+      }
+      return;
     }
+    if (ordenEditandoId !== null || reservaRef.current) return;
+
+    const reserva = { owner: crypto.randomUUID(), tipo: tipoOrden };
+    reservaRef.current = reserva;
+    numeracionOrdenApi
+      .reservar(reserva.tipo, reserva.owner)
+      .then((n) => {
+        if (reservaRef.current?.owner !== reserva.owner) {
+          // El dialog se cerró mientras llegaba la respuesta: devolver el número
+          numeracionOrdenApi.liberar(reserva.tipo, reserva.owner).catch(() => {});
+          return;
+        }
+        setNuevaOrdenData((prev) => ({ ...prev, serie: n.serie, nroDoc: n.nroDoc }));
+      })
+      .catch((error) => {
+        console.error("Error reservando número de orden:", error);
+        if (reservaRef.current?.owner === reserva.owner) reservaRef.current = null;
+        toast.error("Error al reservar el número de orden");
+      });
   }, [isNuevaOrdenModalOpen, ordenEditandoId]);
 
-  const cargarSiguienteNumeroOrden = async () => {
-    try {
-      const api = tipoOrden === "compra" ? ordenesCompraApi : ordenesServicioApi;
-      const { serie, nroDoc } = await api.getSiguienteNumero();
-      setNuevaOrdenData((prev) => ({
-        ...prev,
-        serie,
-        nroDoc,
-      }));
-    } catch (error) {
-      console.error("Error cargando siguiente número de orden:", error);
-      toast.error("Error al cargar el número de orden");
-    }
-  };
+  // Si se cierra la pestaña/navegador, liberar la reserva sin esperar al vencimiento
+  useEffect(() => {
+    const alSalir = () => {
+      const reserva = reservaRef.current;
+      if (reserva) numeracionOrdenApi.liberarAlSalir(reserva.tipo, reserva.owner);
+    };
+    window.addEventListener("pagehide", alSalir);
+    return () => window.removeEventListener("pagehide", alSalir);
+  }, []);
+
+  // Cambia el número mostrado cuando el servidor tuvo que reasignarlo
+  const aplicarCambiosNumero = useCallback((cambios: NumeroOrdenRenovado[]) => {
+    const mapa = new Map(cambios.map((c) => [c.anterior, c]));
+    const remap = (t: NuevaOrdenForm): NuevaOrdenForm => {
+      const c = mapa.get(`${t.serie}-${t.nroDoc}`);
+      return c ? { ...t, serie: c.serie, nroDoc: c.nroDoc } : t;
+    };
+    setNuevaOrdenData((prev) => remap(prev));
+    setTabsOrden((prev) => prev.map(remap));
+    toast.info("Se actualizó el número de orden", {
+      description: cambios
+        .map((c) => `${c.anterior} → ${c.numero_orden_completo}`)
+        .join(", "),
+    });
+  }, []);
+
+  // Latido cada 60 s: mantiene vigentes las reservas y recupera las perdidas
+  useEffect(() => {
+    if (!isNuevaOrdenModalOpen || ordenEditandoId !== null) return;
+    const id = setInterval(async () => {
+      const reserva = reservaRef.current;
+      const numeros = numerosActualesRef.current;
+      if (!reserva || numeros.length === 0) return;
+      try {
+        const res = await numeracionOrdenApi.renovar(reserva.tipo, reserva.owner, numeros);
+        const cambios = res.filter((r) => r.cambiado);
+        if (cambios.length > 0) aplicarCambiosNumero(cambios);
+      } catch {
+        // Sin red: se reintenta en el próximo latido (la reserva dura 3 min)
+      }
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [isNuevaOrdenModalOpen, ordenEditandoId, aplicarCambiosNumero]);
 
   // Escuchar actualizaciones de órdenes de compra por WebSocket
   useWebSocket('ordenCompraUpdated', () => {
@@ -332,37 +469,6 @@ export default function OrdenCompraPage() {
     loadOrdenesServicio();
   });
 
-  // Escuchar el siguiente número de orden de compra disponible
-  useWebSocket<{ serie: string; nroDoc: string; numero_orden_completo: string }>(
-    'siguienteNumeroOrdenCompra',
-    (data) => {
-      // Solo actualizar si el modal está abierto, no estamos editando, y es una orden de compra
-      if (isNuevaOrdenModalOpen && ordenEditandoId === null && tipoOrden === 'compra' && data) {
-        console.log('📡 Siguiente número de orden de compra recibido:', data.numero_orden_completo);
-        setNuevaOrdenData((prev) => ({
-          ...prev,
-          serie: data.serie,
-          nroDoc: data.nroDoc,
-        }));
-      }
-    }
-  );
-
-  // Escuchar el siguiente número de orden de servicio disponible
-  useWebSocket<{ serie: string; nroDoc: string; numero_orden_completo: string }>(
-    'siguienteNumeroOrdenServicio',
-    (data) => {
-      // Solo actualizar si el modal está abierto, no estamos editando, y es una orden de servicio
-      if (isNuevaOrdenModalOpen && ordenEditandoId === null && tipoOrden === 'servicio' && data) {
-        console.log('📡 Siguiente número de orden de servicio recibido:', data.numero_orden_completo);
-        setNuevaOrdenData((prev) => ({
-          ...prev,
-          serie: data.serie,
-          nroDoc: data.nroDoc,
-        }));
-      }
-    }
-  );
 
   const centrosCostoMock = [
     { codigo: "0801", nombre: "NUEVA INDEPENDENCIA -MOVIMIENTO DE TIERRAS" },
@@ -1019,26 +1125,146 @@ export default function OrdenCompraPage() {
     handleOpenItemsModal();
   };
 
-  // Valida campos y abre el diálogo de confirmación de identidad
-  const handleNuevaOrdenSave = () => {
-    if (!nuevaOrdenData.id_proveedor) {
-      toast.error("Debe seleccionar un proveedor");
+  // ── Multifactura: acciones sobre las tabs ───────────────────────────────────
+  // Las acciones leen los refs (no el estado del render) porque hay un viaje al
+  // servidor de por medio y el usuario puede seguir escribiendo mientras tanto.
+  const nombreTab = (t: NuevaOrdenForm) => `${t.serie}-${t.nroDoc || "…"}`;
+  const tieneDatos = (t: NuevaOrdenForm) => t.id_proveedor > 0 || t.items.length > 0;
+
+  // Copia de todas las tabs con la activa tomada del formulario vivo
+  const tabsConActiva = () =>
+    tabsOrdenRef.current.map((t, i) =>
+      i === tabActivaRef.current ? nuevaOrdenDataRef.current : t
+    );
+
+  const cambiarTab = (indice: number) => {
+    const tabs = tabsConActiva();
+    if (indice === tabActivaRef.current || indice < 0 || indice >= tabs.length) return;
+    setTabsOrden(tabs);
+    setTabActiva(indice);
+    setNuevaOrdenData(tabs[indice]);
+  };
+
+  // Reserva un número nuevo en el servidor y devuelve un formulario vacío con él
+  const crearTabNueva = async (): Promise<NuevaOrdenForm | null> => {
+    const reserva = reservaRef.current;
+    if (!reserva) return null;
+    try {
+      const n = await numeracionOrdenApi.reservar(reserva.tipo, reserva.owner);
+      return { ...ordenVacia(), serie: n.serie, nroDoc: n.nroDoc };
+    } catch (error) {
+      console.error("Error reservando número para la nueva tab:", error);
+      toast.error("No se pudo reservar un número para la nueva orden");
+      return null;
+    }
+  };
+
+  const agregarTab = async () => {
+    if (cambiandoModoMulti || tabsOrdenRef.current.length >= 20) return;
+    setCambiandoModoMulti(true);
+    const nueva = await crearTabNueva();
+    setCambiandoModoMulti(false);
+    if (!nueva) return;
+    const tabs = tabsConActiva();
+    setTabsOrden([...tabs, nueva]);
+    setTabActiva(tabs.length);
+    setNuevaOrdenData(nueva);
+  };
+
+  const quitarTab = (indice: number) => {
+    const tabs = tabsConActiva();
+    if (tabs.length <= 2) return; // mínimo 2; para una sola orden se apaga Multifactura
+    const quitada = tabs[indice];
+    if (
+      tieneDatos(quitada) &&
+      !window.confirm(`La orden ${nombreTab(quitada)} tiene datos. ¿Descartarla?`)
+    ) {
       return;
     }
-    if (!nuevaOrdenData.serie || !nuevaOrdenData.nroDoc) {
-      toast.error("Debe ingresar la serie y número de documento");
+    const reserva = reservaRef.current;
+    if (reserva && quitada.nroDoc) {
+      numeracionOrdenApi
+        .liberar(reserva.tipo, reserva.owner, [nombreTab(quitada)])
+        .catch(() => {});
+    }
+    const restantes = tabs.filter((_, i) => i !== indice);
+    const activa = tabActivaRef.current;
+    const nuevaActiva =
+      indice === activa ? Math.max(0, indice - 1) : indice < activa ? activa - 1 : activa;
+    setTabsOrden(restantes);
+    setTabActiva(nuevaActiva);
+    setNuevaOrdenData(restantes[nuevaActiva]);
+  };
+
+  const toggleMultifactura = async (activar: boolean) => {
+    if (cambiandoModoMulti || ordenEditandoId !== null) return;
+    if (activar) {
+      // La orden actual pasa a ser la tab 1 (conserva su número) y la tab 2
+      // reserva el siguiente número libre
+      setCambiandoModoMulti(true);
+      const nueva = await crearTabNueva();
+      setCambiandoModoMulti(false);
+      if (!nueva) return;
+      setTabsOrden([nuevaOrdenDataRef.current, nueva]);
+      setTabActiva(0);
+      setModoMulti(true);
       return;
     }
-    if (nuevaOrdenData.items.length === 0) {
-      toast.error("Debe agregar al menos un item a la orden");
+    // Volver a una sola orden: se queda la tab activa y se descartan las demás
+    const tabs = tabsConActiva();
+    const otras = tabs.filter((_, i) => i !== tabActivaRef.current);
+    if (
+      otras.some(tieneDatos) &&
+      !window.confirm(`Se descartarán ${otras.length} orden(es) de la multifactura. ¿Continuar?`)
+    ) {
       return;
     }
-    if (!nuevaOrdenData.almacenCentral) {
-      const itemSinCentroCosto = nuevaOrdenData.items.some(
+    const reserva = reservaRef.current;
+    if (reserva && otras.length > 0) {
+      numeracionOrdenApi
+        .liberar(reserva.tipo, reserva.owner, otras.map(nombreTab))
+        .catch(() => {});
+    }
+    setModoMulti(false);
+    setTabsOrden([]);
+    setTabActiva(0);
+  };
+
+  // Suma de totales de todas las órdenes del dialog, separada por moneda
+  const sumaTotalesPorMoneda = ordenesDelDialog.reduce<Record<string, number>>(
+    (acc, t) => {
+      acc[t.moneda] = (acc[t.moneda] || 0) + (t.total || 0);
+      return acc;
+    },
+    {}
+  );
+
+  // Valida un formulario de orden; devuelve el mensaje de error o null si está bien
+  const validarOrdenForm = (data: NuevaOrdenForm): string | null => {
+    if (!data.id_proveedor) return "Debe seleccionar un proveedor";
+    if (!data.serie || !data.nroDoc) return "Debe ingresar la serie y número de documento";
+    if (data.items.length === 0) return "Debe agregar al menos un item a la orden";
+    if (!data.almacenCentral) {
+      const itemSinCentroCosto = data.items.some(
         (item) => !item.centro_costo || !item.centro_costo.trim()
       );
-      if (itemSinCentroCosto) {
-        toast.error("Debe ingresar el centro de costo en todos los items");
+      if (itemSinCentroCosto) return "Debe ingresar el centro de costo en todos los items";
+    }
+    return null;
+  };
+
+  // Valida campos (de todas las tabs) y abre el diálogo de confirmación de identidad
+  const handleNuevaOrdenSave = () => {
+    const ordenes = modoMulti ? tabsConActiva() : [nuevaOrdenData];
+    for (let i = 0; i < ordenes.length; i++) {
+      const error = validarOrdenForm(ordenes[i]);
+      if (error) {
+        if (modoMulti) {
+          cambiarTab(i);
+          toast.error(`Orden ${nombreTab(ordenes[i])}: ${error}`);
+        } else {
+          toast.error(error);
+        }
         return;
       }
     }
@@ -1047,83 +1273,120 @@ export default function OrdenCompraPage() {
     setIsLoginConfirmOpen(true);
   };
 
+  // Arma el payload del backend a partir del formulario de una orden
+  const construirOrdenParaEnviar = (
+    data: NuevaOrdenForm,
+    usuarioAuth: { id: number }
+  ) => ({
+    id_proveedor: data.id_proveedor,
+    numero_orden: `${data.serie}-${data.nroDoc}`,
+    fecha_orden: format(data.fechaEmision, "yyyy-MM-dd"),
+    moneda: data.moneda,
+    fecha_registro: data.fechaServicio.toISOString(),
+    estado: data.estado || "PENDIENTE",
+    centro_costo_nivel1: data.centroCostoNivel1Codigo,
+    centro_costo_nivel2: data.centroCostoNivel2Codigo,
+    centro_costo_nivel3: data.centroCostoNivel3Codigo,
+    unidad_id: data.unidad_id > 0 ? data.unidad_id : null,
+    retencion: data.aplicarRetencion ? "SI" : "NO",
+    porcentaje_valor_retencion: data.retencion.porcentaje.toString(),
+    valor_retencion: data.retencion.monto,
+    detraccion: data.aplicarDetraccion ? "SI" : "NO",
+    porcentaje_valor_detraccion: data.detraccion.porcentaje.toString(),
+    tipo_detraccion: data.detraccion.tipo_detraccion,
+    valor_detraccion: data.detraccion.monto,
+    almacen_central: data.almacenCentral ? "SI" : "NO",
+    has_anticipo: data.anticipo ? 1 : 0,
+    tiene_anticipo: data.anticipo ? "SI" : "NO",
+    tipo_comprobante: data.tipoComprobante,
+    items: data.items.map((item) => ({
+      codigo_item: item.codigo_item,
+      descripcion_item: item.descripcion_item,
+      cantidad_solicitada: item.cantidad_solicitada,
+      precio_unitario: item.precio_unitario,
+      subtotal: item.subtotal,
+      centro_costo: item.centro_costo || undefined,
+      prorrateo: item.prorrateo ?? undefined,
+      unidad_id: item.unidad_id > 0 ? item.unidad_id : undefined,
+    })),
+    subtotal: data.subtotal,
+    igv: data.igv,
+    total: data.total,
+    observaciones: data.observacion,
+    registrado_por: usuarioAuth.id,
+  });
+
   // Ejecuta el guardado real después de que el usuario se autentique
   const executeOrdenSave = async (usuarioAuth: { id: number; nombre: string; rol: string }) => {
     setIsSavingOrden(true);
 
     try {
       const numero_orden = `${nuevaOrdenData.serie}-${nuevaOrdenData.nroDoc}`;
+      const esEdicion = ordenEditandoId !== null;
 
-      // Validar duplicados
-      const ordenesExistentes = tipoOrden === "compra" ? ordenesCompra : ordenesServicio;
-      const ordenDuplicada = ordenesExistentes.find(
-        (orden) => orden.numero_orden === numero_orden
-      );
-
-      if (ordenDuplicada && ordenEditandoId !== null) {
-        const idOrdenDuplicada = tipoOrden === "compra"
-          ? (ordenDuplicada as OrdenCompraData).id_orden_compra
-          : (ordenDuplicada as OrdenServicioData).id_orden_servicio;
-        const esLaMismaOrden = Number(idOrdenDuplicada) === Number(ordenEditandoId);
-        if (!esLaMismaOrden) {
-          toast.error("Este número de orden ya existe", {
-            description: `El número ${numero_orden} ya está registrado en el sistema. Por favor, use otro número.`,
-          });
-          return;
+      // Validar duplicados (solo al editar: en una orden nueva el número lo
+      // reserva y valida el servidor)
+      if (esEdicion) {
+        const ordenesExistentes = tipoOrden === "compra" ? ordenesCompra : ordenesServicio;
+        const ordenDuplicada = ordenesExistentes.find(
+          (orden) => orden.numero_orden === numero_orden
+        );
+        if (ordenDuplicada) {
+          const idOrdenDuplicada = tipoOrden === "compra"
+            ? (ordenDuplicada as OrdenCompraData).id_orden_compra
+            : (ordenDuplicada as OrdenServicioData).id_orden_servicio;
+          const esLaMismaOrden = Number(idOrdenDuplicada) === Number(ordenEditandoId);
+          if (!esLaMismaOrden) {
+            toast.error("Este número de orden ya existe", {
+              description: `El número ${numero_orden} ya está registrado en el sistema. Por favor, use otro número.`,
+            });
+            return;
+          }
         }
-      } else if (ordenDuplicada && ordenEditandoId === null) {
-        toast.error("Este número de orden ya existe", {
-          description: `El número ${numero_orden} ya está registrado en el sistema. Por favor, use otro número.`,
-        });
-        return;
       }
-
-      const itemsParaBackend = nuevaOrdenData.items.map((item) => ({
-        codigo_item: item.codigo_item,
-        descripcion_item: item.descripcion_item,
-        cantidad_solicitada: item.cantidad_solicitada,
-        precio_unitario: item.precio_unitario,
-        subtotal: item.subtotal,
-        centro_costo: item.centro_costo || undefined,
-        prorrateo: item.prorrateo ?? undefined,
-        unidad_id: item.unidad_id > 0 ? item.unidad_id : undefined,
-      }));
-
-      const ordenParaEnviar = {
-        id_proveedor: nuevaOrdenData.id_proveedor,
-        numero_orden: numero_orden,
-        fecha_orden: format(nuevaOrdenData.fechaEmision, "yyyy-MM-dd"),
-        moneda: nuevaOrdenData.moneda,
-        fecha_registro: nuevaOrdenData.fechaServicio.toISOString(),
-        estado: nuevaOrdenData.estado || "PENDIENTE",
-        centro_costo_nivel1: nuevaOrdenData.centroCostoNivel1Codigo,
-        centro_costo_nivel2: nuevaOrdenData.centroCostoNivel2Codigo,
-        centro_costo_nivel3: nuevaOrdenData.centroCostoNivel3Codigo,
-        unidad_id: nuevaOrdenData.unidad_id > 0 ? nuevaOrdenData.unidad_id : null,
-        retencion: nuevaOrdenData.aplicarRetencion ? "SI" : "NO",
-        porcentaje_valor_retencion: nuevaOrdenData.retencion.porcentaje.toString(),
-        valor_retencion: nuevaOrdenData.retencion.monto,
-        detraccion: nuevaOrdenData.aplicarDetraccion ? "SI" : "NO",
-        porcentaje_valor_detraccion: nuevaOrdenData.detraccion.porcentaje.toString(),
-        tipo_detraccion: nuevaOrdenData.detraccion.tipo_detraccion,
-        valor_detraccion: nuevaOrdenData.detraccion.monto,
-        almacen_central: nuevaOrdenData.almacenCentral ? "SI" : "NO",
-        has_anticipo: nuevaOrdenData.anticipo ? 1 : 0,
-        tiene_anticipo: nuevaOrdenData.anticipo ? "SI" : "NO",
-        tipo_comprobante: nuevaOrdenData.tipoComprobante,
-        items: itemsParaBackend,
-        subtotal: nuevaOrdenData.subtotal,
-        igv: nuevaOrdenData.igv,
-        total: nuevaOrdenData.total,
-        observaciones: nuevaOrdenData.observacion,
-        registrado_por: usuarioAuth.id,
-      };
-
-      console.log("Datos para enviar al backend:", ordenParaEnviar);
 
       const api = tipoOrden === "compra" ? ordenesCompraApi : ordenesServicioApi;
       const tipoTexto = tipoOrden === "compra" ? "compra" : "servicio";
-      const esEdicion = ordenEditandoId !== null;
+      const reservaOwner = reservaRef.current?.owner;
+
+      // ── Multifactura: varias órdenes en un solo guardado (todo o nada) ──
+      if (modoMulti && !esEdicion && reservaOwner) {
+        const ordenesParaEnviar = tabsConActiva().map((t) =>
+          construirOrdenParaEnviar(t, usuarioAuth)
+        );
+        console.log("Datos multifactura para enviar al backend:", ordenesParaEnviar);
+
+        toast.loading(`Creando ${ordenesParaEnviar.length} órdenes de ${tipoTexto}...`);
+        const resultado = await api.createBatch(ordenesParaEnviar, reservaOwner);
+        toast.dismiss();
+        console.log("Respuesta del servidor (multifactura):", resultado);
+
+        toast.success(`${resultado.ordenes.length} órdenes de ${tipoTexto} creadas exitosamente`, {
+          description: `Números: ${resultado.ordenes.map((o) => o.numero_orden).join(", ")} — Registrado por: ${usuarioAuth.nombre}`,
+        });
+        const reasignadas = resultado.ordenes.filter((o) => o.numero_reasignado);
+        if (reasignadas.length > 0) {
+          toast.info("Algunos números cambiaron al guardar", {
+            description: reasignadas
+              .map((o) => `${o.numero_solicitado} → ${o.numero_orden}`)
+              .join(", "),
+            duration: 10000,
+          });
+        }
+
+        loadOrdenesCompra();
+        loadOrdenesServicio();
+        setIsNuevaOrdenModalOpen(false);
+        handleNuevaOrdenCancel();
+        return;
+      }
+
+      const ordenParaEnviar = {
+        ...construirOrdenParaEnviar(nuevaOrdenData, usuarioAuth),
+        ...(!esEdicion && reservaOwner ? { reserva_owner: reservaOwner } : {}),
+      };
+
+      console.log("Datos para enviar al backend:", ordenParaEnviar);
 
       toast.loading(`${esEdicion ? 'Actualizando' : 'Creando'} orden de ${tipoTexto}...`);
 
@@ -1134,9 +1397,17 @@ export default function OrdenCompraPage() {
       toast.dismiss();
       console.log("Respuesta del servidor:", result);
 
+      // El servidor puede haber reasignado el número (si ya no era válido)
+      const numeroFinal = (!esEdicion && result?.numero_orden) || numero_orden;
       toast.success(`Orden de ${tipoTexto} ${esEdicion ? 'actualizada' : 'creada'} exitosamente`, {
-        description: `Número de orden: ${numero_orden} — Registrado por: ${usuarioAuth.nombre}`,
+        description: `Número de orden: ${numeroFinal} — Registrado por: ${usuarioAuth.nombre}`,
       });
+      if (numeroFinal !== numero_orden) {
+        toast.info("El número de la orden cambió al guardar", {
+          description: `${numero_orden} → ${numeroFinal}`,
+          duration: 10000,
+        });
+      }
 
       loadOrdenesCompra();
       loadOrdenesServicio();
@@ -1174,56 +1445,10 @@ export default function OrdenCompraPage() {
   };
 
   const limpiarFormularioOrden = () => {
-    setNuevaOrdenData({
-      id_proveedor: 0,
-      nroCliente: "",
-      razonSocial: "",
-      retencionProveedor: "",
-      almacenCentral: false,
-      anticipo: false,
-      tipoComprobante: "FACTURA",
-      serie: "0001",
-      nroDoc: "",
-      fechaEmision: new Date(),
-      moneda: "SOLES",
-      tipoCambio: 0,
-      fechaServicio: new Date(),
-      estado: "PENDIENTE",
-      centroCostoNivel1Codigo: "",
-      centroCostoNivel2Codigo: "",
-      centroCostoNivel3Codigo: "",
-      unidad: "",
-      unidad_id: 0,
-      igvPorcentaje: 18,
-      aplicarRetencion: false,
-      retencion: {
-        porcentaje: 3,
-        monto: 0,
-      },
-      aplicarDetraccion: false,
-      detraccion: {
-        porcentaje: 3,
-        monto: 0,
-        tipo_detraccion: "",
-      },
-      items: [] as Array<{
-        codigo_item: string;
-        descripcion_item: string;
-        cantidad_solicitada: number;
-        unidadMed: string;
-        precio_unitario: number;
-        subtotal: number;
-        centro_costo: string;
-        prorrateo: number | null;
-        unidad: string;
-        unidad_id: number;
-      }>,
-      subtotal: 0,
-      igv: 0,
-      total: 0,
-      netoAPagar: 0,
-      observacion: "",
-    });
+    setNuevaOrdenData(ordenVacia());
+    setModoMulti(false);
+    setTabsOrden([]);
+    setTabActiva(0);
     setOrdenEditandoId(null);
   };
 
@@ -1565,8 +1790,26 @@ export default function OrdenCompraPage() {
         await ordenesServicioApi.uploadCotizacion(currentOrdenIdForUpload, formData);
       }
 
+      // Multifactura: la cotización es una sola para todo el grupo. Si la orden
+      // no pertenece a un grupo, el servidor no hace nada.
+      let ordenesDelGrupo = 0;
+      try {
+        const propagada =
+          currentOrdenTypeForUpload === "compra"
+            ? await ordenesCompraApi.propagarCotizacion(currentOrdenIdForUpload)
+            : await ordenesServicioApi.propagarCotizacion(currentOrdenIdForUpload);
+        ordenesDelGrupo = propagada.actualizadas;
+      } catch (error) {
+        console.error("Error al copiar la cotización al grupo:", error);
+        toast.warning("La cotización se subió, pero no se pudo copiar a las demás órdenes del grupo");
+      }
+
       toast.dismiss();
-      toast.success("Cotización subida exitosamente");
+      toast.success(
+        ordenesDelGrupo > 0
+          ? `Cotización subida y compartida con ${ordenesDelGrupo} orden(es) más del grupo`
+          : "Cotización subida exitosamente"
+      );
       handleCloseUploadCotizacionDialog();
 
       // Recargar las órdenes para actualizar los links
@@ -1644,291 +1887,140 @@ export default function OrdenCompraPage() {
   const ordenesFiltradas = listadoCompra;
   const ordenesServicioFiltradas = listadoServicio;
 
-  return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min p-6">
-        <div className="mx-auto w-full">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold tracking-tight">
-              Orden de Compra y Servicio
-            </h1>
-            <p className="text-muted-foreground">
-              Gestión de órdenes de compra y servicio
-            </p>
-          </div>
+  // Fila del listado para un grupo de multifactura: un solo desplegable con una
+  // tab por orden (cada una con su detalle y su propio botón de factura) y la
+  // cotización compartida arriba.
+  const renderItemGrupo = <T extends OrdenGrupable>(
+    grupo: T[],
+    tipo: "compra" | "servicio",
+    getId: (orden: T) => number | undefined,
+    renderDetalle: (orden: T) => React.ReactNode
+  ) => {
+    const grupoId = grupo[0].grupo_id as string;
+    const colorNumero = tipo === "compra" ? "text-blue-600" : "text-green-600";
+    const totales = grupo.reduce<Record<string, number>>((acc, o) => {
+      acc[o.moneda] = (acc[o.moneda] || 0) + Number(o.total || 0);
+      return acc;
+    }, {});
+    const proveedores = [...new Set(grupo.map((o) => o.nombre_proveedor).filter(Boolean))];
+    const estados = [...new Set(grupo.map((o) => o.estado))];
+    const urlCotizacion = grupo.find((o) => o.url_cotizacion)?.url_cotizacion;
+    const primeraId = getId(grupo[0]);
 
-          {/* Botones de acción */}
-          <div className="flex gap-4 mb-6">
-            <Button
-              className="flex items-center gap-2"
-              onClick={() => {
-                limpiarFormularioOrden(); // Limpiar formulario
-                setTipoOrden("servicio");
-                setIsNuevaOrdenModalOpen(true);
-              }}
-            >
-              <ClipboardList className="h-4 w-4" />
-              Nueva orden de servicio
-            </Button>
-
-            <Button
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
-              onClick={() => {
-                limpiarFormularioOrden(); // Limpiar formulario
-                setTipoOrden("compra");
-                setIsNuevaOrdenModalOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              Nueva orden de compra
-            </Button>
-
-            <Dialog
-              open={isNuevoCentroCostoModalOpen}
-              onOpenChange={setIsNuevoCentroCostoModalOpen}
-            >
-              <DialogTrigger asChild>
-                <Button className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
-                  <Plus className="h-4 w-4" />
-                  Centro de costo
-                </Button>
-              </DialogTrigger>
-            </Dialog>
-          </div>
-
-          {/* Filtros de fecha y búsqueda */}
-          <div className="mb-4 flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
-              <Label htmlFor="fecha-filtro" className="text-sm font-medium">
-                Filtrar por Fecha:
-              </Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    id="fecha-filtro"
-                    variant="outline"
-                    className="w-[240px] justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {fechaFiltro ? (
-                      format(fechaFiltro, "PPP", { locale: es })
-                    ) : (
-                      <span>Seleccionar fecha</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={fechaFiltro}
-                    onSelect={setFechaFiltro}
-                    locale={es}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              {fechaFiltro && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFechaFiltro(undefined)}
-                  className="h-8 px-2"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Limpiar filtro
-                </Button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="search-term" className="text-sm font-medium whitespace-nowrap">
-                  Buscar:
-                </Label>
-                <div className="relative w-[280px]">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="search-term"
-                    type="text"
-                    placeholder="Buscar por N° orden, proveedor, factura, ítem, centro de costo, placa, chofer, observaciones..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-                {searchTerm && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSearchTerm("")}
-                    className="h-8 px-2"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Limpiar
-                  </Button>
-                )}
+    return (
+      <AccordionItem
+        key={`grupo-${grupoId}`}
+        value={`grupo-${grupoId}`}
+        className="border rounded-lg overflow-hidden"
+      >
+        <AccordionTrigger className="hover:no-underline px-4 py-3">
+          <div className="flex items-center justify-between w-full gap-4 pr-4">
+            <div className="flex items-center gap-4 flex-wrap flex-1">
+              <div className="flex flex-col items-start min-w-[120px]">
+                <span className="text-xs text-gray-500 font-medium">
+                  Multifactura · {grupo.length} órdenes
+                </span>
+                <span className={`text-sm font-mono font-bold ${colorNumero}`}>
+                  {grupo.map((o) => o.numero_orden).join(", ")}
+                </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-medium whitespace-nowrap">Placa:</Label>
-                <Select value={filtroPlaca} onValueChange={setFiltroPlaca}>
-                  <SelectTrigger className="w-[140px] h-9">
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todas</SelectItem>
-                    {Array.from(new Set(
-                      [...ordenesCompra, ...ordenesServicio]
-                        .map((o) => o.placa_unidad)
-                        .filter(Boolean)
-                    )).sort().map((placa) => (
-                      <SelectItem key={placa} value={placa!}>{placa}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {filtroPlaca !== "todos" && (
-                  <Button variant="ghost" size="sm" onClick={() => setFiltroPlaca("todos")} className="h-8 px-2">
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
+              <div className="flex flex-col items-start min-w-[100px]">
+                <span className="text-xs text-gray-500 font-medium">Fecha</span>
+                <span className="text-sm font-medium">{formatDateString(grupo[0].fecha_orden)}</span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-medium whitespace-nowrap">Chofer:</Label>
-                <Select value={filtroChofer} onValueChange={setFiltroChofer}>
-                  <SelectTrigger className="w-[180px] h-9">
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
-                    {Array.from(new Set(
-                      [...ordenesCompra, ...ordenesServicio]
-                        .map((o) => [o.nombre_chofer, o.apellido_chofer].filter(Boolean).join(" "))
-                        .filter(Boolean)
-                    )).sort().map((chofer) => (
-                      <SelectItem key={chofer} value={chofer}>{chofer}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {filtroChofer !== "todos" && (
-                  <Button variant="ghost" size="sm" onClick={() => setFiltroChofer("todos")} className="h-8 px-2">
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-medium whitespace-nowrap">Tipo:</Label>
-                <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-                  <SelectTrigger className="w-[160px] h-9">
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
-                    {Array.from(new Set(
-                      [...ordenesCompra, ...ordenesServicio]
-                        .map((o) => o.tipo_unidad)
-                        .filter(Boolean)
-                    )).sort().map((tipo) => (
-                      <SelectItem key={tipo} value={tipo!}>{tipo}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {filtroTipo !== "todos" && (
-                  <Button variant="ghost" size="sm" onClick={() => setFiltroTipo("todos")} className="h-8 px-2">
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Tabs para Órdenes de Compra y Servicio */}
-          <Tabs defaultValue="compra" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="compra">Órdenes de Compra</TabsTrigger>
-              <TabsTrigger value="servicio">Órdenes de Servicio</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="compra" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Órdenes de Compra Registradas</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {ordenesFiltradas.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400">
-                      <div className="flex flex-col items-center gap-2">
-                        <ClipboardList className="h-8 w-8 opacity-50" />
-                        <p className="text-sm">
-                          {fechaFiltro || searchTerm
-                            ? "No hay órdenes de compra que coincidan con los filtros"
-                            : "No hay órdenes de compra registradas"
-                          }
-                        </p>
-                      </div>
-                    </div>
+              <div className="flex flex-col items-start flex-1 min-w-[200px]">
+                <span className="text-xs text-gray-500 font-medium">Proveedor</span>
+                <span className="text-sm font-medium truncate max-w-full">
+                  {proveedores.length > 0 ? (
+                    proveedores.join(", ")
                   ) : (
-                    <Accordion type="single" collapsible className="space-y-2">
-                      {ordenesFiltradas.map((orden) => (
-                        <AccordionItem
-                          key={orden.id_orden_compra}
-                          value={`orden-${orden.id_orden_compra}`}
-                          className="border rounded-lg overflow-hidden"
-                        >
-                          <AccordionTrigger className="hover:no-underline px-4 py-3">
-                            <div className="flex items-center justify-between w-full gap-4 pr-4">
-                              {/* Información principal - visible cuando está cerrado */}
-                              <div className="flex items-center gap-4 flex-wrap flex-1">
-                                <div className="flex flex-col items-start min-w-[120px]">
-                                  <span className="text-xs text-gray-500 font-medium">Número</span>
-                                  <span className="text-sm font-mono font-bold text-blue-600">
-                                    {orden.numero_orden}
-                                  </span>
-                                </div>
+                    <span className="text-gray-400 italic">Sin proveedor</span>
+                  )}
+                </span>
+              </div>
 
-                                <div className="flex flex-col items-start min-w-[100px]">
-                                  <span className="text-xs text-gray-500 font-medium">Fecha</span>
-                                  <span className="text-sm font-medium">
-                                    {formatDateString(orden.fecha_orden)}
-                                  </span>
-                                </div>
+              <div className="flex flex-col items-start min-w-[120px]">
+                <span className="text-xs text-gray-500 font-medium">Total</span>
+                <span className="text-sm font-bold font-mono text-green-700">
+                  {Object.entries(totales)
+                    .map(([m, v]) => `${m === "SOLES" ? "S/." : "$"} ${v.toFixed(2)}`)
+                    .join(" + ")}
+                </span>
+              </div>
 
-                                <div className="flex flex-col items-start flex-1 min-w-[200px]">
-                                  <span className="text-xs text-gray-500 font-medium">Proveedor</span>
-                                  <span className="text-sm font-medium truncate max-w-full">
-                                    {orden.nombre_proveedor || <span className="text-gray-400 italic">Sin proveedor</span>}
-                                  </span>
-                                </div>
+              <div className="flex flex-col items-start min-w-[100px]">
+                <span className="text-xs text-gray-500 font-medium">Estado</span>
+                <span className="flex gap-1 flex-wrap">
+                  {estados.map((e) => (
+                    <span
+                      key={e}
+                      className={`px-2 py-1 rounded-full text-xs font-semibold ${estadoOrdenClase(e)}`}
+                    >
+                      {e}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            </div>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 pb-4">
+          <div className="space-y-3 pt-2">
+            {/* Cotización: una sola para todo el grupo */}
+            <div className="flex items-center gap-3 bg-purple-50 rounded-lg p-3">
+              <h4 className="text-xs font-bold text-gray-700">Cotización del grupo</h4>
+              {urlCotizacion ? (
+                <a
+                  href={urlCotizacion}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Ver cotización
+                </a>
+              ) : (
+                <span className="text-xs text-gray-500">Sin cotización</span>
+              )}
+              <Button
+                size="sm"
+                onClick={() => primeraId && handleOpenUploadCotizacionDialog(primeraId, tipo)}
+                disabled={!primeraId}
+                className="ml-auto flex items-center gap-1 bg-purple-600 hover:bg-purple-700"
+              >
+                <Upload className="h-3 w-3" />
+                {urlCotizacion ? "Reemplazar cotización" : "Subir cotización"}
+              </Button>
+            </div>
 
-                                <div className="flex flex-col items-start min-w-[120px]">
-                                  <span className="text-xs text-gray-500 font-medium">Total</span>
-                                  <span className="text-sm font-bold font-mono text-green-700">
-                                    {orden.moneda === "SOLES" ? "S/." : "$"} {Number(orden.total).toFixed(2)}
-                                  </span>
-                                </div>
+            <Tabs defaultValue={`orden-${primeraId}`}>
+              <TabsList className="flex flex-wrap h-auto justify-start">
+                {grupo.map((o) => (
+                  <TabsTrigger
+                    key={getId(o)}
+                    value={`orden-${getId(o)}`}
+                    className="font-mono text-xs"
+                  >
+                    {o.numero_orden}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {grupo.map((o) => (
+                <TabsContent key={getId(o)} value={`orden-${getId(o)}`}>
+                  {renderDetalle(o)}
+                </TabsContent>
+              ))}
+            </Tabs>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    );
+  };
 
-                                <div className="flex flex-col items-start min-w-[100px]">
-                                  <span className="text-xs text-gray-500 font-medium">Estado</span>
-                                  <span
-                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                      orden.estado === "PENDIENTE"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : orden.estado === "APROBADA"
-                                          ? "bg-green-100 text-green-800"
-                                          : orden.estado === "COMPLETADA"
-                                            ? "bg-blue-100 text-blue-800"
-                                            : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {orden.estado}
-                                  </span>
-                                </div>
-
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="px-4 pb-4">
+  // Detalle expandido de una orden (se usa solo o dentro de una tab de multifactura)
+  const renderDetalleOrdenCompra =(orden: OrdenCompraData) => (
                             <div className="space-y-3 pt-2">
                               {/* Primera Fila: Información Financiera + Autorizaciones */}
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -2260,8 +2352,8 @@ export default function OrdenCompraPage() {
                                     </div>
                                   )}
 
-                                  {/* Botón Multifacturas */}
-                                  <div className="mt-2">
+                                  {/* Botón Multifacturas (no aplica a órdenes de un grupo de multifactura) */}
+                                  <div className={`mt-2 ${orden.grupo_id ? "hidden" : ""}`}>
                                     <Button
                                       size="sm"
                                       disabled={orden.tipo_comprobante === "RH"}
@@ -2401,101 +2493,10 @@ export default function OrdenCompraPage() {
                                 </Button>
                               </div>
                             </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  )}
-                  {totalPagesListadoCompra > 1 && (
-                    <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
-                      <Button variant="outline" size="sm" onClick={() => setPageListadoCompra((p) => Math.max(1, p - 1))} disabled={pageListadoCompra <= 1}>← Anterior</Button>
-                      <span className="text-sm text-slate-600">Página {pageListadoCompra} de {totalPagesListadoCompra}</span>
-                      <Button variant="outline" size="sm" onClick={() => setPageListadoCompra((p) => Math.min(totalPagesListadoCompra, p + 1))} disabled={pageListadoCompra >= totalPagesListadoCompra}>Siguiente →</Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+  );
 
-            <TabsContent value="servicio" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Órdenes de Servicio Registradas</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {ordenesServicioFiltradas.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400">
-                      <div className="flex flex-col items-center gap-2">
-                        <ClipboardList className="h-8 w-8 opacity-50" />
-                        <p className="text-sm">
-                          {fechaFiltro || searchTerm
-                            ? "No hay órdenes de servicio que coincidan con los filtros"
-                            : "No hay órdenes de servicio registradas"
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <Accordion type="single" collapsible className="space-y-2">
-                      {ordenesServicioFiltradas.map((orden) => (
-                        <AccordionItem
-                          key={orden.id_orden_servicio}
-                          value={`orden-${orden.id_orden_servicio}`}
-                          className="border rounded-lg overflow-hidden"
-                        >
-                          <AccordionTrigger className="hover:no-underline px-4 py-3">
-                            <div className="flex items-center justify-between w-full gap-4 pr-4">
-                              {/* Información principal - visible cuando está cerrado */}
-                              <div className="flex items-center gap-4 flex-wrap flex-1">
-                                <div className="flex flex-col items-start min-w-[120px]">
-                                  <span className="text-xs text-gray-500 font-medium">Número</span>
-                                  <span className="text-sm font-mono font-bold text-green-600">
-                                    {orden.numero_orden}
-                                  </span>
-                                </div>
-
-                                <div className="flex flex-col items-start min-w-[100px]">
-                                  <span className="text-xs text-gray-500 font-medium">Fecha</span>
-                                  <span className="text-sm font-medium">
-                                    {formatDateString(orden.fecha_orden)}
-                                  </span>
-                                </div>
-
-                                <div className="flex flex-col items-start flex-1 min-w-[200px]">
-                                  <span className="text-xs text-gray-500 font-medium">Proveedor</span>
-                                  <span className="text-sm font-medium truncate max-w-full">
-                                    {orden.nombre_proveedor || <span className="text-gray-400 italic">Sin proveedor</span>}
-                                  </span>
-                                </div>
-
-                                <div className="flex flex-col items-start min-w-[120px]">
-                                  <span className="text-xs text-gray-500 font-medium">Total</span>
-                                  <span className="text-sm font-bold font-mono text-green-700">
-                                    {orden.moneda === "SOLES" ? "S/." : "$"} {Number(orden.total).toFixed(2)}
-                                  </span>
-                                </div>
-
-                                <div className="flex flex-col items-start min-w-[100px]">
-                                  <span className="text-xs text-gray-500 font-medium">Estado</span>
-                                  <span
-                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                      orden.estado === "PENDIENTE"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : orden.estado === "APROBADA"
-                                          ? "bg-green-100 text-green-800"
-                                          : orden.estado === "COMPLETADA"
-                                            ? "bg-blue-100 text-blue-800"
-                                            : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {orden.estado}
-                                  </span>
-                                </div>
-
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="px-4 pb-4">
+  // Detalle expandido de una orden (se usa solo o dentro de una tab de multifactura)
+  const renderDetalleOrdenServicio = (orden: OrdenServicioData) => (
                             <div className="space-y-3 pt-2">
                               {/* Primera Fila: Información Financiera + Autorizaciones */}
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -2827,8 +2828,8 @@ export default function OrdenCompraPage() {
                                     </div>
                                   )}
 
-                                  {/* Botón Multifacturas */}
-                                  <div className="mt-2">
+                                  {/* Botón Multifacturas (no aplica a órdenes de un grupo de multifactura) */}
+                                  <div className={`mt-2 ${orden.grupo_id ? "hidden" : ""}`}>
                                     <Button
                                       size="sm"
                                       disabled={orden.tipo_comprobante === "RH"}
@@ -2968,9 +2969,415 @@ export default function OrdenCompraPage() {
                                 </Button>
                               </div>
                             </div>
+  );
+
+  return (
+    <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min p-6">
+        <div className="mx-auto w-full">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold tracking-tight">
+              Orden de Compra y Servicio
+            </h1>
+            <p className="text-muted-foreground">
+              Gestión de órdenes de compra y servicio
+            </p>
+          </div>
+
+          {/* Botones de acción */}
+          <div className="flex gap-4 mb-6">
+            <Button
+              className="flex items-center gap-2"
+              onClick={() => {
+                limpiarFormularioOrden(); // Limpiar formulario
+                setTipoOrden("servicio");
+                setIsNuevaOrdenModalOpen(true);
+              }}
+            >
+              <ClipboardList className="h-4 w-4" />
+              Nueva orden de servicio
+            </Button>
+
+            <Button
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+              onClick={() => {
+                limpiarFormularioOrden(); // Limpiar formulario
+                setTipoOrden("compra");
+                setIsNuevaOrdenModalOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Nueva orden de compra
+            </Button>
+
+            <Dialog
+              open={isNuevoCentroCostoModalOpen}
+              onOpenChange={setIsNuevoCentroCostoModalOpen}
+            >
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
+                  <Plus className="h-4 w-4" />
+                  Centro de costo
+                </Button>
+              </DialogTrigger>
+            </Dialog>
+          </div>
+
+          {/* Filtros de fecha y búsqueda */}
+          <div className="mb-4 flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <Label htmlFor="fecha-filtro" className="text-sm font-medium">
+                Filtrar por Fecha:
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="fecha-filtro"
+                    variant="outline"
+                    className="w-[240px] justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {fechaFiltro ? (
+                      format(fechaFiltro, "PPP", { locale: es })
+                    ) : (
+                      <span>Seleccionar fecha</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={fechaFiltro}
+                    onSelect={setFechaFiltro}
+                    locale={es}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              {fechaFiltro && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFechaFiltro(undefined)}
+                  className="h-8 px-2"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Limpiar filtro
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="search-term" className="text-sm font-medium whitespace-nowrap">
+                  Buscar:
+                </Label>
+                <div className="relative w-[280px]">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="search-term"
+                    type="text"
+                    placeholder="Buscar por N° orden, proveedor, factura, ítem, centro de costo, placa, chofer, observaciones..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchTerm("")}
+                    className="h-8 px-2"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Limpiar
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium whitespace-nowrap">Placa:</Label>
+                <Select value={filtroPlaca} onValueChange={setFiltroPlaca}>
+                  <SelectTrigger className="w-[140px] h-9">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas</SelectItem>
+                    {Array.from(new Set(
+                      [...ordenesCompra, ...ordenesServicio]
+                        .map((o) => o.placa_unidad)
+                        .filter(Boolean)
+                    )).sort().map((placa) => (
+                      <SelectItem key={placa} value={placa!}>{placa}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {filtroPlaca !== "todos" && (
+                  <Button variant="ghost" size="sm" onClick={() => setFiltroPlaca("todos")} className="h-8 px-2">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium whitespace-nowrap">Chofer:</Label>
+                <Select value={filtroChofer} onValueChange={setFiltroChofer}>
+                  <SelectTrigger className="w-[180px] h-9">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    {Array.from(new Set(
+                      [...ordenesCompra, ...ordenesServicio]
+                        .map((o) => [o.nombre_chofer, o.apellido_chofer].filter(Boolean).join(" "))
+                        .filter(Boolean)
+                    )).sort().map((chofer) => (
+                      <SelectItem key={chofer} value={chofer}>{chofer}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {filtroChofer !== "todos" && (
+                  <Button variant="ghost" size="sm" onClick={() => setFiltroChofer("todos")} className="h-8 px-2">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium whitespace-nowrap">Tipo:</Label>
+                <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                  <SelectTrigger className="w-[160px] h-9">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    {Array.from(new Set(
+                      [...ordenesCompra, ...ordenesServicio]
+                        .map((o) => o.tipo_unidad)
+                        .filter(Boolean)
+                    )).sort().map((tipo) => (
+                      <SelectItem key={tipo} value={tipo!}>{tipo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {filtroTipo !== "todos" && (
+                  <Button variant="ghost" size="sm" onClick={() => setFiltroTipo("todos")} className="h-8 px-2">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs para Órdenes de Compra y Servicio */}
+          <Tabs defaultValue="compra" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="compra">Órdenes de Compra</TabsTrigger>
+              <TabsTrigger value="servicio">Órdenes de Servicio</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="compra" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Órdenes de Compra Registradas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {ordenesFiltradas.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <div className="flex flex-col items-center gap-2">
+                        <ClipboardList className="h-8 w-8 opacity-50" />
+                        <p className="text-sm">
+                          {fechaFiltro || searchTerm
+                            ? "No hay órdenes de compra que coincidan con los filtros"
+                            : "No hay órdenes de compra registradas"
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Accordion type="single" collapsible className="space-y-2">
+                      {agruparOrdenes(ordenesFiltradas).map((grupo) => {
+                        const orden = grupo[0];
+                        if (grupo.length > 1) {
+                          return renderItemGrupo(
+                            grupo,
+                            "compra",
+                            (o) => o.id_orden_compra,
+                            renderDetalleOrdenCompra
+                          );
+                        }
+                        return (
+                        <AccordionItem
+                          key={orden.id_orden_compra}
+                          value={`orden-${orden.id_orden_compra}`}
+                          className="border rounded-lg overflow-hidden"
+                        >
+                          <AccordionTrigger className="hover:no-underline px-4 py-3">
+                            <div className="flex items-center justify-between w-full gap-4 pr-4">
+                              {/* Información principal - visible cuando está cerrado */}
+                              <div className="flex items-center gap-4 flex-wrap flex-1">
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Número</span>
+                                  <span className="text-sm font-mono font-bold text-blue-600">
+                                    {orden.numero_orden}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Fecha</span>
+                                  <span className="text-sm font-medium">
+                                    {formatDateString(orden.fecha_orden)}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start flex-1 min-w-[200px]">
+                                  <span className="text-xs text-gray-500 font-medium">Proveedor</span>
+                                  <span className="text-sm font-medium truncate max-w-full">
+                                    {orden.nombre_proveedor || <span className="text-gray-400 italic">Sin proveedor</span>}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Total</span>
+                                  <span className="text-sm font-bold font-mono text-green-700">
+                                    {orden.moneda === "SOLES" ? "S/." : "$"} {Number(orden.total).toFixed(2)}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Estado</span>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.estado === "PENDIENTE"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : orden.estado === "APROBADA"
+                                          ? "bg-green-100 text-green-800"
+                                          : orden.estado === "COMPLETADA"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.estado}
+                                  </span>
+                                </div>
+
+                              </div>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="px-4 pb-4">
+                            {renderDetalleOrdenCompra(orden)}
                           </AccordionContent>
                         </AccordionItem>
-                      ))}
+                        );
+                      })}
+                    </Accordion>
+                  )}
+                  {totalPagesListadoCompra > 1 && (
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-200">
+                      <Button variant="outline" size="sm" onClick={() => setPageListadoCompra((p) => Math.max(1, p - 1))} disabled={pageListadoCompra <= 1}>← Anterior</Button>
+                      <span className="text-sm text-slate-600">Página {pageListadoCompra} de {totalPagesListadoCompra}</span>
+                      <Button variant="outline" size="sm" onClick={() => setPageListadoCompra((p) => Math.min(totalPagesListadoCompra, p + 1))} disabled={pageListadoCompra >= totalPagesListadoCompra}>Siguiente →</Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="servicio" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Órdenes de Servicio Registradas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {ordenesServicioFiltradas.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <div className="flex flex-col items-center gap-2">
+                        <ClipboardList className="h-8 w-8 opacity-50" />
+                        <p className="text-sm">
+                          {fechaFiltro || searchTerm
+                            ? "No hay órdenes de servicio que coincidan con los filtros"
+                            : "No hay órdenes de servicio registradas"
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Accordion type="single" collapsible className="space-y-2">
+                      {agruparOrdenes(ordenesServicioFiltradas).map((grupo) => {
+                        const orden = grupo[0];
+                        if (grupo.length > 1) {
+                          return renderItemGrupo(
+                            grupo,
+                            "servicio",
+                            (o) => o.id_orden_servicio,
+                            renderDetalleOrdenServicio
+                          );
+                        }
+                        return (
+                        <AccordionItem
+                          key={orden.id_orden_servicio}
+                          value={`orden-${orden.id_orden_servicio}`}
+                          className="border rounded-lg overflow-hidden"
+                        >
+                          <AccordionTrigger className="hover:no-underline px-4 py-3">
+                            <div className="flex items-center justify-between w-full gap-4 pr-4">
+                              {/* Información principal - visible cuando está cerrado */}
+                              <div className="flex items-center gap-4 flex-wrap flex-1">
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Número</span>
+                                  <span className="text-sm font-mono font-bold text-green-600">
+                                    {orden.numero_orden}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Fecha</span>
+                                  <span className="text-sm font-medium">
+                                    {formatDateString(orden.fecha_orden)}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start flex-1 min-w-[200px]">
+                                  <span className="text-xs text-gray-500 font-medium">Proveedor</span>
+                                  <span className="text-sm font-medium truncate max-w-full">
+                                    {orden.nombre_proveedor || <span className="text-gray-400 italic">Sin proveedor</span>}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[120px]">
+                                  <span className="text-xs text-gray-500 font-medium">Total</span>
+                                  <span className="text-sm font-bold font-mono text-green-700">
+                                    {orden.moneda === "SOLES" ? "S/." : "$"} {Number(orden.total).toFixed(2)}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-col items-start min-w-[100px]">
+                                  <span className="text-xs text-gray-500 font-medium">Estado</span>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      orden.estado === "PENDIENTE"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : orden.estado === "APROBADA"
+                                          ? "bg-green-100 text-green-800"
+                                          : orden.estado === "COMPLETADA"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {orden.estado}
+                                  </span>
+                                </div>
+
+                              </div>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="px-4 pb-4">
+                            {renderDetalleOrdenServicio(orden)}
+                          </AccordionContent>
+                        </AccordionItem>
+                        );
+                      })}
                     </Accordion>
                   )}
                   {totalPagesListadoServicio > 1 && (
@@ -3537,7 +3944,15 @@ export default function OrdenCompraPage() {
               {/* Modal Nueva Orden */}
               <Dialog
                 open={isNuevaOrdenModalOpen}
-                onOpenChange={setIsNuevaOrdenModalOpen}
+                onOpenChange={(open) => {
+                  // Cerrar por fuera (Esc / clic fuera) también sale de multifactura
+                  if (!open) {
+                    setModoMulti(false);
+                    setTabsOrden([]);
+                    setTabActiva(0);
+                  }
+                  setIsNuevaOrdenModalOpen(open);
+                }}
               >
                 <DialogContent className="max-w-[95vw] max-h-[90vh] w-full overflow-y-auto">
                   <DialogHeader>
@@ -3554,6 +3969,77 @@ export default function OrdenCompraPage() {
                       }
                     </DialogDescription>
                   </DialogHeader>
+
+                  {/* Factura / Multifactura (solo al crear) */}
+                  {ordenEditandoId === null && (
+                    <div className="flex flex-col items-center gap-3 px-4">
+                      <div className="flex items-center space-x-2">
+                        <span
+                          className="text-xs font-medium text-blue-700 cursor-pointer"
+                          onClick={() => modoMulti && toggleMultifactura(false)}
+                        >
+                          Factura
+                        </span>
+                        <Switch
+                          id="multifactura-switch"
+                          checked={modoMulti}
+                          disabled={cambiandoModoMulti}
+                          onCheckedChange={toggleMultifactura}
+                          className="data-[state=unchecked]:bg-blue-600 data-[state=checked]:bg-green-600"
+                        />
+                        <span
+                          className="text-xs font-medium text-green-700 cursor-pointer"
+                          onClick={() => !modoMulti && toggleMultifactura(true)}
+                        >
+                          Multifactura
+                        </span>
+                      </div>
+
+                      {modoMulti && (
+                        <div className="flex flex-wrap items-center justify-center gap-2 w-full border-b pb-3">
+                          {ordenesDelDialog.map((t, i) => (
+                            <div
+                              key={`${t.serie}-${t.nroDoc}`}
+                              className={`flex items-center rounded-md border text-xs ${
+                                i === tabActiva
+                                  ? "bg-orange-500 text-white border-orange-500"
+                                  : "bg-white hover:bg-gray-100"
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                className="px-3 py-1.5 font-mono"
+                                onClick={() => cambiarTab(i)}
+                              >
+                                {nombreTab(t)}
+                              </button>
+                              {ordenesDelDialog.length > 2 && (
+                                <button
+                                  type="button"
+                                  aria-label={`Quitar orden ${nombreTab(t)}`}
+                                  className="pr-2"
+                                  onClick={() => quitarTab(i)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2"
+                            title="Agregar otra orden a la multifactura"
+                            onClick={agregarTab}
+                            disabled={cambiandoModoMulti}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="p-4 space-y-4 text-sm">
                     {/* Header con información del cliente y documento */}
@@ -3969,7 +4455,8 @@ export default function OrdenCompraPage() {
                                 e.target.value
                               )
                             }
-                            className="h-8 text-xs w-16"
+                            readOnly={ordenEditandoId === null}
+                            className={`h-8 text-xs w-16 ${ordenEditandoId === null ? "bg-gray-100" : ""}`}
                           />
                           <Input
                             value={nuevaOrdenData.nroDoc}
@@ -3979,7 +4466,9 @@ export default function OrdenCompraPage() {
                                 e.target.value
                               )
                             }
-                            className="h-8 text-xs flex-1"
+                            // En una orden nueva el número lo asigna y reserva el servidor
+                            readOnly={ordenEditandoId === null}
+                            className={`h-8 text-xs flex-1 ${ordenEditandoId === null ? "bg-gray-100" : ""}`}
                             required
                           />
                         </div>
@@ -4632,7 +5121,19 @@ export default function OrdenCompraPage() {
                   </div>
 
                   {/* Botones del modal */}
-                  <div className="flex justify-end gap-4 px-4 pb-3 border-t pt-3">
+                  <div className="flex items-center justify-end gap-4 px-4 pb-3 border-t pt-3">
+                    {modoMulti && (
+                      <div className="mr-auto text-sm">
+                        <span className="text-gray-600">
+                          Total de {ordenesDelDialog.length} órdenes:{" "}
+                        </span>
+                        <span className="font-mono font-bold text-blue-700">
+                          {Object.entries(sumaTotalesPorMoneda)
+                            .map(([m, v]) => `${m === "DOLARES" ? "US$" : "S/"} ${v.toFixed(2)}`)
+                            .join(" + ")}
+                        </span>
+                      </div>
+                    )}
                     <Button
                       variant="outline"
                       className="px-6 h-9"

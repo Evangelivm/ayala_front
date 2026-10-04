@@ -3635,6 +3635,8 @@ export interface OrdenCompraData {
   registrado_por?: number; // ID del usuario que registró
   deleted_at?: string | null; // Soft delete
   backend_logs?: string | null; // Logs del backend persistidos
+  grupo_id?: string | null; // Grupo de multifactura (órdenes creadas juntas)
+  reserva_owner?: string; // Clave de reserva del número (solo al crear)
 }
 
 // Helper para decodificar HTML entities en órdenes de compra
@@ -3647,6 +3649,81 @@ const decodeOrdenCompraData = (orden: OrdenCompraData): OrdenCompraData => ({
     descripcion_item: item.descripcion_item ? decode(item.descripcion_item) : item.descripcion_item,
   })) : [],
 });
+
+// ── Reserva de números de orden (compra / servicio) ─────────────────────────
+export type NumeroOrdenReservado = {
+  serie: string;
+  nroDoc: string;
+  numero_orden_completo: string;
+};
+
+export type NumeroOrdenRenovado = NumeroOrdenReservado & {
+  anterior: string;
+  cambiado: boolean;
+};
+
+export type ResultadoBatchOrdenes = {
+  success: boolean;
+  message: string;
+  grupo_id: string;
+  ordenes: Array<{
+    id_orden_compra?: number;
+    id_orden_servicio?: number;
+    numero_orden: string;
+    numero_solicitado: string;
+    numero_reasignado: boolean;
+    total: number | string | null;
+  }>;
+};
+
+export const numeracionOrdenApi = {
+  // Reserva el menor número libre para este propietario (un número nuevo por llamada)
+  reservar: async (
+    tipo: "compra" | "servicio",
+    propietario: string
+  ): Promise<NumeroOrdenReservado> => {
+    const response = await api.post(`/numeracion-orden/${tipo}/reservar`, {
+      propietario,
+    });
+    return response.data;
+  },
+
+  // Latido: extiende las reservas; devuelve el número vigente de cada una
+  renovar: async (
+    tipo: "compra" | "servicio",
+    propietario: string,
+    numeros: string[]
+  ): Promise<NumeroOrdenRenovado[]> => {
+    const response = await api.post(`/numeracion-orden/${tipo}/renovar`, {
+      propietario,
+      numeros,
+    });
+    return response.data?.numeros ?? [];
+  },
+
+  // Libera números concretos, o todos los del propietario si no se indican
+  liberar: async (
+    tipo: "compra" | "servicio",
+    propietario: string,
+    numeros?: string[]
+  ): Promise<void> => {
+    await api.post(`/numeracion-orden/${tipo}/liberar`, { propietario, numeros });
+  },
+
+  // Igual que liberar, pero sobrevive al cierre de la pestaña (keepalive)
+  liberarAlSalir: (tipo: "compra" | "servicio", propietario: string) => {
+    try {
+      fetch(`${API_BASE_URL}/numeracion-orden/${tipo}/liberar`, {
+        method: "POST",
+        keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propietario }),
+      }).catch(() => {});
+    } catch {
+      // Si falla, la reserva vence sola en unos minutos
+    }
+  },
+};
 
 export const ordenesCompraApi = {
   // Obtener todas las órdenes de compra
@@ -3700,6 +3777,30 @@ export const ordenesCompraApi = {
       console.error("Ordenes Compra API error:", error);
       throw error;
     }
+  },
+
+  // Crear varias órdenes de compra a la vez (multifactura, un solo grupo)
+  createBatch: async (
+    ordenes: OrdenCompraData[],
+    reservaOwner: string
+  ): Promise<ResultadoBatchOrdenes> => {
+    try {
+      const response = await api.post(
+        "/ordenes-compra/batch",
+        { ordenes, reserva_owner: reservaOwner },
+        { timeout: 30000 }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Ordenes Compra API error:", error);
+      throw error;
+    }
+  },
+
+  // Copia la cotización de una orden a las demás órdenes de su grupo
+  propagarCotizacion: async (id: number): Promise<{ actualizadas: number }> => {
+    const response = await api.post(`/ordenes-compra/${id}/propagar-cotizacion`);
+    return response.data;
   },
 
   // Actualizar orden de compra
@@ -4102,6 +4203,8 @@ export interface OrdenServicioData {
   registrado_por?: number; // ID del usuario que registró
   deleted_at?: string | null; // Soft delete
   backend_logs?: string | null; // Logs del backend persistidos
+  grupo_id?: string | null; // Grupo de multifactura (órdenes creadas juntas)
+  reserva_owner?: string; // Clave de reserva del número (solo al crear)
 }
 
 // Helper para decodificar HTML entities en órdenes de servicio
@@ -4167,6 +4270,30 @@ export const ordenesServicioApi = {
       console.error("Ordenes Servicio API error:", error);
       throw error;
     }
+  },
+
+  // Crear varias órdenes de servicio a la vez (multifactura, un solo grupo)
+  createBatch: async (
+    ordenes: OrdenServicioData[],
+    reservaOwner: string
+  ): Promise<ResultadoBatchOrdenes> => {
+    try {
+      const response = await api.post(
+        "/ordenes-servicio/batch",
+        { ordenes, reserva_owner: reservaOwner },
+        { timeout: 30000 }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Ordenes Servicio API error:", error);
+      throw error;
+    }
+  },
+
+  // Copia la cotización de una orden a las demás órdenes de su grupo
+  propagarCotizacion: async (id: number): Promise<{ actualizadas: number }> => {
+    const response = await api.post(`/ordenes-servicio/${id}/propagar-cotizacion`);
+    return response.data;
   },
 
   // Actualizar orden de servicio
