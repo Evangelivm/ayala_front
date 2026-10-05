@@ -91,6 +91,7 @@ import {
   type MultifacturaDetalle,
 } from "@/lib/connections";
 import { OrdenEditDialog } from "@/components/orden-edit-dialog";
+import { ConvertirMultifacturaDialog } from "@/components/convertir-multifactura-dialog";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
 import { ProyectoSelect } from "@/components/proyecto-select";
 import { EtapaSelect } from "@/components/etapa-select";
@@ -1270,6 +1271,10 @@ function OrdenesCompraTab() {
   const [data, setData] = useState<OrdenCompraData[]>([]);
   const [editOrden, setEditOrden] = useState<OrdenCompraData | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  // Convertir en multifactura
+  const [convertirOrden, setConvertirOrden] = useState<OrdenCompraData | null>(null);
+  const [isConvertirOpen, setIsConvertirOpen] = useState(false);
+  const [isNuevaEnGrupoOpen, setIsNuevaEnGrupoOpen] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -1558,6 +1563,9 @@ function OrdenesCompraTab() {
                       ) : (
                         <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 text-xs">{item.estado}</Badge>
                       )}
+                      {item.grupo_id && !isDeleted && (
+                        <Badge className="mt-1 bg-teal-100 text-teal-800 hover:bg-teal-100 text-xs">Multifactura</Badge>
+                      )}
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -1790,8 +1798,8 @@ function OrdenesCompraTab() {
                           )}
                         </div>
 
-                        {/* Multifacturas */}
-                        <div className="mt-2">
+                        {/* Multifacturas (no aplica a órdenes de un grupo de multifactura) */}
+                        <div className={`mt-2 ${item.grupo_id ? "hidden" : ""}`}>
                           <Button
                             size="sm"
                             onClick={() => item.id_orden_compra && openMultifacturas(item.id_orden_compra)}
@@ -1813,6 +1821,9 @@ function OrdenesCompraTab() {
                         <>
                           <Button size="sm" variant="outline" onClick={() => { setEditOrden(item); setIsEditOpen(true); }} className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300">
                             <Edit className="h-4 w-4 mr-2" /> Editar Orden
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { setConvertirOrden(item); setIsConvertirOpen(true); }} className="bg-white hover:bg-teal-50 text-teal-700 border-teal-300">
+                            <FileText className="h-4 w-4 mr-2" /> {item.grupo_id ? "Multifactura" : "Convertir en multifactura"}
                           </Button>
                           <Button
                             size="sm"
@@ -1941,6 +1952,24 @@ function OrdenesCompraTab() {
         </DialogContent>
       </Dialog>
 
+      <ConvertirMultifacturaDialog
+        orden={convertirOrden}
+        tipo="compra"
+        open={isConvertirOpen}
+        onOpenChange={setIsConvertirOpen}
+        onDone={reloadData}
+        onCrearNueva={() => setIsNuevaEnGrupoOpen(true)}
+      />
+
+      <OrdenEditDialog
+        modo="nueva-en-grupo"
+        orden={convertirOrden}
+        tipo="compra"
+        open={isNuevaEnGrupoOpen}
+        onOpenChange={(v) => { setIsNuevaEnGrupoOpen(v); if (!v) setConvertirOrden(null); }}
+        onSaved={reloadData}
+      />
+
       <OrdenEditDialog
         orden={editOrden}
         tipo="compra"
@@ -1958,6 +1987,10 @@ function OrdenesServicioTab() {
   const [data, setData] = useState<OrdenServicioData[]>([]);
   const [editOrden, setEditOrden] = useState<OrdenServicioData | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  // Convertir en multifactura
+  const [convertirOrden, setConvertirOrden] = useState<OrdenServicioData | null>(null);
+  const [isConvertirOpen, setIsConvertirOpen] = useState(false);
+  const [isNuevaEnGrupoOpen, setIsNuevaEnGrupoOpen] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -2248,6 +2281,9 @@ function OrdenesServicioTab() {
                           {item.estado}
                         </Badge>
                       )}
+                      {item.grupo_id && !isDeleted && (
+                        <Badge className="mt-1 bg-teal-100 text-teal-800 hover:bg-teal-100 text-xs">Multifactura</Badge>
+                      )}
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -2480,8 +2516,8 @@ function OrdenesServicioTab() {
                           )}
                         </div>
 
-                        {/* Multifacturas */}
-                        <div className="mt-2">
+                        {/* Multifacturas (no aplica a órdenes de un grupo de multifactura) */}
+                        <div className={`mt-2 ${item.grupo_id ? "hidden" : ""}`}>
                           <Button
                             size="sm"
                             onClick={() => item.id_orden_servicio && openMultifacturas(item.id_orden_servicio)}
@@ -2503,6 +2539,9 @@ function OrdenesServicioTab() {
                         <>
                           <Button size="sm" variant="outline" onClick={() => { setEditOrden(item); setIsEditOpen(true); }} className="bg-white hover:bg-blue-50 text-blue-700 border-blue-300">
                             <Edit className="h-4 w-4 mr-2" /> Editar Orden
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { setConvertirOrden(item); setIsConvertirOpen(true); }} className="bg-white hover:bg-teal-50 text-teal-700 border-teal-300">
+                            <FileText className="h-4 w-4 mr-2" /> {item.grupo_id ? "Multifactura" : "Convertir en multifactura"}
                           </Button>
                           <Button
                             size="sm"
@@ -2646,6 +2685,24 @@ function OrdenesServicioTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConvertirMultifacturaDialog
+        orden={convertirOrden}
+        tipo="servicio"
+        open={isConvertirOpen}
+        onOpenChange={setIsConvertirOpen}
+        onDone={reloadData}
+        onCrearNueva={() => setIsNuevaEnGrupoOpen(true)}
+      />
+
+      <OrdenEditDialog
+        modo="nueva-en-grupo"
+        orden={convertirOrden}
+        tipo="servicio"
+        open={isNuevaEnGrupoOpen}
+        onOpenChange={(v) => { setIsNuevaEnGrupoOpen(v); if (!v) setConvertirOrden(null); }}
+        onSaved={reloadData}
+      />
 
       <OrdenEditDialog
         orden={editOrden}

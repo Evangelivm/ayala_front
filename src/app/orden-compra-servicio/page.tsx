@@ -776,6 +776,7 @@ export default function OrdenCompraPage() {
     placa: filtroPlaca !== "todos" ? filtroPlaca : undefined,
     chofer: filtroChofer !== "todos" ? filtroChofer : undefined,
     tipo: filtroTipo !== "todos" ? filtroTipo : undefined,
+    agrupar: true, // este listado muestra cada multifactura como un solo grupo
   }), [fechaFiltro, filtroPlaca, filtroChofer, filtroTipo]);
 
   const fetchListadoCompra = useCallback(async () => {

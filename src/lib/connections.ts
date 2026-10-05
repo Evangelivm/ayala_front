@@ -3676,6 +3676,26 @@ export type ResultadoBatchOrdenes = {
   }>;
 };
 
+export type ResultadoAgrupar = {
+  success: boolean;
+  grupo_id: string;
+  ordenes: Array<{
+    id_orden_compra?: number;
+    id_orden_servicio?: number;
+    numero_orden: string;
+  }>;
+  // Números de órdenes que tenían otra cotización y ahora usan la del grupo
+  cotizacion_reemplazada: string[];
+};
+
+export type ResultadoAgregarOrdenNueva = {
+  success: boolean;
+  message: string;
+  grupo_id: string;
+  numero_orden: string;
+  numero_reasignado: boolean;
+};
+
 export const numeracionOrdenApi = {
   // Reserva el menor número libre para este propietario (un número nuevo por llamada)
   reservar: async (
@@ -3800,6 +3820,34 @@ export const ordenesCompraApi = {
   // Copia la cotización de una orden a las demás órdenes de su grupo
   propagarCotizacion: async (id: number): Promise<{ actualizadas: number }> => {
     const response = await api.post(`/ordenes-compra/${id}/propagar-cotizacion`);
+    return response.data;
+  },
+
+  // Convierte órdenes existentes en multifactura (grupo nuevo, o suma a uno existente)
+  agrupar: async (ids: number[], grupoId?: string): Promise<ResultadoAgrupar> => {
+    const response = await api.post("/ordenes-compra/agrupar", {
+      ids,
+      ...(grupoId ? { grupo_id: grupoId } : {}),
+    });
+    return response.data;
+  },
+
+  // Saca una orden de su multifactura
+  desagrupar: async (id: number): Promise<void> => {
+    await api.post(`/ordenes-compra/${id}/desagrupar`);
+  },
+
+  // Crea una orden nueva dentro de la multifactura de una orden existente
+  agregarOrdenNueva: async (
+    baseId: number,
+    orden: OrdenCompraData,
+    reservaOwner: string
+  ): Promise<ResultadoAgregarOrdenNueva> => {
+    const response = await api.post(
+      `/ordenes-compra/${baseId}/agregar-orden`,
+      { orden, reserva_owner: reservaOwner },
+      { timeout: 30000 }
+    );
     return response.data;
   },
 
@@ -4293,6 +4341,34 @@ export const ordenesServicioApi = {
   // Copia la cotización de una orden a las demás órdenes de su grupo
   propagarCotizacion: async (id: number): Promise<{ actualizadas: number }> => {
     const response = await api.post(`/ordenes-servicio/${id}/propagar-cotizacion`);
+    return response.data;
+  },
+
+  // Convierte órdenes existentes en multifactura (grupo nuevo, o suma a uno existente)
+  agrupar: async (ids: number[], grupoId?: string): Promise<ResultadoAgrupar> => {
+    const response = await api.post("/ordenes-servicio/agrupar", {
+      ids,
+      ...(grupoId ? { grupo_id: grupoId } : {}),
+    });
+    return response.data;
+  },
+
+  // Saca una orden de su multifactura
+  desagrupar: async (id: number): Promise<void> => {
+    await api.post(`/ordenes-servicio/${id}/desagrupar`);
+  },
+
+  // Crea una orden nueva dentro de la multifactura de una orden existente
+  agregarOrdenNueva: async (
+    baseId: number,
+    orden: OrdenServicioData,
+    reservaOwner: string
+  ): Promise<ResultadoAgregarOrdenNueva> => {
+    const response = await api.post(
+      `/ordenes-servicio/${baseId}/agregar-orden`,
+      { orden, reserva_owner: reservaOwner },
+      { timeout: 30000 }
+    );
     return response.data;
   },
 
@@ -4816,6 +4892,8 @@ export interface FiltrosOrdenes {
   autoContabilidad?: boolean;
   jefeProyecto?: boolean;
   procedePago?: string;
+  // Incluir las demás órdenes de cada multifactura que aparezca en el resultado
+  agrupar?: boolean;
 }
 
 const filtrosAParams = <T extends object>(filtros?: T): Record<string, string> => {

@@ -19,6 +19,7 @@ import {
   type OrdenCompraData,
   ordenesServicioApi,
   type OrdenServicioData,
+  numeracionOrdenApi,
 } from "@/lib/connections";
 import {
   Dialog,
@@ -38,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -80,7 +82,27 @@ interface OrdenEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved?: () => void;
+  // "editar" (por defecto): edita `orden`. "nueva-en-grupo": crea una orden NUEVA
+  // junto a `orden` (que pasa a formar parte de una multifactura con ella).
+  modo?: "editar" | "nueva-en-grupo";
 }
+
+// Clave aleatoria para identificar la reserva de número de este dialog.
+// crypto.randomUUID solo existe en contextos seguros (HTTPS/localhost).
+const generarClaveReserva = (): string => {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    }
+  } catch {
+    // cae al respaldo
+  }
+  return `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`.padEnd(16, "0");
+};
 
 const emptyFormData = {
   id_proveedor: 0,
@@ -89,6 +111,7 @@ const emptyFormData = {
   retencionProveedor: "",
   almacenCentral: false,
   anticipo: false,
+  tipoComprobante: "FACTURA" as "FACTURA" | "RH",
   serie: "0001",
   nroDoc: "",
   fechaEmision: new Date(),
@@ -129,8 +152,12 @@ export function OrdenEditDialog({
   open,
   onOpenChange,
   onSaved,
+  modo = "editar",
 }: OrdenEditDialogProps) {
+  const esNueva = modo === "nueva-en-grupo";
   const [formData, setFormData] = useState({ ...emptyFormData });
+  // Reserva del número de la orden nueva (solo modo "nueva-en-grupo")
+  const reservaRef = useRef<{ owner: string; tipo: "compra" | "servicio" } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
 
@@ -173,7 +200,7 @@ export function OrdenEditDialog({
 
   // Poblar formulario cuando cambia la orden
   useEffect(() => {
-    if (!open || !orden) return;
+    if (!open || !orden || esNueva) return;
     const [serie, nroDoc] = orden.numero_orden.split("-");
     const camion = camiones.find((c) => c.id_camion === orden.unidad_id);
 
@@ -187,6 +214,7 @@ export function OrdenEditDialog({
       retencionProveedor: o.retencion || "",
       almacenCentral: o.almacen_central === "SI",
       anticipo: o.tiene_anticipo === "SI" || o.tiene_anticipo === 1,
+      tipoComprobante: o.tipo_comprobante === "RH" ? "RH" : "FACTURA",
       serie: serie || "0001",
       nroDoc: nroDoc || "",
       fechaEmision: parseDateSafe(o.fecha_orden),
@@ -227,7 +255,76 @@ export function OrdenEditDialog({
       netoAPagar: Number(o.total) || 0,
       observacion: o.observaciones || "",
     });
-  }, [open, orden, camiones, tipo]);
+  }, [open, orden, camiones, tipo, esNueva]);
+
+  // ── Orden nueva: reservar su número en el servidor y mantenerlo vigente ──────
+  useEffect(() => {
+    if (!esNueva) return;
+    if (!open) {
+      const reserva = reservaRef.current;
+      if (reserva) {
+        reservaRef.current = null;
+        numeracionOrdenApi.liberar(reserva.tipo, reserva.owner).catch(() => {});
+      }
+      return;
+    }
+    if (reservaRef.current) return;
+
+    const reserva = { owner: generarClaveReserva(), tipo };
+    reservaRef.current = reserva;
+    setFormData({ ...emptyFormData, fechaEmision: new Date(), fechaServicio: new Date() });
+    numeracionOrdenApi
+      .reservar(reserva.tipo, reserva.owner)
+      .then((n) => {
+        if (reservaRef.current?.owner !== reserva.owner) {
+          // El dialog se cerró mientras llegaba la respuesta: devolver el número
+          numeracionOrdenApi.liberar(reserva.tipo, reserva.owner).catch(() => {});
+          return;
+        }
+        setFormData((prev) => ({ ...prev, serie: n.serie, nroDoc: n.nroDoc }));
+      })
+      .catch((error) => {
+        console.error("Error reservando número de orden:", error);
+        if (reservaRef.current?.owner === reserva.owner) reservaRef.current = null;
+        toast.error("Error al reservar el número de orden");
+      });
+  }, [open, esNueva, tipo]);
+
+  // Latido cada 60 s para mantener la reserva (si se perdió, el servidor asigna otro)
+  const numeroActualRef = useRef("");
+  useEffect(() => {
+    numeroActualRef.current = formData.nroDoc ? `${formData.serie}-${formData.nroDoc}` : "";
+  });
+  useEffect(() => {
+    if (!open || !esNueva) return;
+    const id = setInterval(async () => {
+      const reserva = reservaRef.current;
+      const numero = numeroActualRef.current;
+      if (!reserva || !numero) return;
+      try {
+        const [r] = await numeracionOrdenApi.renovar(reserva.tipo, reserva.owner, [numero]);
+        if (r?.cambiado) {
+          setFormData((prev) => ({ ...prev, serie: r.serie, nroDoc: r.nroDoc }));
+          toast.info("Se actualizó el número de la orden", {
+            description: `${r.anterior} → ${r.numero_orden_completo}`,
+          });
+        }
+      } catch {
+        // Sin red: se reintenta en el próximo latido
+      }
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [open, esNueva]);
+
+  // Si se cierra la pestaña, liberar la reserva sin esperar al vencimiento
+  useEffect(() => {
+    const alSalir = () => {
+      const reserva = reservaRef.current;
+      if (reserva) numeracionOrdenApi.liberarAlSalir(reserva.tipo, reserva.owner);
+    };
+    window.addEventListener("pagehide", alSalir);
+    return () => window.removeEventListener("pagehide", alSalir);
+  }, []);
 
   const calcularTotales = useCallback(
     (
@@ -390,7 +487,9 @@ export function OrdenEditDialog({
         almacen_central: formData.almacenCentral ? "SI" : "NO",
         has_anticipo: formData.anticipo ? 1 : 0,
         tiene_anticipo: formData.anticipo ? "SI" : "NO",
-        editado_por: usuarioAuth.id,
+        ...(esNueva
+          ? { registrado_por: usuarioAuth.id, tipo_comprobante: formData.tipoComprobante }
+          : { editado_por: usuarioAuth.id }),
         items: formData.items.map((i) => ({
           codigo_item: i.codigo_item,
           descripcion_item: i.descripcion_item,
@@ -406,13 +505,38 @@ export function OrdenEditDialog({
         observaciones: formData.observacion,
       };
 
-      toast.loading(`Actualizando orden de ${tipoTexto}...`);
       const api = tipo === "compra" ? ordenesCompraApi : ordenesServicioApi;
-      await api.update(ordenId, payload as OrdenCompraData & OrdenServicioData);
-      toast.dismiss();
-      toast.success(`Orden de ${tipoTexto} actualizada exitosamente`, {
-        description: `Número: ${numero_orden}`,
-      });
+
+      if (esNueva) {
+        const owner = reservaRef.current?.owner;
+        if (!owner) {
+          toast.error("No hay un número reservado para la orden nueva. Cierre y vuelva a abrir.");
+          return;
+        }
+        toast.loading(`Creando orden de ${tipoTexto} en la multifactura...`);
+        const resultado = await api.agregarOrdenNueva(
+          ordenId,
+          payload as OrdenCompraData & OrdenServicioData,
+          owner
+        );
+        toast.dismiss();
+        toast.success(`Orden de ${tipoTexto} creada y agregada a la multifactura`, {
+          description: `Número: ${resultado.numero_orden}`,
+        });
+        if (resultado.numero_orden !== numero_orden) {
+          toast.info("El número de la orden cambió al guardar", {
+            description: `${numero_orden} → ${resultado.numero_orden}`,
+            duration: 10000,
+          });
+        }
+      } else {
+        toast.loading(`Actualizando orden de ${tipoTexto}...`);
+        await api.update(ordenId, payload as OrdenCompraData & OrdenServicioData);
+        toast.dismiss();
+        toast.success(`Orden de ${tipoTexto} actualizada exitosamente`, {
+          description: `Número: ${numero_orden}`,
+        });
+      }
       onSaved?.();
       onOpenChange(false);
     } catch (error) {
@@ -423,7 +547,7 @@ export function OrdenEditDialog({
         if (error.response?.data?.message) msg = error.response.data.message;
         else if (error instanceof Error) msg = error.message;
       }
-      toast.error(`Error al actualizar la orden de ${tipoTexto}`, { description: msg, duration: 7000 });
+      toast.error(esNueva ? `Error al crear la orden de ${tipoTexto}` : `Error al actualizar la orden de ${tipoTexto}`, { description: msg, duration: 7000 });
     } finally {
       setIsSaving(false);
     }
@@ -455,12 +579,27 @@ export function OrdenEditDialog({
         <DialogContent className="max-w-[95vw] max-h-[90vh] w-full overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Editar Orden de {tipo === "compra" ? "Compra" : "Servicio"}
+              {esNueva
+                ? `Nueva Orden de ${tipo === "compra" ? "Compra" : "Servicio"} (multifactura)`
+                : `Editar Orden de ${tipo === "compra" ? "Compra" : "Servicio"}`}
             </DialogTitle>
             <DialogDescription>
-              Edite los datos de la orden de {tipo === "compra" ? "compra" : "servicio"}
+              {esNueva
+                ? `Se creará junto a la orden ${orden?.numero_orden ?? ""} y ambas quedarán en la misma multifactura`
+                : `Edite los datos de la orden de ${tipo === "compra" ? "compra" : "servicio"}`}
             </DialogDescription>
           </DialogHeader>
+
+          {esNueva && orden && (
+            <div className="mx-4 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-teal-200 bg-teal-50 px-4 py-2 text-xs">
+              <span className="font-semibold text-teal-800">Orden existente:</span>
+              <span className="font-mono font-bold">{orden.numero_orden}</span>
+              <span>{orden.nombre_proveedor || "Sin proveedor"}</span>
+              <span className="font-mono">
+                {orden.moneda === "DOLARES" ? "$" : "S/"} {Number(orden.total).toFixed(2)}
+              </span>
+            </div>
+          )}
 
           <div className="p-4 space-y-4 text-sm">
             {/* Header con información del cliente */}
@@ -633,10 +772,34 @@ export function OrdenEditDialog({
               <div className="col-span-2">
                 <Label className="text-xs font-semibold">Serie + Nro doc:</Label>
                 <div className="flex gap-1">
-                  <Input value={formData.serie} onChange={(e) => handleFieldChange("serie", e.target.value)} className="h-8 text-xs w-16" />
-                  <Input value={formData.nroDoc} onChange={(e) => handleFieldChange("nroDoc", e.target.value)} className="h-8 text-xs flex-1" />
+                  <Input value={formData.serie} onChange={(e) => handleFieldChange("serie", e.target.value)} readOnly={esNueva} className={`h-8 text-xs w-16 ${esNueva ? "bg-gray-100" : ""}`} />
+                  <Input value={formData.nroDoc} onChange={(e) => handleFieldChange("nroDoc", e.target.value)} readOnly={esNueva} className={`h-8 text-xs flex-1 ${esNueva ? "bg-gray-100" : ""}`} />
                 </div>
               </div>
+              {esNueva && (
+                <div className="col-span-2">
+                  <Label className="text-xs font-semibold">Emitirá</Label>
+                  <div className="flex items-center space-x-2 pt-1">
+                    <span
+                      className="text-xs font-medium text-blue-700 cursor-pointer"
+                      onClick={() => handleFieldChange("tipoComprobante", "FACTURA")}
+                    >
+                      Factura
+                    </span>
+                    <Switch
+                      checked={formData.tipoComprobante === "RH"}
+                      onCheckedChange={(checked) => handleFieldChange("tipoComprobante", checked ? "RH" : "FACTURA")}
+                      className="data-[state=unchecked]:bg-blue-600 data-[state=checked]:bg-green-600"
+                    />
+                    <span
+                      className="text-xs font-medium text-green-700 cursor-pointer"
+                      onClick={() => handleFieldChange("tipoComprobante", "RH")}
+                    >
+                      RH
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Centro de Costos (oculto: movido a columnas de ítem) */}
@@ -887,7 +1050,7 @@ export function OrdenEditDialog({
               Cancelar
             </Button>
             <Button className="px-6 h-9 bg-orange-500 hover:bg-orange-600" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? "Guardando..." : "Guardar"}
+              {isSaving ? "Guardando..." : esNueva ? "Crear y agregar" : "Guardar"}
             </Button>
           </div>
         </DialogContent>
@@ -897,8 +1060,8 @@ export function OrdenEditDialog({
       <LoginConfirmDialog
         open={isLoginOpen}
         onOpenChange={setIsLoginOpen}
-        titulo="Confirmar edición"
-        descripcion="Ingrese sus credenciales para guardar los cambios en la orden."
+        titulo={esNueva ? "Confirmar creación" : "Confirmar edición"}
+        descripcion={esNueva ? "Ingrese sus credenciales para crear la orden nueva." : "Ingrese sus credenciales para guardar los cambios en la orden."}
         onSuccess={executeSave}
       />
 
