@@ -92,6 +92,7 @@ import {
 } from "@/lib/connections";
 import { OrdenEditDialog } from "@/components/orden-edit-dialog";
 import { ConvertirMultifacturaDialog } from "@/components/convertir-multifactura-dialog";
+import { agruparOrdenes, GrupoMultifacturaItem } from "@/components/grupo-multifactura";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
 import { ProyectoSelect } from "@/components/proyecto-select";
 import { EtapaSelect } from "@/components/etapa-select";
@@ -1307,7 +1308,7 @@ function OrdenesCompraTab() {
     const timer = setTimeout(() => {
       setIsLoading(true);
       searchApi
-        .ordenesCompra(searchTerm, page, LIMIT)
+        .ordenesCompra(searchTerm, page, LIMIT, { agrupar: true })
         .then((result) => {
           setData(result.data);
           setTotal(result.total);
@@ -1321,7 +1322,7 @@ function OrdenesCompraTab() {
 
   const reloadData = async () => {
     try {
-      const result = await searchApi.ordenesCompra(searchTerm, page, LIMIT);
+      const result = await searchApi.ordenesCompra(searchTerm, page, LIMIT, { agrupar: true });
       setData(result.data);
       setTotal(result.total);
     } catch { /* ignore */ }
@@ -1356,6 +1357,8 @@ function OrdenesCompraTab() {
       form.append("file", uploadFile);
       if (uploadDialogType === "cotizacion") {
         await ordenesCompraApi.uploadCotizacion(uploadOrdenId, form);
+        // Multifactura: la cotización es una sola para el grupo (si no hay grupo, no hace nada)
+        await ordenesCompraApi.propagarCotizacion(uploadOrdenId).catch(() => {});
       } else {
         await ordenesCompraApi.uploadFactura(uploadOrdenId, form);
       }
@@ -1483,94 +1486,10 @@ function OrdenesCompraTab() {
   const activos = data.filter((i) => !i.deleted_at);
   const eliminados = data.filter((i) => i.deleted_at);
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2 flex-wrap">
-          <Badge variant="secondary">{activos.length} activas</Badge>
-          {eliminados.length > 0 && (
-            <Badge variant="outline" className="text-red-600 border-red-300">{eliminados.length} eliminadas</Badge>
-          )}
-          <Badge variant="outline" className="text-slate-500">{total} total</Badge>
-        </div>
-        <div className="relative w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            type="text"
-            placeholder="Buscar por número, proveedor, estado..."
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-            className="pl-10 bg-white"
-          />
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center items-center py-20">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
-        </div>
-      ) : data.length === 0 ? (
-        <div className="text-center py-12">
-          <ShoppingCart className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500">
-            {searchTerm ? "No se encontraron órdenes con ese criterio" : "No hay órdenes disponibles"}
-          </p>
-        </div>
-      ) : (
-        <Accordion type="single" collapsible className="space-y-2">
-          {data.map((item) => {
-            const isDeleted = !!item.deleted_at;
-            return (
-              <AccordionItem
-                key={item.id_orden_compra}
-                value={`oc-${item.id_orden_compra}`}
-                className={`border rounded-lg overflow-hidden transition-all ${
-                  isDeleted ? "border-l-4 border-red-500 bg-red-100 ring-1 ring-red-300" : "border-slate-200"
-                }`}
-              >
-                <AccordionTrigger className="hover:no-underline px-4 py-3 hover:bg-slate-50">
-                  <div className="flex items-center w-full gap-4 pr-4 flex-wrap">
-                    <div className="flex flex-col items-start min-w-[80px]">
-                      <span className="text-xs text-slate-500 font-medium">ID</span>
-                      <span className={`text-sm font-mono font-bold ${isDeleted ? "text-red-400 line-through" : "text-red-700"}`}>
-                        #{item.id_orden_compra}
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-start min-w-[140px]">
-                      <span className="text-xs text-slate-500 font-medium">N° Orden</span>
-                      <span className="text-sm font-mono font-bold">{item.numero_orden}</span>
-                    </div>
-                    <div className="flex flex-col items-start min-w-[100px]">
-                      <span className="text-xs text-slate-500 font-medium">Fecha</span>
-                      <span className="text-sm">{item.fecha_orden}</span>
-                    </div>
-                    <div className="flex flex-col items-start flex-1 min-w-[180px]">
-                      <span className="text-xs text-slate-500 font-medium">Proveedor</span>
-                      <span className="text-sm font-medium truncate max-w-full">
-                        {item.nombre_proveedor || <span className="text-slate-400 italic">-</span>}
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-start min-w-[80px]">
-                      <span className="text-xs text-slate-500 font-medium">Total</span>
-                      <span className="text-sm font-bold font-mono">
-                        {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-start min-w-[100px]">
-                      <span className="text-xs text-slate-500 font-medium">Estado</span>
-                      {isDeleted ? (
-                        <Badge className="bg-red-100 text-red-600 hover:bg-red-100">ELIMINADA</Badge>
-                      ) : (
-                        <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 text-xs">{item.estado}</Badge>
-                      )}
-                      {item.grupo_id && !isDeleted && (
-                        <Badge className="mt-1 bg-teal-100 text-teal-800 hover:bg-teal-100 text-xs">Multifactura</Badge>
-                      )}
-                    </div>
-                  </div>
-                </AccordionTrigger>
-
-                <AccordionContent className="px-4 pb-4">
+  // Detalle expandido de una orden (se usa sola o dentro de una tab de multifactura)
+  const renderDetalleOrdenCompra = (item: OrdenCompraData) => {
+    const isDeleted = !!item.deleted_at;
+    return (
                   <div className="space-y-3 pt-2">
                     {/* Fila 1: Información Financiera + Autorizaciones */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -1852,6 +1771,111 @@ function OrdenesCompraTab() {
                       )}
                     </div>
                   </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2 flex-wrap">
+          <Badge variant="secondary">{activos.length} activas</Badge>
+          {eliminados.length > 0 && (
+            <Badge variant="outline" className="text-red-600 border-red-300">{eliminados.length} eliminadas</Badge>
+          )}
+          <Badge variant="outline" className="text-slate-500">{total} total</Badge>
+        </div>
+        <div className="relative w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input
+            type="text"
+            placeholder="Buscar por número, proveedor, estado..."
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+            className="pl-10 bg-white"
+          />
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
+        </div>
+      ) : data.length === 0 ? (
+        <div className="text-center py-12">
+          <ShoppingCart className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500">
+            {searchTerm ? "No se encontraron órdenes con ese criterio" : "No hay órdenes disponibles"}
+          </p>
+        </div>
+      ) : (
+        <Accordion type="single" collapsible className="space-y-2">
+          {agruparOrdenes(data).map((grupo) => {
+            if (grupo.length > 1) {
+              return (
+                <GrupoMultifacturaItem
+                  key={`grupo-${grupo[0].grupo_id}`}
+                  grupo={grupo}
+                  tipo="compra"
+                  getId={(o) => o.id_orden_compra}
+                  renderDetalle={renderDetalleOrdenCompra}
+                  onSubirCotizacion={(id) => { setUploadOrdenId(id); setUploadDialogType("cotizacion"); }}
+                />
+              );
+            }
+            const item = grupo[0];
+            const isDeleted = !!item.deleted_at;
+            return (
+              <AccordionItem
+                key={item.id_orden_compra}
+                value={`oc-${item.id_orden_compra}`}
+                className={`border rounded-lg overflow-hidden transition-all ${
+                  isDeleted ? "border-l-4 border-red-500 bg-red-100 ring-1 ring-red-300" : "border-slate-200"
+                }`}
+              >
+                <AccordionTrigger className="hover:no-underline px-4 py-3 hover:bg-slate-50">
+                  <div className="flex items-center w-full gap-4 pr-4 flex-wrap">
+                    <div className="flex flex-col items-start min-w-[80px]">
+                      <span className="text-xs text-slate-500 font-medium">ID</span>
+                      <span className={`text-sm font-mono font-bold ${isDeleted ? "text-red-400 line-through" : "text-red-700"}`}>
+                        #{item.id_orden_compra}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[140px]">
+                      <span className="text-xs text-slate-500 font-medium">N° Orden</span>
+                      <span className="text-sm font-mono font-bold">{item.numero_orden}</span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[100px]">
+                      <span className="text-xs text-slate-500 font-medium">Fecha</span>
+                      <span className="text-sm">{item.fecha_orden}</span>
+                    </div>
+                    <div className="flex flex-col items-start flex-1 min-w-[180px]">
+                      <span className="text-xs text-slate-500 font-medium">Proveedor</span>
+                      <span className="text-sm font-medium truncate max-w-full">
+                        {item.nombre_proveedor || <span className="text-slate-400 italic">-</span>}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[80px]">
+                      <span className="text-xs text-slate-500 font-medium">Total</span>
+                      <span className="text-sm font-bold font-mono">
+                        {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[100px]">
+                      <span className="text-xs text-slate-500 font-medium">Estado</span>
+                      {isDeleted ? (
+                        <Badge className="bg-red-100 text-red-600 hover:bg-red-100">ELIMINADA</Badge>
+                      ) : (
+                        <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 text-xs">{item.estado}</Badge>
+                      )}
+                      {item.grupo_id && !isDeleted && (
+                        <Badge className="mt-1 bg-teal-100 text-teal-800 hover:bg-teal-100 text-xs">Multifactura</Badge>
+                      )}
+                    </div>
+                  </div>
+                </AccordionTrigger>
+
+                <AccordionContent className="px-4 pb-4">
+                  {renderDetalleOrdenCompra(item)}
                 </AccordionContent>
               </AccordionItem>
             );
@@ -2023,7 +2047,7 @@ function OrdenesServicioTab() {
     const timer = setTimeout(() => {
       setIsLoading(true);
       searchApi
-        .ordenesServicio(searchTerm, page, LIMIT)
+        .ordenesServicio(searchTerm, page, LIMIT, { agrupar: true })
         .then((result) => {
           setData(result.data);
           setTotal(result.total);
@@ -2037,7 +2061,7 @@ function OrdenesServicioTab() {
 
   const reloadData = async () => {
     try {
-      const result = await searchApi.ordenesServicio(searchTerm, page, LIMIT);
+      const result = await searchApi.ordenesServicio(searchTerm, page, LIMIT, { agrupar: true });
       setData(result.data);
       setTotal(result.total);
     } catch { /* ignore */ }
@@ -2072,6 +2096,8 @@ function OrdenesServicioTab() {
       form.append("file", uploadFile);
       if (uploadDialogType === "cotizacion") {
         await ordenesServicioApi.uploadCotizacion(uploadOrdenId, form);
+        // Multifactura: la cotización es una sola para el grupo (si no hay grupo, no hace nada)
+        await ordenesServicioApi.propagarCotizacion(uploadOrdenId).catch(() => {});
       } else {
         await ordenesServicioApi.uploadFactura(uploadOrdenId, form);
       }
@@ -2199,96 +2225,10 @@ function OrdenesServicioTab() {
   const activos = data.filter((i) => !i.deleted_at);
   const eliminados = data.filter((i) => i.deleted_at);
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2 flex-wrap">
-          <Badge variant="secondary">{activos.length} activas</Badge>
-          {eliminados.length > 0 && (
-            <Badge variant="outline" className="text-red-600 border-red-300">{eliminados.length} eliminadas</Badge>
-          )}
-          <Badge variant="outline" className="text-slate-500">{total} total</Badge>
-        </div>
-        <div className="relative w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            type="text"
-            placeholder="Buscar por número, proveedor, estado..."
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-            className="pl-10 bg-white"
-          />
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center items-center py-20">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
-        </div>
-      ) : data.length === 0 ? (
-        <div className="text-center py-12">
-          <Wrench className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500">
-            {searchTerm ? "No se encontraron órdenes con ese criterio" : "No hay órdenes disponibles"}
-          </p>
-        </div>
-      ) : (
-        <Accordion type="single" collapsible className="space-y-2">
-          {data.map((item) => {
-            const isDeleted = !!item.deleted_at;
-            return (
-              <AccordionItem
-                key={item.id_orden_servicio}
-                value={`os-${item.id_orden_servicio}`}
-                className={`border rounded-lg overflow-hidden transition-all ${
-                  isDeleted ? "border-l-4 border-red-500 bg-red-100 ring-1 ring-red-300" : "border-slate-200"
-                }`}
-              >
-                <AccordionTrigger className="hover:no-underline px-4 py-3 hover:bg-slate-50">
-                  <div className="flex items-center w-full gap-4 pr-4 flex-wrap">
-                    <div className="flex flex-col items-start min-w-[80px]">
-                      <span className="text-xs text-slate-500 font-medium">ID</span>
-                      <span className={`text-sm font-mono font-bold ${isDeleted ? "text-red-400 line-through" : "text-red-700"}`}>
-                        #{item.id_orden_servicio}
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-start min-w-[140px]">
-                      <span className="text-xs text-slate-500 font-medium">N° Orden</span>
-                      <span className="text-sm font-mono font-bold">{item.numero_orden}</span>
-                    </div>
-                    <div className="flex flex-col items-start min-w-[100px]">
-                      <span className="text-xs text-slate-500 font-medium">Fecha</span>
-                      <span className="text-sm">{item.fecha_orden}</span>
-                    </div>
-                    <div className="flex flex-col items-start flex-1 min-w-[180px]">
-                      <span className="text-xs text-slate-500 font-medium">Proveedor</span>
-                      <span className="text-sm font-medium truncate max-w-full">
-                        {item.nombre_proveedor || <span className="text-slate-400 italic">-</span>}
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-start min-w-[80px]">
-                      <span className="text-xs text-slate-500 font-medium">Total</span>
-                      <span className="text-sm font-bold font-mono">
-                        {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-start min-w-[100px]">
-                      <span className="text-xs text-slate-500 font-medium">Estado</span>
-                      {isDeleted ? (
-                        <Badge className="bg-red-100 text-red-600 hover:bg-red-100">ELIMINADA</Badge>
-                      ) : (
-                        <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 text-xs">
-                          {item.estado}
-                        </Badge>
-                      )}
-                      {item.grupo_id && !isDeleted && (
-                        <Badge className="mt-1 bg-teal-100 text-teal-800 hover:bg-teal-100 text-xs">Multifactura</Badge>
-                      )}
-                    </div>
-                  </div>
-                </AccordionTrigger>
-
-                <AccordionContent className="px-4 pb-4">
+  // Detalle expandido de una orden (se usa sola o dentro de una tab de multifactura)
+  const renderDetalleOrdenServicio = (item: OrdenServicioData) => {
+    const isDeleted = !!item.deleted_at;
+    return (
                   <div className="space-y-3 pt-2">
                     {/* Fila 1: Información Financiera + Autorizaciones */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -2570,6 +2510,113 @@ function OrdenesServicioTab() {
                       )}
                     </div>
                   </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2 flex-wrap">
+          <Badge variant="secondary">{activos.length} activas</Badge>
+          {eliminados.length > 0 && (
+            <Badge variant="outline" className="text-red-600 border-red-300">{eliminados.length} eliminadas</Badge>
+          )}
+          <Badge variant="outline" className="text-slate-500">{total} total</Badge>
+        </div>
+        <div className="relative w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input
+            type="text"
+            placeholder="Buscar por número, proveedor, estado..."
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+            className="pl-10 bg-white"
+          />
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
+        </div>
+      ) : data.length === 0 ? (
+        <div className="text-center py-12">
+          <Wrench className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500">
+            {searchTerm ? "No se encontraron órdenes con ese criterio" : "No hay órdenes disponibles"}
+          </p>
+        </div>
+      ) : (
+        <Accordion type="single" collapsible className="space-y-2">
+          {agruparOrdenes(data).map((grupo) => {
+            if (grupo.length > 1) {
+              return (
+                <GrupoMultifacturaItem
+                  key={`grupo-${grupo[0].grupo_id}`}
+                  grupo={grupo}
+                  tipo="servicio"
+                  getId={(o) => o.id_orden_servicio}
+                  renderDetalle={renderDetalleOrdenServicio}
+                  onSubirCotizacion={(id) => { setUploadOrdenId(id); setUploadDialogType("cotizacion"); }}
+                />
+              );
+            }
+            const item = grupo[0];
+            const isDeleted = !!item.deleted_at;
+            return (
+              <AccordionItem
+                key={item.id_orden_servicio}
+                value={`os-${item.id_orden_servicio}`}
+                className={`border rounded-lg overflow-hidden transition-all ${
+                  isDeleted ? "border-l-4 border-red-500 bg-red-100 ring-1 ring-red-300" : "border-slate-200"
+                }`}
+              >
+                <AccordionTrigger className="hover:no-underline px-4 py-3 hover:bg-slate-50">
+                  <div className="flex items-center w-full gap-4 pr-4 flex-wrap">
+                    <div className="flex flex-col items-start min-w-[80px]">
+                      <span className="text-xs text-slate-500 font-medium">ID</span>
+                      <span className={`text-sm font-mono font-bold ${isDeleted ? "text-red-400 line-through" : "text-red-700"}`}>
+                        #{item.id_orden_servicio}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[140px]">
+                      <span className="text-xs text-slate-500 font-medium">N° Orden</span>
+                      <span className="text-sm font-mono font-bold">{item.numero_orden}</span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[100px]">
+                      <span className="text-xs text-slate-500 font-medium">Fecha</span>
+                      <span className="text-sm">{item.fecha_orden}</span>
+                    </div>
+                    <div className="flex flex-col items-start flex-1 min-w-[180px]">
+                      <span className="text-xs text-slate-500 font-medium">Proveedor</span>
+                      <span className="text-sm font-medium truncate max-w-full">
+                        {item.nombre_proveedor || <span className="text-slate-400 italic">-</span>}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[80px]">
+                      <span className="text-xs text-slate-500 font-medium">Total</span>
+                      <span className="text-sm font-bold font-mono">
+                        {item.moneda === "DOLARES" ? "$" : "S/"} {Number(item.total).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-start min-w-[100px]">
+                      <span className="text-xs text-slate-500 font-medium">Estado</span>
+                      {isDeleted ? (
+                        <Badge className="bg-red-100 text-red-600 hover:bg-red-100">ELIMINADA</Badge>
+                      ) : (
+                        <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 text-xs">
+                          {item.estado}
+                        </Badge>
+                      )}
+                      {item.grupo_id && !isDeleted && (
+                        <Badge className="mt-1 bg-teal-100 text-teal-800 hover:bg-teal-100 text-xs">Multifactura</Badge>
+                      )}
+                    </div>
+                  </div>
+                </AccordionTrigger>
+
+                <AccordionContent className="px-4 pb-4">
+                  {renderDetalleOrdenServicio(item)}
                 </AccordionContent>
               </AccordionItem>
             );
