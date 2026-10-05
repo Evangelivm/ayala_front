@@ -1819,6 +1819,7 @@ function OrdenesCompraTab() {
                   getId={(o) => o.id_orden_compra}
                   renderDetalle={renderDetalleOrdenCompra}
                   onSubirCotizacion={(id) => { setUploadOrdenId(id); setUploadDialogType("cotizacion"); }}
+                  onAgregarOrden={(o) => { setConvertirOrden(o); setIsNuevaEnGrupoOpen(true); }}
                 />
               );
             }
@@ -2558,6 +2559,7 @@ function OrdenesServicioTab() {
                   getId={(o) => o.id_orden_servicio}
                   renderDetalle={renderDetalleOrdenServicio}
                   onSubirCotizacion={(id) => { setUploadOrdenId(id); setUploadDialogType("cotizacion"); }}
+                  onAgregarOrden={(o) => { setConvertirOrden(o); setIsNuevaEnGrupoOpen(true); }}
                 />
               );
             }

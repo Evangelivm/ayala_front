@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ExternalLink, Upload } from "lucide-react";
+import { ExternalLink, Plus, Upload } from "lucide-react";
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +50,8 @@ interface GrupoMultifacturaItemProps<T extends OrdenGrupable> {
   renderDetalle: (orden: T) => ReactNode;
   // Sube la cotización compartida (se sube a una orden y el sistema la copia al resto)
   onSubirCotizacion: (ordenId: number) => void;
+  // Crear una orden nueva dentro de este grupo (recibe una orden del grupo como base)
+  onAgregarOrden: (orden: T) => void;
 }
 
 // Fila del listado para un grupo de multifactura: un solo desplegable con una
@@ -60,6 +62,7 @@ export function GrupoMultifacturaItem<T extends OrdenGrupable>({
   getId,
   renderDetalle,
   onSubirCotizacion,
+  onAgregarOrden,
 }: GrupoMultifacturaItemProps<T>) {
   const grupoId = grupo[0].grupo_id as string;
   const colorNumero = tipo === "compra" ? "text-red-700" : "text-green-700";
@@ -148,9 +151,18 @@ export function GrupoMultifacturaItem<T extends OrdenGrupable>({
             )}
             <Button
               size="sm"
+              variant="outline"
+              onClick={() => onAgregarOrden(grupo[0])}
+              className="ml-auto border-teal-400 text-teal-700 hover:bg-teal-50 flex items-center gap-1"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Agregar orden nueva
+            </Button>
+            <Button
+              size="sm"
               onClick={() => primeraId && onSubirCotizacion(primeraId)}
               disabled={!primeraId}
-              className="ml-auto bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1"
+              className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1"
             >
               <Upload className="h-3.5 w-3.5" />
               {urlCotizacion ? "Reemplazar cotización" : "Subir cotización"}

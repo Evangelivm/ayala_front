@@ -158,6 +158,9 @@ export function OrdenEditDialog({
   const [formData, setFormData] = useState({ ...emptyFormData });
   // Reserva del número de la orden nueva (solo modo "nueva-en-grupo")
   const reservaRef = useRef<{ owner: string; tipo: "compra" | "servicio" } | null>(null);
+  // "Guardar y agregar otra": tras guardar, el formulario queda listo para otra orden nueva
+  const seguirAgregandoRef = useRef(false);
+  const [agregadas, setAgregadas] = useState<string[]>([]); // números creados en esta sesión
   const [isSaving, setIsSaving] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
 
@@ -273,6 +276,7 @@ export function OrdenEditDialog({
     const reserva = { owner: generarClaveReserva(), tipo };
     reservaRef.current = reserva;
     setFormData({ ...emptyFormData, fechaEmision: new Date(), fechaServicio: new Date() });
+    setAgregadas([]);
     numeracionOrdenApi
       .reservar(reserva.tipo, reserva.owner)
       .then((n) => {
@@ -529,6 +533,26 @@ export function OrdenEditDialog({
             duration: 10000,
           });
         }
+        setAgregadas((prev) => [...prev, resultado.numero_orden]);
+
+        // "Guardar y agregar otra": se limpia el formulario con un número nuevo
+        // reservado y el dialog sigue abierto. Las órdenes siguientes entran al
+        // mismo grupo porque la orden base ya pertenece a él.
+        if (seguirAgregandoRef.current) {
+          onSaved?.();
+          setFormData({ ...emptyFormData, fechaEmision: new Date(), fechaServicio: new Date() });
+          try {
+            const siguiente = await numeracionOrdenApi.reservar(tipo, owner);
+            setFormData((prev) => ({ ...prev, serie: siguiente.serie, nroDoc: siguiente.nroDoc }));
+          } catch (errorReserva) {
+            console.error("Error reservando el número de la siguiente orden:", errorReserva);
+            toast.error("No se pudo reservar el número de la siguiente orden", {
+              description: "Cierre el formulario y ábralo de nuevo para agregar otra.",
+            });
+            onOpenChange(false);
+          }
+          return;
+        }
       } else {
         toast.loading(`Actualizando orden de ${tipoTexto}...`);
         await api.update(ordenId, payload as OrdenCompraData & OrdenServicioData);
@@ -585,7 +609,7 @@ export function OrdenEditDialog({
             </DialogTitle>
             <DialogDescription>
               {esNueva
-                ? `Se creará junto a la orden ${orden?.numero_orden ?? ""} y ambas quedarán en la misma multifactura`
+                ? `Se creará junto a la orden ${orden?.numero_orden ?? ""} y quedarán en la misma multifactura. Puede agregar varias órdenes nuevas.`
                 : `Edite los datos de la orden de ${tipo === "compra" ? "compra" : "servicio"}`}
             </DialogDescription>
           </DialogHeader>
@@ -598,6 +622,12 @@ export function OrdenEditDialog({
               <span className="font-mono">
                 {orden.moneda === "DOLARES" ? "$" : "S/"} {Number(orden.total).toFixed(2)}
               </span>
+              {agregadas.length > 0 && (
+                <span className="font-semibold text-teal-800">
+                  Agregadas ahora ({agregadas.length}):{" "}
+                  <span className="font-mono font-bold">{agregadas.join(", ")}</span>
+                </span>
+              )}
             </div>
           )}
 
@@ -1049,8 +1079,22 @@ export function OrdenEditDialog({
             <Button variant="outline" className="px-6 h-9" onClick={() => onOpenChange(false)} disabled={isSaving}>
               Cancelar
             </Button>
-            <Button className="px-6 h-9 bg-orange-500 hover:bg-orange-600" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? "Guardando..." : esNueva ? "Crear y agregar" : "Guardar"}
+            {esNueva && (
+              <Button
+                variant="outline"
+                className="px-6 h-9 border-teal-400 text-teal-700 hover:bg-teal-50"
+                onClick={() => { seguirAgregandoRef.current = true; handleSave(); }}
+                disabled={isSaving}
+              >
+                Guardar y agregar otra
+              </Button>
+            )}
+            <Button
+              className="px-6 h-9 bg-orange-500 hover:bg-orange-600"
+              onClick={() => { seguirAgregandoRef.current = false; handleSave(); }}
+              disabled={isSaving}
+            >
+              {isSaving ? "Guardando..." : esNueva ? "Guardar y cerrar" : "Guardar"}
             </Button>
           </div>
         </DialogContent>
