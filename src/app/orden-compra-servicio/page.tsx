@@ -73,6 +73,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWebSocket } from "@/lib/useWebSocket";
+import { BorradoresBar, useHidratarBorradores } from "@/components/borradores-bar";
+import { useBorradoresStore } from "@/stores/borradores-store";
 
 // Helper para parsear fechas DATE del backend sin conversión de zona horaria
 const parseDateSafe = (dateString: string): Date => {
@@ -172,6 +174,25 @@ const ordenVacia = () => ({
   observacion: "",
 });
 type NuevaOrdenForm = ReturnType<typeof ordenVacia>;
+
+// Lo que se guarda en IndexedDB de un formulario a medio llenar
+type DatosBorradorOrden = {
+  tipoOrden: "compra" | "servicio";
+  ordenEditandoId: number | null;
+  form: NuevaOrdenForm;
+  modoMulti: boolean;
+  tabsOrden: NuevaOrdenForm[];
+  tabActiva: number;
+  // Al editar: formulario tal como se cargó (para saber si hubo cambios)
+  baseline: string | null;
+};
+const AMBITO_BORRADORES = "ordenes";
+const formTieneDatos = (t: NuevaOrdenForm) =>
+  t.id_proveedor > 0 ||
+  t.items.length > 0 ||
+  t.observacion.trim() !== "" ||
+  t.centroCostoNivel1Codigo !== "" ||
+  t.unidad_id > 0;
 
 // Clave aleatoria para identificar las reservas de un dialog. crypto.randomUUID
 // solo existe en contextos seguros (HTTPS/localhost); si la página se abre por
@@ -1463,7 +1484,161 @@ export default function OrdenCompraPage() {
     }
   };
 
+  // ── Borradores (IndexedDB): formularios a medio llenar ──────────────────────
+  // El dialog sigue siendo uno solo; cada borrador es una copia de su estado.
+  // Cerrar con la X lo deja como burbuja abajo a la derecha; "Cancelar" lo
+  // descarta; guardar la orden lo elimina.
+  useHidratarBorradores();
+  const guardarBorrador = useBorradoresStore((s) => s.guardar);
+  const eliminarBorrador = useBorradoresStore((s) => s.eliminar);
+  const [borradorActivoId, setBorradorActivoId] = useState<string | null>(null);
+  const borradorActivoIdRef = useRef<string | null>(null);
+  const baselineEdicionRef = useRef<string | null>(null);
+  const modalAbiertoRef = useRef(false);
+  const tipoOrdenRef = useRef(tipoOrden);
+  const ordenEditandoIdRef = useRef(ordenEditandoId);
+  const modoMultiRef = useRef(modoMulti);
+  useEffect(() => {
+    modalAbiertoRef.current = isNuevaOrdenModalOpen;
+    tipoOrdenRef.current = tipoOrden;
+    ordenEditandoIdRef.current = ordenEditandoId;
+    modoMultiRef.current = modoMulti;
+  });
+
+  // Al editar, recordar cómo se cargó la orden para detectar cambios reales
+  useEffect(() => {
+    if (isNuevaOrdenModalOpen && ordenEditandoId !== null && !borradorActivoIdRef.current) {
+      baselineEdicionRef.current = JSON.stringify(nuevaOrdenDataRef.current);
+    }
+  }, [isNuevaOrdenModalOpen, ordenEditandoId]);
+
+  const hayCambiosSinGuardar = () => {
+    if (ordenEditandoIdRef.current !== null) {
+      return JSON.stringify(nuevaOrdenDataRef.current) !== baselineEdicionRef.current;
+    }
+    const forms = modoMultiRef.current ? tabsConActiva() : [nuevaOrdenDataRef.current];
+    return forms.some(formTieneDatos);
+  };
+
+  const quitarBorradorActivo = () => {
+    const id = borradorActivoIdRef.current;
+    if (id) eliminarBorrador(id);
+    borradorActivoIdRef.current = null;
+    setBorradorActivoId(null);
+  };
+
+  // Copia el estado vivo del dialog al borrador (lo crea la primera vez)
+  const sincronizarBorrador = () => {
+    if (!modalAbiertoRef.current) return;
+    if (!hayCambiosSinGuardar()) {
+      quitarBorradorActivo();
+      return;
+    }
+    let id = borradorActivoIdRef.current;
+    if (!id) {
+      id = generarClaveReserva();
+      borradorActivoIdRef.current = id;
+      setBorradorActivoId(id);
+    }
+    const esEdicion = ordenEditandoIdRef.current !== null;
+    const multi = modoMultiRef.current;
+    const tabs = multi ? tabsConActiva() : [];
+    const form = nuevaOrdenDataRef.current;
+    const datos: DatosBorradorOrden = {
+      tipoOrden: tipoOrdenRef.current,
+      ordenEditandoId: ordenEditandoIdRef.current,
+      form,
+      modoMulti: multi,
+      tabsOrden: tabs,
+      tabActiva: tabActivaRef.current,
+      baseline: baselineEdicionRef.current,
+    };
+    guardarBorrador({
+      id,
+      ambito: AMBITO_BORRADORES,
+      titulo: `${esEdicion ? "Editar" : "Nueva"} ${tipoOrdenRef.current === "compra" ? "OC" : "OS"}${
+        esEdicion ? ` ${form.serie}-${form.nroDoc}` : ""
+      }`,
+      subtitulo: multi ? `Multifactura · ${tabs.length} órdenes` : form.razonSocial || undefined,
+      datos,
+      actualizado: Date.now(),
+    });
+  };
+  const sincronizarBorradorRef = useRef(sincronizarBorrador);
+  useEffect(() => {
+    sincronizarBorradorRef.current = sincronizarBorrador;
+  });
+
+  // Autoguardado (con espera corta para no escribir en cada tecla)
+  useEffect(() => {
+    if (!isNuevaOrdenModalOpen) return;
+    const t = setTimeout(() => sincronizarBorradorRef.current(), 600);
+    return () => clearTimeout(t);
+  });
+
+  // Si se cierra o se oculta la pestaña, guardar sin esperar al autoguardado
+  useEffect(() => {
+    const guardar = () => sincronizarBorradorRef.current();
+    const alCambiarVisibilidad = () => {
+      if (document.visibilityState === "hidden") guardar();
+    };
+    window.addEventListener("pagehide", guardar);
+    document.addEventListener("visibilitychange", alCambiarVisibilidad);
+    return () => {
+      window.removeEventListener("pagehide", guardar);
+      document.removeEventListener("visibilitychange", alCambiarVisibilidad);
+    };
+  }, []);
+
+  const abrirBorrador = async (id: string) => {
+    const b = useBorradoresStore.getState().borradores[id];
+    if (!b || isNuevaOrdenModalOpen) return;
+    const d = b.datos as DatosBorradorOrden;
+    borradorActivoIdRef.current = id;
+    setBorradorActivoId(id);
+    baselineEdicionRef.current = d.baseline;
+    setTipoOrden(d.tipoOrden);
+    setOrdenEditandoId(d.ordenEditandoId);
+    setNuevaOrdenData(d.form);
+    setModoMulti(d.modoMulti);
+    setTabsOrden(d.tabsOrden);
+    setTabActiva(d.tabActiva);
+
+    // Los números de una orden nueva se liberaron al minimizar: se vuelven a
+    // reservar con un propietario nuevo (el servidor devuelve el mismo número o,
+    // si ya lo tomaron, uno nuevo)
+    let numeros: string[] = [];
+    if (d.ordenEditandoId === null) {
+      const formularios = d.modoMulti
+        ? d.tabsOrden.map((t, i) => (i === d.tabActiva ? d.form : t))
+        : [d.form];
+      numeros = formularios.filter((t) => t.nroDoc).map((t) => `${t.serie}-${t.nroDoc}`);
+      if (numeros.length > 0) {
+        reservaRef.current = { owner: generarClaveReserva(), tipo: d.tipoOrden };
+      }
+    }
+    setIsNuevaOrdenModalOpen(true);
+
+    const reserva = reservaRef.current;
+    if (reserva && numeros.length > 0) {
+      try {
+        const res = await numeracionOrdenApi.renovar(reserva.tipo, reserva.owner, numeros);
+        const cambios = res.filter((r) => r.cambiado);
+        if (cambios.length > 0) aplicarCambiosNumero(cambios);
+      } catch {
+        // Sin red: el latido de 60 s lo reintenta
+      }
+    }
+  };
+
+  const descartarBorrador = (id: string) => {
+    if (!window.confirm("¿Descartar este borrador? Se perderán los datos ingresados.")) return;
+    eliminarBorrador(id);
+  };
+
   const limpiarFormularioOrden = () => {
+    borradorActivoIdRef.current = null;
+    setBorradorActivoId(null);
     setNuevaOrdenData(ordenVacia());
     setModoMulti(false);
     setTabsOrden([]);
@@ -1472,6 +1647,7 @@ export default function OrdenCompraPage() {
   };
 
   const handleNuevaOrdenCancel = () => {
+    quitarBorradorActivo();
     limpiarFormularioOrden();
     setIsNuevaOrdenModalOpen(false);
     setIsSavingOrden(false); // Resetear el estado de guardando al cancelar
@@ -2370,47 +2546,6 @@ export default function OrdenCompraPage() {
                                       )}
                                     </div>
                                   )}
-
-                                  {/* Botón Multifacturas (no aplica a órdenes de un grupo de multifactura) */}
-                                  <div className={`mt-2 ${orden.grupo_id ? "hidden" : ""}`}>
-                                    <Button
-                                      size="sm"
-                                      disabled={orden.tipo_comprobante === "RH"}
-                                      title={orden.tipo_comprobante === "RH" ? "No disponible para Recibo por Honorarios" : undefined}
-                                      onClick={async () => {
-                                        const ordenId = orden.id_orden_compra || null;
-                                        setMultifacturasOrdenId(ordenId);
-                                        setMultifacturasOrdenTipo("compra");
-                                        setIsMultifacturasOpen(true);
-                                        if (ordenId) {
-                                          setMultifacturasLoading(true);
-                                          try {
-                                            const data = await ordenesCompraApi.getMultifacturas(ordenId);
-                                            if (data && data.length > 0) {
-                                              setMultifacturasRows(data.map((d: MultifacturaDetalle) => ({
-                                                id_detalle: d.id_detalle,
-                                                nro_serie: d.nro_serie || "",
-                                                nro_factura: d.nro_factura || "",
-                                                galones: d.galones || "",
-                                                proyecto: d.proyecto || "",
-                                                url_factura: d.url_factura,
-                                                url_guia: d.url_guia,
-                                              })));
-                                            } else {
-                                              setMultifacturasRows([{ nro_serie: "", nro_factura: "", galones: "", proyecto: "" }]);
-                                            }
-                                          } catch {
-                                            setMultifacturasRows([{ nro_serie: "", nro_factura: "", galones: "", proyecto: "" }]);
-                                          } finally {
-                                            setMultifacturasLoading(false);
-                                          }
-                                        }
-                                      }}
-                                      className="h-8 px-3 text-xs bg-teal-600 hover:bg-teal-700 text-white"
-                                    >
-                                      Multifacturas
-                                    </Button>
-                                  </div>
                                 </div>
                               </div>
 
@@ -2846,47 +2981,6 @@ export default function OrdenCompraPage() {
                                       )}
                                     </div>
                                   )}
-
-                                  {/* Botón Multifacturas (no aplica a órdenes de un grupo de multifactura) */}
-                                  <div className={`mt-2 ${orden.grupo_id ? "hidden" : ""}`}>
-                                    <Button
-                                      size="sm"
-                                      disabled={orden.tipo_comprobante === "RH"}
-                                      title={orden.tipo_comprobante === "RH" ? "No disponible para Recibo por Honorarios" : undefined}
-                                      onClick={async () => {
-                                        const ordenId = orden.id_orden_servicio || null;
-                                        setMultifacturasOrdenId(ordenId);
-                                        setMultifacturasOrdenTipo("servicio");
-                                        setIsMultifacturasOpen(true);
-                                        if (ordenId) {
-                                          setMultifacturasLoading(true);
-                                          try {
-                                            const data = await ordenesServicioApi.getMultifacturas(ordenId);
-                                            if (data && data.length > 0) {
-                                              setMultifacturasRows(data.map((d: MultifacturaDetalle) => ({
-                                                id_detalle: d.id_detalle,
-                                                nro_serie: d.nro_serie || "",
-                                                nro_factura: d.nro_factura || "",
-                                                galones: d.galones || "",
-                                                proyecto: d.proyecto || "",
-                                                url_factura: d.url_factura,
-                                                url_guia: d.url_guia,
-                                              })));
-                                            } else {
-                                              setMultifacturasRows([{ nro_serie: "", nro_factura: "", galones: "", proyecto: "" }]);
-                                            }
-                                          } catch {
-                                            setMultifacturasRows([{ nro_serie: "", nro_factura: "", proyecto: "", galones: "" }]);
-                                          } finally {
-                                            setMultifacturasLoading(false);
-                                          }
-                                        }
-                                      }}
-                                      className="h-8 px-3 text-xs bg-teal-600 hover:bg-teal-700 text-white"
-                                    >
-                                      Multifacturas
-                                    </Button>
-                                  </div>
                                 </div>
                               </div>
 
@@ -3960,12 +4054,23 @@ export default function OrdenCompraPage() {
                 </DialogContent>
               </Dialog>
 
+              <BorradoresBar
+                ambito={AMBITO_BORRADORES}
+                activoId={borradorActivoId}
+                onAbrir={abrirBorrador}
+                onDescartar={descartarBorrador}
+              />
+
               {/* Modal Nueva Orden */}
               <Dialog
                 open={isNuevaOrdenModalOpen}
                 onOpenChange={(open) => {
-                  // Cerrar por fuera (Esc / clic fuera) también sale de multifactura
+                  // Cerrar con la X / Esc / clic fuera: el formulario queda como
+                  // borrador (burbuja abajo a la derecha) y también sale de multifactura
                   if (!open) {
+                    sincronizarBorrador();
+                    borradorActivoIdRef.current = null;
+                    setBorradorActivoId(null);
                     setModoMulti(false);
                     setTabsOrden([]);
                     setTabActiva(0);
@@ -5156,7 +5261,17 @@ export default function OrdenCompraPage() {
                     <Button
                       variant="outline"
                       className="px-6 h-9"
-                      onClick={handleNuevaOrdenCancel}
+                      onClick={() => {
+                        if (
+                          hayCambiosSinGuardar() &&
+                          !window.confirm(
+                            "Se perderán los datos ingresados. Para continuar después, cierre con la X y quedará como borrador."
+                          )
+                        ) {
+                          return;
+                        }
+                        handleNuevaOrdenCancel();
+                      }}
                       disabled={isSavingOrden}
                     >
                       Cancelar

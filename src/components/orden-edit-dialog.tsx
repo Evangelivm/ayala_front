@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useBorradorFormulario, type DatosBorradorEdicion } from "@/hooks/use-borrador-formulario";
+import { AMBITO_PROGRAMACION_ADMIN, type Borrador } from "@/stores/borradores-store";
 import { toast } from "sonner";
 import {
   proveedoresApi,
@@ -85,6 +87,8 @@ interface OrdenEditDialogProps {
   // "editar" (por defecto): edita `orden`. "nueva-en-grupo": crea una orden NUEVA
   // junto a `orden` (que pasa a formar parte de una multifactura con ella).
   modo?: "editar" | "nueva-en-grupo";
+  // Borrador desde el que se abrió el diálogo (si viene de una burbuja)
+  borrador?: Borrador | null;
 }
 
 // Clave aleatoria para identificar la reserva de número de este dialog.
@@ -153,9 +157,32 @@ export function OrdenEditDialog({
   onOpenChange,
   onSaved,
   modo = "editar",
+  borrador,
 }: OrdenEditDialogProps) {
   const esNueva = modo === "nueva-en-grupo";
   const [formData, setFormData] = useState({ ...emptyFormData });
+
+  // Borrador (IndexedDB): solo al editar una orden existente
+  const ordenIdActual = orden
+    ? tipo === "compra"
+      ? (orden as OrdenCompraData).id_orden_compra
+      : (orden as OrdenServicioData).id_orden_servicio
+    : null;
+  const borradorFormulario = useBorradorFormulario<typeof emptyFormData>({
+    open: open && !esNueva,
+    ambito: AMBITO_PROGRAMACION_ADMIN,
+    clave: !esNueva && ordenIdActual ? `${tipo}:${ordenIdActual}` : null,
+    titulo: `Editar ${tipo === "compra" ? "OC" : "OS"} ${orden?.numero_orden ?? ""}`.trim(),
+    subtitulo: formData.razonSocial || undefined,
+    valores: formData,
+    registro: orden,
+    extra: { tab: tipo },
+  });
+  // Evita que al terminar de cargar los camiones se pise lo restaurado del borrador
+  const borradorAplicadoRef = useRef(false);
+  useEffect(() => {
+    if (!open) borradorAplicadoRef.current = false;
+  }, [open]);
   // Reserva del número de la orden nueva (solo modo "nueva-en-grupo")
   const reservaRef = useRef<{ owner: string; tipo: "compra" | "servicio" } | null>(null);
   // "Guardar y agregar otra": tras guardar, el formulario queda listo para otra orden nueva
@@ -204,13 +231,22 @@ export function OrdenEditDialog({
   // Poblar formulario cuando cambia la orden
   useEffect(() => {
     if (!open || !orden || esNueva) return;
+    if (borrador) {
+      if (!borradorAplicadoRef.current) {
+        const d = borrador.datos as DatosBorradorEdicion<typeof emptyFormData>;
+        borradorAplicadoRef.current = true;
+        setFormData(d.valores);
+        borradorFormulario.fijarBaseline(d.baseline);
+      }
+      return;
+    }
     const [serie, nroDoc] = orden.numero_orden.split("-");
     const camion = camiones.find((c) => c.id_camion === orden.unidad_id);
 
     const isCompra = tipo === "compra";
     const o = orden as OrdenCompraData & OrdenServicioData;
 
-    setFormData({
+    const formCargado: typeof emptyFormData = {
       id_proveedor: o.id_proveedor,
       nroCliente: o.ruc_proveedor || "",
       razonSocial: o.nombre_proveedor || "",
@@ -257,7 +293,9 @@ export function OrdenEditDialog({
       total: Number(o.total) || 0,
       netoAPagar: Number(o.total) || 0,
       observacion: o.observaciones || "",
-    });
+    };
+    borradorFormulario.fijarBaseline(formCargado);
+    setFormData(formCargado);
   }, [open, orden, camiones, tipo, esNueva]);
 
   // ── Orden nueva: reservar su número en el servidor y mantenerlo vigente ──────
@@ -561,6 +599,7 @@ export function OrdenEditDialog({
           description: `Número: ${numero_orden}`,
         });
       }
+      borradorFormulario.descartar();
       onSaved?.();
       onOpenChange(false);
     } catch (error) {
@@ -591,6 +630,25 @@ export function OrdenEditDialog({
       i.codigo?.toLowerCase().includes(itemSearchQuery.toLowerCase())
   );
 
+  // Cerrar con la X / Esc / clic fuera deja el formulario como borrador;
+  // "Cancelar" descarta los cambios
+  const handleOpenChange = (v: boolean) => {
+    if (!v) borradorFormulario.minimizar();
+    onOpenChange(v);
+  };
+  const handleCancelar = () => {
+    if (
+      borradorFormulario.hayCambios() &&
+      !window.confirm(
+        "Se perderán los cambios. Para continuar después, cierre con la X y quedará como borrador."
+      )
+    ) {
+      return;
+    }
+    borradorFormulario.descartar();
+    onOpenChange(false);
+  };
+
   const ordenId = orden
     ? tipo === "compra"
       ? (orden as OrdenCompraData).id_orden_compra
@@ -599,7 +657,7 @@ export function OrdenEditDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-[95vw] max-h-[90vh] w-full overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -1076,7 +1134,7 @@ export function OrdenEditDialog({
           </div>
 
           <div className="flex justify-end gap-4 px-4 pb-3 border-t pt-3">
-            <Button variant="outline" className="px-6 h-9" onClick={() => onOpenChange(false)} disabled={isSaving}>
+            <Button variant="outline" className="px-6 h-9" onClick={handleCancelar} disabled={isSaving}>
               Cancelar
             </Button>
             {esNueva && (

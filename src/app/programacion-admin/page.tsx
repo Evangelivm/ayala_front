@@ -91,6 +91,9 @@ import {
   type MultifacturaDetalle,
 } from "@/lib/connections";
 import { OrdenEditDialog } from "@/components/orden-edit-dialog";
+import { BorradoresBar, useHidratarBorradores } from "@/components/borradores-bar";
+import { useBorradorFormulario, type DatosBorradorEdicion } from "@/hooks/use-borrador-formulario";
+import { AMBITO_PROGRAMACION_ADMIN, useBorradoresStore, type Borrador } from "@/stores/borradores-store";
 import { ConvertirMultifacturaDialog } from "@/components/convertir-multifactura-dialog";
 import { agruparOrdenes, GrupoMultifacturaItem } from "@/components/grupo-multifactura";
 import { formatDatePeru, formatTimePeru } from "@/lib/date-utils";
@@ -220,16 +223,70 @@ function BackendLogPanel({
 
 const ESTADOS_PROGRAMACION = ["OK", "NO EJECUTADO", "PENDIENTE", "EN PROCESO"];
 
+// Props que la página pasa a cada pestaña para abrir un borrador (burbuja)
+type TabBorradorProps = {
+  borradorPendiente: string | null;
+  onBorradorAbierto: () => void;
+};
+
+// Cuando la página pide abrir un borrador, la pestaña correspondiente abre el
+// diálogo de ese registro con los datos guardados
+function useAbrirDesdeBorrador<R>(
+  pendiente: string | null,
+  onAbierto: () => void,
+  abrir: (registro: R, borrador: Borrador) => void
+) {
+  const abrirRef = useRef(abrir);
+  useEffect(() => {
+    abrirRef.current = abrir;
+  });
+  useEffect(() => {
+    if (!pendiente) return;
+    const b = useBorradoresStore.getState().borradores[pendiente];
+    onAbierto();
+    if (b) abrirRef.current((b.datos as DatosBorradorEdicion<unknown, R>).registro, b);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendiente]);
+}
+
+// Valores editables del formulario de programación técnica
+type ValoresPT = {
+  fecha: string;
+  horaPartida: string;
+  horaPartidaModified: boolean;
+  estadoProgramacion: string;
+  programacion: string;
+  m3: string;
+  cantidadViaje: string;
+  comentarios: string;
+  selectedCamionId: number | null;
+  selectedEmpresaCodigo: string | null;
+  selectionType: "proyecto" | "subproyecto" | null;
+  idProyecto?: number;
+  idEtapa?: number;
+  idSector?: number;
+  idFrente?: number;
+  idPartida?: number;
+  idSubproyecto?: number;
+  idSubetapa?: number;
+  idSubsector?: number;
+  idSubfrente?: number;
+  idSubpartida?: number;
+};
+
 function ProgramacionTecnicaEditDialog({
   item,
   open,
   onOpenChange,
   onSaved,
+  borrador,
 }: {
   item: ProgramacionTecnicaData | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSaved: (updated: Partial<ProgramacionTecnicaData>) => void;
+  /** Borrador desde el que se abrió el diálogo (si viene de una burbuja) */
+  borrador?: Borrador | null;
 }) {
   const [saving, setSaving] = useState(false);
   const [camiones, setCamiones] = useState<CamionData[]>([]);
@@ -262,48 +319,96 @@ function ProgramacionTecnicaEditDialog({
   const [idSubfrente, setIdSubfrente] = useState<number | undefined>(undefined);
   const [idSubpartida, setIdSubpartida] = useState<number | undefined>(undefined);
 
+  // Valores actuales del formulario (para el borrador)
+  const valores: ValoresPT = {
+    fecha, horaPartida, horaPartidaModified, estadoProgramacion, programacion, m3,
+    cantidadViaje, comentarios, selectedCamionId, selectedEmpresaCodigo, selectionType,
+    idProyecto, idEtapa, idSector, idFrente, idPartida,
+    idSubproyecto, idSubetapa, idSubsector, idSubfrente, idSubpartida,
+  };
+  const aplicarValores = (v: ValoresPT) => {
+    setFecha(v.fecha);
+    setHoraPartida(v.horaPartida);
+    setHoraPartidaModified(v.horaPartidaModified);
+    setEstadoProgramacion(v.estadoProgramacion);
+    setProgramacion(v.programacion);
+    setM3(v.m3);
+    setCantidadViaje(v.cantidadViaje);
+    setComentarios(v.comentarios);
+    setSelectedCamionId(v.selectedCamionId);
+    setSelectedEmpresaCodigo(v.selectedEmpresaCodigo);
+    setSelectionType(v.selectionType);
+    setIdProyecto(v.idProyecto); setIdEtapa(v.idEtapa); setIdSector(v.idSector);
+    setIdFrente(v.idFrente); setIdPartida(v.idPartida);
+    setIdSubproyecto(v.idSubproyecto); setIdSubetapa(v.idSubetapa); setIdSubsector(v.idSubsector);
+    setIdSubfrente(v.idSubfrente); setIdSubpartida(v.idSubpartida);
+  };
+  const borradorFormulario = useBorradorFormulario<ValoresPT>({
+    open,
+    ambito: AMBITO_PROGRAMACION_ADMIN,
+    clave: item ? `pt:${item.id}` : null,
+    titulo: `Programación #${item?.id ?? ""}`,
+    subtitulo: [item?.unidad, fecha].filter(Boolean).join(" · ") || undefined,
+    valores,
+    registro: item,
+    extra: { tab: "programacion" },
+  });
+
   // Cargar catálogos y pre-poblar form al abrir
   useEffect(() => {
     if (!open || !item) return;
 
-    setFecha(item.fecha ? item.fecha.slice(0, 10) : "");
-    setHoraPartida(item.hora_partida ? formatTimePeru(item.hora_partida) : "");
-    setHoraPartidaModified(false);
-    setEstadoProgramacion(item.estado_programacion ?? "");
-    setProgramacion(item.programacion ?? "");
-    setM3(item.m3 ?? "");
-    setCantidadViaje(item.cantidad_viaje ?? "");
-    setComentarios(item.comentarios ?? "");
+    const datosBorrador = borrador?.datos as DatosBorradorEdicion<ValoresPT> | undefined;
+
+    // Valores tal como están en el registro (camión y empresa se resuelven al cargar catálogos)
+    const inicial: ValoresPT = {
+      fecha: item.fecha ? item.fecha.slice(0, 10) : "",
+      horaPartida: item.hora_partida ? formatTimePeru(item.hora_partida) : "",
+      horaPartidaModified: false,
+      estadoProgramacion: item.estado_programacion ?? "",
+      programacion: item.programacion ?? "",
+      m3: item.m3 ?? "",
+      cantidadViaje: item.cantidad_viaje ?? "",
+      comentarios: item.comentarios ?? "",
+      selectedCamionId: null,
+      selectedEmpresaCodigo: null,
+      // Proyecto en cascada
+      ...(item.id_subproyecto
+        ? {
+            selectionType: "subproyecto" as const,
+            idSubproyecto: item.id_subproyecto,
+            idSubetapa: item.id_subetapa ?? undefined,
+            idSubsector: item.id_subsector ?? undefined,
+            idSubfrente: item.id_subfrente ?? undefined,
+            idSubpartida: item.id_subpartida ?? undefined,
+          }
+        : item.id_proyecto
+          ? {
+              selectionType: "proyecto" as const,
+              idProyecto: item.id_proyecto,
+              idEtapa: item.id_etapa ?? undefined,
+              idSector: item.id_sector ?? undefined,
+              idFrente: item.id_frente ?? undefined,
+              idPartida: item.id_partida ?? undefined,
+            }
+          : { selectionType: null }),
+    };
+
+    if (datosBorrador) {
+      aplicarValores(datosBorrador.valores);
+      borradorFormulario.fijarBaseline(datosBorrador.baseline);
+    } else {
+      aplicarValores(inicial);
+    }
     setCamionSearch("");
     setEmpresaSearch("");
-    // Proyecto en cascada
-    if (item.id_subproyecto) {
-      setSelectionType("subproyecto");
-      setIdSubproyecto(item.id_subproyecto);
-      setIdSubetapa(item.id_subetapa ?? undefined);
-      setIdSubsector(item.id_subsector ?? undefined);
-      setIdSubfrente(item.id_subfrente ?? undefined);
-      setIdSubpartida(item.id_subpartida ?? undefined);
-      setIdProyecto(undefined); setIdEtapa(undefined); setIdSector(undefined); setIdFrente(undefined); setIdPartida(undefined);
-    } else if (item.id_proyecto) {
-      setSelectionType("proyecto");
-      setIdProyecto(item.id_proyecto);
-      setIdEtapa(item.id_etapa ?? undefined);
-      setIdSector(item.id_sector ?? undefined);
-      setIdFrente(item.id_frente ?? undefined);
-      setIdPartida(item.id_partida ?? undefined);
-      setIdSubproyecto(undefined); setIdSubetapa(undefined); setIdSubsector(undefined); setIdSubfrente(undefined); setIdSubpartida(undefined);
-    } else {
-      setSelectionType(null);
-      setIdProyecto(undefined); setIdEtapa(undefined); setIdSector(undefined); setIdFrente(undefined); setIdPartida(undefined);
-      setIdSubproyecto(undefined); setIdSubetapa(undefined); setIdSubsector(undefined); setIdSubfrente(undefined); setIdSubpartida(undefined);
-    }
 
     setLoadingCatalogos(true);
     Promise.all([camionesApi.getAll(), empresasApi.getAll()])
       .then(([cams, emps]) => {
         setCamiones(cams);
         setEmpresas(emps);
+        if (datosBorrador) return; // el borrador ya trae el camión y la empresa elegidos
         // Pre-seleccionar camión buscando por placa (item.unidad es la placa en el display)
         const camionActual = cams.find(
           (c) => c.placa?.toUpperCase() === item.unidad?.toUpperCase()
@@ -314,10 +419,35 @@ function ProgramacionTecnicaEditDialog({
           (e) => e.razon_social?.toLowerCase() === item.proveedor?.toLowerCase()
         );
         setSelectedEmpresaCodigo(empresaActual?.codigo ?? null);
+        borradorFormulario.fijarBaseline({
+          ...inicial,
+          selectedCamionId: camionActual?.id_camion ?? null,
+          selectedEmpresaCodigo: empresaActual?.codigo ?? null,
+        });
       })
       .catch(() => toast.error("Error al cargar catálogos"))
       .finally(() => setLoadingCatalogos(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item]);
+
+  // Cerrar con la X / Esc / clic fuera deja el formulario como borrador
+  const handleOpenChange = (v: boolean) => {
+    if (!v) borradorFormulario.minimizar();
+    onOpenChange(v);
+  };
+  // "Cancelar" descarta los cambios (y el borrador)
+  const handleCancelar = () => {
+    if (
+      borradorFormulario.hayCambios() &&
+      !window.confirm(
+        "Se perderán los cambios. Para continuar después, cierre con la X y quedará como borrador."
+      )
+    ) {
+      return;
+    }
+    borradorFormulario.descartar();
+    onOpenChange(false);
+  };
 
   const camionsFiltrados = camiones.filter((c) => {
     const q = camionSearch.toLowerCase();
@@ -364,6 +494,7 @@ function ProgramacionTecnicaEditDialog({
         id_subpartida: selectionType === "subproyecto" ? (idSubpartida ?? null) : null,
       });
       toast.success("Registro actualizado correctamente");
+      borradorFormulario.descartar();
       onSaved({
         fecha: fecha || null,
         hora_partida: horaPartida || null,
@@ -387,7 +518,7 @@ function ProgramacionTecnicaEditDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -655,7 +786,7 @@ function ProgramacionTecnicaEditDialog({
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            <Button variant="outline" onClick={handleCancelar} disabled={saving}>
               Cancelar
             </Button>
             <Button onClick={handleSave} disabled={saving || loadingCatalogos} className="bg-blue-600 hover:bg-blue-700 text-white">
@@ -674,7 +805,7 @@ function ProgramacionTecnicaEditDialog({
 
 // ─── Tab: Programación Técnica ──────────────────────────────────────────────
 
-function ProgramacionTecnicaTab() {
+function ProgramacionTecnicaTab({ borradorPendiente, onBorradorAbierto }: TabBorradorProps) {
   const router = useRouter();
   const [data, setData] = useState<ProgramacionTecnicaData[]>([]);
   const [total, setTotal] = useState(0);
@@ -688,6 +819,12 @@ function ProgramacionTecnicaTab() {
   const [orden, setOrden] = useState<"asc" | "desc">("desc");
   const [editItem, setEditItem] = useState<ProgramacionTecnicaData | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [borradorInicial, setBorradorInicial] = useState<Borrador | null>(null);
+  useAbrirDesdeBorrador<ProgramacionTecnicaData>(borradorPendiente, onBorradorAbierto, (registro, b) => {
+    setBorradorInicial(b);
+    setEditItem(registro);
+    setIsEditOpen(true);
+  });
   const { addLog, clearLogs, getLogsFor, initLogs } = useBackendLogs<number>();
   const LIMIT = 20;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
@@ -1244,8 +1381,9 @@ function ProgramacionTecnicaTab() {
 
       <ProgramacionTecnicaEditDialog
         item={editItem}
+        borrador={borradorInicial}
         open={isEditOpen}
-        onOpenChange={(v) => { setIsEditOpen(v); if (!v) setEditItem(null); }}
+        onOpenChange={(v) => { setIsEditOpen(v); if (!v) { setEditItem(null); setBorradorInicial(null); } }}
         onSaved={(updated) => {
           setData((prev) =>
             prev.map((r) => (r.id === editItem?.id ? { ...r, ...updated } : r))
@@ -1268,10 +1406,16 @@ type MultifacturaRowLocal = {
   url_guia?: string | null;
 };
 
-function OrdenesCompraTab() {
+function OrdenesCompraTab({ borradorPendiente, onBorradorAbierto }: TabBorradorProps) {
   const [data, setData] = useState<OrdenCompraData[]>([]);
   const [editOrden, setEditOrden] = useState<OrdenCompraData | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [borradorInicial, setBorradorInicial] = useState<Borrador | null>(null);
+  useAbrirDesdeBorrador<OrdenCompraData>(borradorPendiente, onBorradorAbierto, (registro, b) => {
+    setBorradorInicial(b);
+    setEditOrden(registro);
+    setIsEditOpen(true);
+  });
   // Convertir en multifactura
   const [convertirOrden, setConvertirOrden] = useState<OrdenCompraData | null>(null);
   const [isConvertirOpen, setIsConvertirOpen] = useState(false);
@@ -1998,8 +2142,9 @@ function OrdenesCompraTab() {
       <OrdenEditDialog
         orden={editOrden}
         tipo="compra"
+        borrador={borradorInicial}
         open={isEditOpen}
-        onOpenChange={(v) => { setIsEditOpen(v); if (!v) setEditOrden(null); }}
+        onOpenChange={(v) => { setIsEditOpen(v); if (!v) { setEditOrden(null); setBorradorInicial(null); } }}
         onSaved={() => { setData((prev) => [...prev]); }}
       />
     </div>
@@ -2008,10 +2153,16 @@ function OrdenesCompraTab() {
 
 // ─── Tab: Órdenes de Servicio ────────────────────────────────────────────────
 
-function OrdenesServicioTab() {
+function OrdenesServicioTab({ borradorPendiente, onBorradorAbierto }: TabBorradorProps) {
   const [data, setData] = useState<OrdenServicioData[]>([]);
   const [editOrden, setEditOrden] = useState<OrdenServicioData | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [borradorInicial, setBorradorInicial] = useState<Borrador | null>(null);
+  useAbrirDesdeBorrador<OrdenServicioData>(borradorPendiente, onBorradorAbierto, (registro, b) => {
+    setBorradorInicial(b);
+    setEditOrden(registro);
+    setIsEditOpen(true);
+  });
   // Convertir en multifactura
   const [convertirOrden, setConvertirOrden] = useState<OrdenServicioData | null>(null);
   const [isConvertirOpen, setIsConvertirOpen] = useState(false);
@@ -2756,8 +2907,9 @@ function OrdenesServicioTab() {
       <OrdenEditDialog
         orden={editOrden}
         tipo="servicio"
+        borrador={borradorInicial}
         open={isEditOpen}
-        onOpenChange={(v) => { setIsEditOpen(v); if (!v) setEditOrden(null); }}
+        onOpenChange={(v) => { setIsEditOpen(v); if (!v) { setEditOrden(null); setBorradorInicial(null); } }}
         onSaved={() => {
           setData((prev) => [...prev]);
         }}
@@ -3658,6 +3810,23 @@ function UsuariosTab() {
 // ─── Página principal ────────────────────────────────────────────────────────
 
 export default function ProgramacionAdminPage() {
+  // Pestaña activa y borrador que hay que abrir (al hacer clic en una burbuja)
+  const [tab, setTab] = useState("programacion");
+  const [borradorPendiente, setBorradorPendiente] = useState<string | null>(null);
+  useHidratarBorradores();
+
+  const abrirBorrador = (id: string) => {
+    const b = useBorradoresStore.getState().borradores[id];
+    if (!b) return;
+    const destino = (b.datos as DatosBorradorEdicion).tab;
+    if (typeof destino === "string") setTab(destino);
+    setBorradorPendiente(id);
+  };
+  const descartarBorrador = (id: string) => {
+    if (!window.confirm("¿Descartar este borrador? Se perderán los cambios ingresados.")) return;
+    useBorradoresStore.getState().eliminar(id);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
       {/* Header */}
@@ -3677,7 +3846,7 @@ export default function ProgramacionAdminPage() {
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto">
-        <Tabs defaultValue="programacion" className="space-y-4">
+        <Tabs value={tab} onValueChange={setTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-7 bg-white shadow-sm">
             <TabsTrigger value="programacion" className="flex items-center gap-2">
               <Truck className="h-4 w-4" />
@@ -3715,7 +3884,7 @@ export default function ProgramacionAdminPage() {
                 <CardTitle className="text-base">Registros de Programación Técnica</CardTitle>
               </CardHeader>
               <CardContent>
-                <ProgramacionTecnicaTab />
+                <ProgramacionTecnicaTab borradorPendiente={borradorPendiente} onBorradorAbierto={() => setBorradorPendiente(null)} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -3726,7 +3895,7 @@ export default function ProgramacionAdminPage() {
                 <CardTitle className="text-base">Órdenes de Compra</CardTitle>
               </CardHeader>
               <CardContent>
-                <OrdenesCompraTab />
+                <OrdenesCompraTab borradorPendiente={borradorPendiente} onBorradorAbierto={() => setBorradorPendiente(null)} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -3737,7 +3906,7 @@ export default function ProgramacionAdminPage() {
                 <CardTitle className="text-base">Órdenes de Servicio</CardTitle>
               </CardHeader>
               <CardContent>
-                <OrdenesServicioTab />
+                <OrdenesServicioTab borradorPendiente={borradorPendiente} onBorradorAbierto={() => setBorradorPendiente(null)} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -3789,6 +3958,13 @@ export default function ProgramacionAdminPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <BorradoresBar
+        ambito={AMBITO_PROGRAMACION_ADMIN}
+        activoId={null}
+        onAbrir={abrirBorrador}
+        onDescartar={descartarBorrador}
+      />
     </div>
   );
 }
