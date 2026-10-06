@@ -3636,6 +3636,7 @@ export interface OrdenCompraData {
   deleted_at?: string | null; // Soft delete
   backend_logs?: string | null; // Logs del backend persistidos
   grupo_id?: string | null; // Grupo de multifactura (órdenes creadas juntas)
+  grupo_codigo?: string | null; // Código legible del grupo (MF-000045)
   reserva_owner?: string; // Clave de reserva del número (solo al crear)
 }
 
@@ -4252,6 +4253,7 @@ export interface OrdenServicioData {
   deleted_at?: string | null; // Soft delete
   backend_logs?: string | null; // Logs del backend persistidos
   grupo_id?: string | null; // Grupo de multifactura (órdenes creadas juntas)
+  grupo_codigo?: string | null; // Código legible del grupo (MF-000045)
   reserva_owner?: string; // Clave de reserva del número (solo al crear)
 }
 

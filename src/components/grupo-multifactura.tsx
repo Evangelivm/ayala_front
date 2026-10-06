@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 // Campos mínimos de una orden para poder agruparla en un listado
 export type OrdenGrupable = {
   grupo_id?: string | null;
+  grupo_codigo?: string | null; // MF-000045
   numero_orden: string;
   fecha_orden: string;
   nombre_proveedor?: string | null;
@@ -84,7 +85,7 @@ export function GrupoMultifacturaItem<T extends OrdenGrupable>({
         <div className="flex items-center w-full gap-4 pr-4 flex-wrap">
           <div className="flex flex-col items-start min-w-[140px]">
             <span className="text-xs text-slate-500 font-medium">
-              Multifactura · {grupo.length} órdenes
+              Multifactura{grupo[0].grupo_codigo ? ` ${grupo[0].grupo_codigo}` : ""} · {grupo.length} órdenes
             </span>
             <span className={`text-sm font-mono font-bold ${colorNumero}`}>
               {grupo.map((o) => o.numero_orden).join(", ")}
