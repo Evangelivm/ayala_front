@@ -104,6 +104,11 @@ const formatDateString = (dateString: string | null | undefined): string => {
   }
 };
 
+// Condición de pago de la orden (texto que se imprime en el PDF)
+const CONDICION_CONTADO: string = "CONTADO";
+const CONDICION_CREDITO_50_50: string =
+  "CRÉDITO 50/50 (50% ADELANTO Y 50% LUEGO DE LA ENTREGA)";
+
 type MultifacturaRow = {
   id_detalle?: number;
   nro_serie: string;
@@ -129,6 +134,7 @@ const ordenVacia = () => ({
   razonSocial: "",
   retencionProveedor: "",
   almacenCentral: false, // Checkbox Almacén Central
+  condicion: CONDICION_CONTADO, // Condición de pago (se imprime en el PDF)
   anticipo: false, // Checkbox Anticipo
   tipoComprobante: "FACTURA" as "FACTURA" | "RH", // Emitirá Factura / Emitir Recibo por Honorarios
   serie: "0001",
@@ -291,6 +297,7 @@ export default function OrdenCompraPage() {
   const [filtroPlaca, setFiltroPlaca] = useState<string>("todos");
   const [filtroChofer, setFiltroChofer] = useState<string>("todos");
   const [filtroTipo, setFiltroTipo] = useState<string>("todos");
+  const [filtroCondicion, setFiltroCondicion] = useState<string>("todos");
 
   // Listado visible (búsqueda + paginación vía Elasticsearch)
   const PAGE_SIZE_ORDENES = 20;
@@ -798,8 +805,9 @@ export default function OrdenCompraPage() {
     placa: filtroPlaca !== "todos" ? filtroPlaca : undefined,
     chofer: filtroChofer !== "todos" ? filtroChofer : undefined,
     tipo: filtroTipo !== "todos" ? filtroTipo : undefined,
+    condicion: filtroCondicion !== "todos" ? (filtroCondicion as "CREDITO" | "CONTADO") : undefined,
     agrupar: true, // este listado muestra cada multifactura como un solo grupo
-  }), [fechaFiltro, filtroPlaca, filtroChofer, filtroTipo]);
+  }), [fechaFiltro, filtroPlaca, filtroChofer, filtroTipo, filtroCondicion]);
 
   const fetchListadoCompra = useCallback(async () => {
     try {
@@ -849,7 +857,7 @@ export default function OrdenCompraPage() {
     setPageListadoCompra(1);
     setPageListadoServicio(1);
      
-  }, [searchTerm, fechaFiltro, filtroPlaca, filtroChofer, filtroTipo]);
+  }, [searchTerm, fechaFiltro, filtroPlaca, filtroChofer, filtroTipo, filtroCondicion]);
 
   // Funciones para centros de costo - Selects independientes (deprecado, se usará las nuevas)
   const loadCentrosCosto = async () => {
@@ -1337,6 +1345,7 @@ export default function OrdenCompraPage() {
     tipo_detraccion: data.detraccion.tipo_detraccion,
     valor_detraccion: data.detraccion.monto,
     almacen_central: data.almacenCentral ? "SI" : "NO",
+    condicion: data.condicion,
     has_anticipo: data.anticipo ? 1 : 0,
     tiene_anticipo: data.anticipo ? "SI" : "NO",
     tipo_comprobante: data.tipoComprobante,
@@ -1677,6 +1686,7 @@ export default function OrdenCompraPage() {
         razonSocial: orden.nombre_proveedor || "",
         retencionProveedor: orden.retencion || "",
         almacenCentral: orden.almacen_central === "SI",
+        condicion: orden.condicion || CONDICION_CONTADO,
         anticipo: orden.tiene_anticipo === "SI" || orden.tiene_anticipo === 1,
         tipoComprobante: orden.tipo_comprobante === "RH" ? "RH" : "FACTURA",
         serie: serie || "0001",
@@ -1759,6 +1769,7 @@ export default function OrdenCompraPage() {
         razonSocial: orden.nombre_proveedor || "",
         retencionProveedor: orden.detraccion || "",
         almacenCentral: orden.almacen_central === "SI",
+        condicion: orden.condicion || CONDICION_CONTADO,
         anticipo: orden.tiene_anticipo === "SI" || orden.tiene_anticipo === 1,
         tipoComprobante: orden.tipo_comprobante === "RH" ? "RH" : "FACTURA",
         serie: serie || "0001",
@@ -2231,6 +2242,10 @@ export default function OrdenCompraPage() {
                                       <p className="text-sm font-semibold">{orden.moneda}</p>
                                     </div>
                                     <div>
+                                      <p className="text-xs text-gray-500">Condición</p>
+                                      <p className="text-sm font-semibold">{(orden.condicion || "").toUpperCase().startsWith("CR") ? "Crédito" : "Contado"}</p>
+                                    </div>
+                                    <div>
                                       <p className="text-xs text-gray-500">Subtotal</p>
                                       <p className="text-sm font-mono">{orden.subtotal}</p>
                                     </div>
@@ -2664,6 +2679,10 @@ export default function OrdenCompraPage() {
                                     <div>
                                       <p className="text-xs text-gray-500">Moneda</p>
                                       <p className="text-sm font-semibold">{orden.moneda}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Condición</p>
+                                      <p className="text-sm font-semibold">{(orden.condicion || "").toUpperCase().startsWith("CR") ? "Crédito" : "Contado"}</p>
                                     </div>
                                     <div>
                                       <p className="text-xs text-gray-500">Subtotal</p>
@@ -3277,6 +3296,25 @@ export default function OrdenCompraPage() {
                 </Select>
                 {filtroTipo !== "todos" && (
                   <Button variant="ghost" size="sm" onClick={() => setFiltroTipo("todos")} className="h-8 px-2">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium whitespace-nowrap">Condición:</Label>
+                <Select value={filtroCondicion} onValueChange={setFiltroCondicion}>
+                  <SelectTrigger className="w-[140px] h-9">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas</SelectItem>
+                    <SelectItem value="CONTADO">Contado</SelectItem>
+                    <SelectItem value="CREDITO">Crédito</SelectItem>
+                  </SelectContent>
+                </Select>
+                {filtroCondicion !== "todos" && (
+                  <Button variant="ghost" size="sm" onClick={() => setFiltroCondicion("todos")} className="h-8 px-2">
                     <X className="h-4 w-4" />
                   </Button>
                 )}
@@ -4560,6 +4598,29 @@ export default function OrdenCompraPage() {
                                 Recibo por Honorarios
                               </span>
                             </div>
+                          </div>
+                          <div className="flex flex-col space-y-2 pl-4 border-l border-gray-200">
+                            <Label className="text-xs font-semibold text-gray-700">
+                              Condición de pago
+                            </Label>
+                            <Select
+                              value={nuevaOrdenData.condicion}
+                              onValueChange={(v) =>
+                                handleNuevaOrdenInputChange("condicion", v)
+                              }
+                            >
+                              <SelectTrigger className="h-8 text-xs w-[170px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={CONDICION_CONTADO}>
+                                  Contado
+                                </SelectItem>
+                                <SelectItem value={CONDICION_CREDITO_50_50}>
+                                  Crédito 50/50
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
                       </div>

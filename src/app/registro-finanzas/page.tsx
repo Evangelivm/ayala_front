@@ -416,6 +416,10 @@ export default function RegistroFinanzasPage() {
                                       <span className="text-sm font-semibold">{orden.moneda}</span>
                                     </div>
                                     <div>
+                                      <span className="text-xs text-gray-500 block">Condición</span>
+                                      <span className="text-sm font-semibold">{(orden.condicion || "").toUpperCase().startsWith("CR") ? "Crédito" : "Contado"}</span>
+                                    </div>
+                                    <div>
                                       <span className="text-xs text-gray-500 block">Subtotal</span>
                                       <span className="text-sm font-mono">{Number(orden.subtotal).toFixed(2)}</span>
                                     </div>
@@ -763,6 +767,10 @@ export default function RegistroFinanzasPage() {
                                     <div>
                                       <span className="text-xs text-gray-500 block">Moneda</span>
                                       <span className="text-sm font-semibold">{orden.moneda}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block">Condición</span>
+                                      <span className="text-sm font-semibold">{(orden.condicion || "").toUpperCase().startsWith("CR") ? "Crédito" : "Contado"}</span>
                                     </div>
                                     <div>
                                       <span className="text-xs text-gray-500 block">Subtotal</span>

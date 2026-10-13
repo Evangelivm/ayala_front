@@ -1446,13 +1446,15 @@ function OrdenesCompraTab({ borradorPendiente, onBorradorAbierto }: TabBorradorP
   const [multifacturasSaving, setMultifacturasSaving] = useState(false);
 
   const LIMIT = 20;
+  const [condicion, setCondicion] = useState<string>("todos");
+  const condicionFiltro = condicion !== "todos" ? (condicion as "CREDITO" | "CONTADO") : undefined;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(true);
       searchApi
-        .ordenesCompra(searchTerm, page, LIMIT, { agrupar: true })
+        .ordenesCompra(searchTerm, page, LIMIT, { agrupar: true, condicion: condicionFiltro })
         .then((result) => {
           setData(result.data);
           setTotal(result.total);
@@ -1462,11 +1464,11 @@ function OrdenesCompraTab({ borradorPendiente, onBorradorAbierto }: TabBorradorP
         .finally(() => setIsLoading(false));
     }, searchTerm ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [searchTerm, page]);
+  }, [searchTerm, page, condicion]);
 
   const reloadData = async () => {
     try {
-      const result = await searchApi.ordenesCompra(searchTerm, page, LIMIT, { agrupar: true });
+      const result = await searchApi.ordenesCompra(searchTerm, page, LIMIT, { agrupar: true, condicion: condicionFiltro });
       setData(result.data);
       setTotal(result.total);
     } catch { /* ignore */ }
@@ -1647,6 +1649,10 @@ function OrdenesCompraTab({ borradorPendiente, onBorradorAbierto }: TabBorradorP
                           <div>
                             <p className="text-xs text-slate-500">Moneda</p>
                             <p className="text-sm font-semibold">{item.moneda || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Condición</p>
+                            <p className="text-sm font-semibold">{(item.condicion || "").toUpperCase().startsWith("CR") ? "Crédito" : "Contado"}</p>
                           </div>
                           <div>
                             <p className="text-xs text-slate-500">Subtotal</p>
@@ -1928,15 +1934,27 @@ function OrdenesCompraTab({ borradorPendiente, onBorradorAbierto }: TabBorradorP
           )}
           <Badge variant="outline" className="text-slate-500">{total} total</Badge>
         </div>
-        <div className="relative w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            type="text"
-            placeholder="Buscar por número, proveedor, estado..."
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-            className="pl-10 bg-white"
-          />
+        <div className="flex items-center gap-2">
+          <Select value={condicion} onValueChange={(v) => { setCondicion(v); setPage(1); }}>
+            <SelectTrigger className="w-[150px] h-9 bg-white text-sm">
+              <SelectValue placeholder="Condición" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas las condiciones</SelectItem>
+              <SelectItem value="CONTADO">Contado</SelectItem>
+              <SelectItem value="CREDITO">Crédito</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="relative w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              type="text"
+              placeholder="Buscar por número, proveedor, estado..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+              className="pl-10 bg-white"
+            />
+          </div>
         </div>
       </div>
 
@@ -2193,13 +2211,15 @@ function OrdenesServicioTab({ borradorPendiente, onBorradorAbierto }: TabBorrado
   const [multifacturasSaving, setMultifacturasSaving] = useState(false);
 
   const LIMIT = 20;
+  const [condicion, setCondicion] = useState<string>("todos");
+  const condicionFiltro = condicion !== "todos" ? (condicion as "CREDITO" | "CONTADO") : undefined;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(true);
       searchApi
-        .ordenesServicio(searchTerm, page, LIMIT, { agrupar: true })
+        .ordenesServicio(searchTerm, page, LIMIT, { agrupar: true, condicion: condicionFiltro })
         .then((result) => {
           setData(result.data);
           setTotal(result.total);
@@ -2209,11 +2229,11 @@ function OrdenesServicioTab({ borradorPendiente, onBorradorAbierto }: TabBorrado
         .finally(() => setIsLoading(false));
     }, searchTerm ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [searchTerm, page]);
+  }, [searchTerm, page, condicion]);
 
   const reloadData = async () => {
     try {
-      const result = await searchApi.ordenesServicio(searchTerm, page, LIMIT, { agrupar: true });
+      const result = await searchApi.ordenesServicio(searchTerm, page, LIMIT, { agrupar: true, condicion: condicionFiltro });
       setData(result.data);
       setTotal(result.total);
     } catch { /* ignore */ }
@@ -2394,6 +2414,10 @@ function OrdenesServicioTab({ borradorPendiente, onBorradorAbierto }: TabBorrado
                           <div>
                             <p className="text-xs text-slate-500">Moneda</p>
                             <p className="text-sm font-semibold">{item.moneda || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Condición</p>
+                            <p className="text-sm font-semibold">{(item.condicion || "").toUpperCase().startsWith("CR") ? "Crédito" : "Contado"}</p>
                           </div>
                           <div>
                             <p className="text-xs text-slate-500">Subtotal</p>
@@ -2675,15 +2699,27 @@ function OrdenesServicioTab({ borradorPendiente, onBorradorAbierto }: TabBorrado
           )}
           <Badge variant="outline" className="text-slate-500">{total} total</Badge>
         </div>
-        <div className="relative w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            type="text"
-            placeholder="Buscar por número, proveedor, estado..."
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-            className="pl-10 bg-white"
-          />
+        <div className="flex items-center gap-2">
+          <Select value={condicion} onValueChange={(v) => { setCondicion(v); setPage(1); }}>
+            <SelectTrigger className="w-[150px] h-9 bg-white text-sm">
+              <SelectValue placeholder="Condición" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas las condiciones</SelectItem>
+              <SelectItem value="CONTADO">Contado</SelectItem>
+              <SelectItem value="CREDITO">Crédito</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="relative w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              type="text"
+              placeholder="Buscar por número, proveedor, estado..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+              className="pl-10 bg-white"
+            />
+          </div>
         </div>
       </div>
 

@@ -108,12 +108,17 @@ const generarClaveReserva = (): string => {
   return `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`.padEnd(16, "0");
 };
 
+const CONDICION_CONTADO: string = "CONTADO";
+const CONDICION_CREDITO_50_50: string =
+  "CRÉDITO 50/50 (50% ADELANTO Y 50% LUEGO DE LA ENTREGA)";
+
 const emptyFormData = {
   id_proveedor: 0,
   nroCliente: "",
   razonSocial: "",
   retencionProveedor: "",
   almacenCentral: false,
+  condicion: CONDICION_CONTADO,
   anticipo: false,
   tipoComprobante: "FACTURA" as "FACTURA" | "RH",
   serie: "0001",
@@ -252,6 +257,7 @@ export function OrdenEditDialog({
       razonSocial: o.nombre_proveedor || "",
       retencionProveedor: o.retencion || "",
       almacenCentral: o.almacen_central === "SI",
+      condicion: o.condicion || CONDICION_CONTADO,
       anticipo: o.tiene_anticipo === "SI" || o.tiene_anticipo === 1,
       tipoComprobante: o.tipo_comprobante === "RH" ? "RH" : "FACTURA",
       serie: serie || "0001",
@@ -527,6 +533,7 @@ export function OrdenEditDialog({
         tipo_detraccion: formData.detraccion.tipo_detraccion,
         valor_detraccion: formData.detraccion.monto,
         almacen_central: formData.almacenCentral ? "SI" : "NO",
+        condicion: formData.condicion,
         has_anticipo: formData.anticipo ? 1 : 0,
         tiene_anticipo: formData.anticipo ? "SI" : "NO",
         ...(esNueva
@@ -855,6 +862,18 @@ export function OrdenEditDialog({
                     <input type="checkbox" checked={formData.anticipo} onChange={(e) => handleFieldChange("anticipo", e.target.checked)} className="w-4 h-4" />
                     Anticipo
                   </label>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">Condición de pago</Label>
+                    <Select value={formData.condicion} onValueChange={(v) => handleFieldChange("condicion", v)}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={CONDICION_CONTADO}>Contado</SelectItem>
+                        <SelectItem value={CONDICION_CREDITO_50_50}>Crédito 50/50</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
               <div className="col-span-2">
