@@ -53,6 +53,7 @@ export default function ProgTecnicaPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filtroProgramacion, setFiltroProgramacion] = useState("TODOS");
   const [filtroEstado, setFiltroEstado] = useState("TODOS");
+  const [filtroFecha, setFiltroFecha] = useState("");
   const [opcionesProgramacion, setOpcionesProgramacion] = useState<OpcionProgramacion[]>([]);
 
   // Paginación
@@ -60,13 +61,14 @@ export default function ProgTecnicaPage() {
   const [totalItems, setTotalItems] = useState(0);
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
 
-  const fetchData = async (q: string, page: number, programacion: string, estado: string) => {
+  const fetchData = async (q: string, page: number, programacion: string, estado: string, fecha: string) => {
     setIsLoading(true);
     try {
       const [result, idsConGuia] = await Promise.all([
         searchApi.programacionTecnica(q, page, PAGE_SIZE, {
           programacion: programacion !== "TODOS" ? programacion : undefined,
           estadoProgramacion: estado !== "TODOS" ? estado : undefined,
+          fecha: fecha || undefined,
         }),
         programacionApi.getIdentificadoresConGuia(),
       ]);
@@ -97,11 +99,11 @@ export default function ProgTecnicaPage() {
   // Fetch con búsqueda y filtros (debounce 400ms en texto, inmediato en filtros/página)
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchData(searchQuery, currentPage, filtroProgramacion, filtroEstado);
+      fetchData(searchQuery, currentPage, filtroProgramacion, filtroEstado, filtroFecha);
     }, searchQuery ? 400 : 0);
     return () => clearTimeout(timer);
-     
-  }, [searchQuery, currentPage, filtroProgramacion, filtroEstado]);
+
+  }, [searchQuery, currentPage, filtroProgramacion, filtroEstado, filtroFecha]);
 
   // 🔄 Polling cada 10 segundos para verificar registros recién completados
   useEffect(() => {
@@ -232,7 +234,7 @@ export default function ProgTecnicaPage() {
           {/* Filtros */}
           <Card className="mb-6">
             <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {/* Buscador */}
                 <div className="md:col-span-2">
                   <Label htmlFor="search" className="text-sm font-semibold mb-2 block">
@@ -290,6 +292,32 @@ export default function ProgTecnicaPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Filtro Fecha */}
+                <div>
+                  <Label htmlFor="filtro-fecha" className="text-sm font-semibold mb-2 block">
+                    Fecha
+                  </Label>
+                  <div className="flex gap-1">
+                    <Input
+                      id="filtro-fecha"
+                      type="date"
+                      value={filtroFecha}
+                      onChange={(e) => { setFiltroFecha(e.target.value); setCurrentPage(1); }}
+                    />
+                    {filtroFecha && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="px-2 text-gray-500"
+                        title="Limpiar filtro de fecha"
+                        onClick={() => { setFiltroFecha(""); setCurrentPage(1); }}
+                      >
+                        ✕
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
 
