@@ -14,6 +14,7 @@ export interface FiltrosProgramacionTecnica {
   programacion?: string;
   estadoProgramacion?: string;
   fecha?: string;
+  fechaHasta?: string;
   orden?: "asc" | "desc";
 }
 

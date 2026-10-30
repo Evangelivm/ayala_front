@@ -816,6 +816,7 @@ function ProgramacionTecnicaTab({ borradorPendiente, onBorradorAbierto }: TabBor
   const [guiasExtendidas, setGuiasExtendidas] = useState<Record<string, GuiaRemisionData[]>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [fechaFilter, setFechaFilter] = useState("");
+  const [fechaHastaFilter, setFechaHastaFilter] = useState("");
   const [orden, setOrden] = useState<"asc" | "desc">("desc");
   const [editItem, setEditItem] = useState<ProgramacionTecnicaData | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -847,6 +848,7 @@ function ProgramacionTecnicaTab({ borradorPendiente, onBorradorAbierto }: TabBor
       searchApi
         .programacionTecnica(searchTerm, page, LIMIT, {
           fecha: fechaFilter || undefined,
+          fechaHasta: fechaHastaFilter || undefined,
           orden,
         })
         .then((result) => {
@@ -865,7 +867,7 @@ function ProgramacionTecnicaTab({ borradorPendiente, onBorradorAbierto }: TabBor
         .finally(() => setIsLoading(false));
     }, searchTerm ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [searchTerm, page, fechaFilter, orden]);
+  }, [searchTerm, page, fechaFilter, fechaHastaFilter, orden]);
 
   // Cargar guías extendidas para los registros visibles que las tengan
   useEffect(() => {
@@ -1005,17 +1007,29 @@ function ProgramacionTecnicaTab({ borradorPendiente, onBorradorAbierto }: TabBor
             <Input
               type="date"
               value={fechaFilter}
+              title="Fecha desde"
               onChange={(e) => { setFechaFilter(e.target.value); setPage(1); }}
               className="pl-10 bg-white"
             />
           </div>
-          {fechaFilter && (
+          <div className="relative w-44">
+            <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              type="date"
+              value={fechaHastaFilter}
+              min={fechaFilter || undefined}
+              title="Fecha hasta"
+              onChange={(e) => { setFechaHastaFilter(e.target.value); setPage(1); }}
+              className="pl-10 bg-white"
+            />
+          </div>
+          {(fechaFilter || fechaHastaFilter) && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setFechaFilter(""); setPage(1); }}
+              onClick={() => { setFechaFilter(""); setFechaHastaFilter(""); setPage(1); }}
               className="h-9 px-2 text-slate-500"
-              title="Limpiar filtro de fecha"
+              title="Limpiar filtros de fecha"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -1044,7 +1058,7 @@ function ProgramacionTecnicaTab({ borradorPendiente, onBorradorAbierto }: TabBor
         <div className="text-center py-12">
           <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500">
-            {searchTerm || fechaFilter ? "No se encontraron registros con ese criterio" : "No hay registros disponibles"}
+            {searchTerm || fechaFilter || fechaHastaFilter ? "No se encontraron registros con ese criterio" : "No hay registros disponibles"}
           </p>
         </div>
       ) : (
