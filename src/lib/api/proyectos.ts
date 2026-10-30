@@ -22,20 +22,24 @@ export interface ProyectoData {
     nombre: string;
     descripcion?: string;
     orden?: number;
+    activo?: boolean;
     sectores: Array<{
       id: number;
       nombre: string;
       descripcion?: string;
       ubicacion?: string;
       orden?: number;
+      activo?: boolean;
       frentes: Array<{
         id: number;
         nombre: string;
         descripcion?: string;
         responsable?: string;
         orden?: number;
+        activo?: boolean;
         partidas?: Array<{
           id: number;
+          activo?: boolean;
           codigo: string;
           descripcion: string;
           unidad_medida?: string;
@@ -107,10 +111,13 @@ export interface PartidaData {
 
 // ============ PROYECTOS API ============
 export const proyectosApi = {
-  // Obtener todos los proyectos
-  getAll: async (): Promise<ProyectoData[]> => {
+  // Obtener todos los proyectos. Por defecto solo los activos (para selects);
+  // la página de proyectos pasa incluirInactivos para poder reactivarlos.
+  getAll: async (incluirInactivos = false): Promise<ProyectoData[]> => {
     try {
-      const response = await api.get("/proyectos");
+      const response = await api.get("/proyectos", {
+        params: incluirInactivos ? { incluir_inactivos: true } : undefined,
+      });
       return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
       console.error("Proyectos API error:", error);
@@ -468,9 +475,11 @@ export const subproyectosApi = {
   },
 
   // Obtener subproyectos por proyecto
-  getByProyecto: async (idProyecto: number): Promise<SubproyectoData[]> => {
+  getByProyecto: async (idProyecto: number, incluirInactivos = false): Promise<SubproyectoData[]> => {
     try {
-      const response = await api.get("/subproyectos", { params: { id_proyecto: idProyecto } });
+      const response = await api.get("/subproyectos", {
+        params: { id_proyecto: idProyecto, ...(incluirInactivos && { incluir_inactivos: true }) },
+      });
       return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
       console.error("Subproyectos API error:", error);

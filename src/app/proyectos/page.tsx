@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   Clock,
   Filter,
@@ -20,11 +27,15 @@ import {
   ChevronRight,
   Building,
   FileText,
+  FilePen,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -98,6 +109,7 @@ import type {
 // Tipos TypeScript para compatibilidad con UI
 interface Partida {
   id: number;
+  activo: boolean;
   codigo: string;
   name: string;
   status: string;
@@ -110,6 +122,7 @@ interface Partida {
 
 interface Frente {
   id: number;
+  activo: boolean;
   name: string;
   status: string;
   progress: number;
@@ -118,6 +131,7 @@ interface Frente {
 
 interface Sector {
   id: number;
+  activo: boolean;
   name: string;
   status: string;
   progress: number;
@@ -126,6 +140,7 @@ interface Sector {
 
 interface Etapa {
   id: number;
+  activo: boolean;
   name: string;
   status: string;
   progress: number;
@@ -135,6 +150,7 @@ interface Etapa {
 
 interface Subproyecto {
   id: number;
+  activo: boolean;
   name: string;
   status: string;
   startDate: string;
@@ -145,6 +161,8 @@ interface Subproyecto {
 
 interface Project {
   id: number;
+  activo: boolean;
+  estado: string; // activo | borrador (cotización sin aprobar)
   name: string;
   cliente: string; // Razón social de la empresa (para mostrar)
   clienteCodigo: string; // FK hacia empresas_2025.codigo
@@ -161,6 +179,7 @@ interface Project {
 // Interfaces para formularios
 interface ProjectFormData {
   nombre: string;
+  estado: "activo" | "borrador";
   descripcion: string;
   fecha_inicio: string;
   fecha_fin: string;
@@ -247,6 +266,8 @@ function getStatusIcon(status: string) {
       return <Clock className="h-4 w-4 text-blue-600" />;
     case "Pendiente":
       return <AlertCircle className="h-4 w-4 text-gray-600" />;
+    case "Borrador":
+      return <FilePen className="h-4 w-4 text-amber-700" />;
     default:
       return <XCircle className="h-4 w-4 text-red-600" />;
   }
@@ -259,10 +280,62 @@ function getStatusBadgeVariant(status: string) {
     case "En progreso":
       return "secondary";
     case "Pendiente":
+    case "Borrador":
       return "outline";
     default:
       return "destructive";
   }
+}
+
+// Interruptor activo/inactivo. Los inactivos dejan de aparecer en los selects
+// de las demás páginas. La cadena de subproyectos reutiliza los mismos
+// componentes de fila, por eso el nivel real se resuelve con SubCadenaContext.
+type NivelActivo =
+  | "proyecto"
+  | "etapa"
+  | "sector"
+  | "frente"
+  | "partida"
+  | "subproyecto"
+  | "sub-etapa"
+  | "subsector"
+  | "subfrente"
+  | "subpartida";
+
+const ActivoContext = createContext<
+  (nivel: NivelActivo, id: number, activo: boolean) => void
+>(() => {});
+const SubCadenaContext = createContext(false);
+
+const NIVEL_SUB: Partial<Record<NivelActivo, NivelActivo>> = {
+  etapa: "sub-etapa",
+  sector: "subsector",
+  frente: "subfrente",
+  partida: "subpartida",
+};
+
+function ActivoSwitch({
+  nivel,
+  id,
+  activo,
+}: {
+  nivel: NivelActivo;
+  id: number;
+  activo: boolean;
+}) {
+  const onToggle = useContext(ActivoContext);
+  const esSub = useContext(SubCadenaContext);
+  const nivelReal = (esSub && NIVEL_SUB[nivel]) || nivel;
+
+  return (
+    <Switch
+      checked={activo}
+      onCheckedChange={(checked) => onToggle(nivelReal, id, checked)}
+      title={activo ? "Desactivar" : "Activar"}
+      aria-label={activo ? "Desactivar" : "Activar"}
+      className="scale-75"
+    />
+  );
 }
 
 // Componente para botones hexagonales más grandes
@@ -338,6 +411,7 @@ function PartidaItem({
         <span className="text-xs text-muted-foreground w-10">
           {partida.progress}%
         </span>
+        <ActivoSwitch nivel="partida" id={partida.id} activo={partida.activo} />
         <button
           onClick={() => onEdit(partida)}
           className="ml-2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
@@ -402,6 +476,7 @@ function FrenteItem({
           <span className="text-xs text-muted-foreground w-10">
             {frente.progress}%
           </span>
+          <ActivoSwitch nivel="frente" id={frente.id} activo={frente.activo} />
           <button
             onClick={() => onEdit(frente)}
             className="ml-2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
@@ -484,6 +559,7 @@ function SectorItem({
           <span className="text-xs text-muted-foreground w-10">
             {sector.progress}%
           </span>
+          <ActivoSwitch nivel="sector" id={sector.id} activo={sector.activo} />
           <button
             onClick={() => onEdit(sector)}
             className="ml-2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
@@ -567,6 +643,7 @@ function EtapaItem({
           <span className="text-sm text-muted-foreground w-12">
             {etapa.progress}%
           </span>
+          <ActivoSwitch nivel="etapa" id={etapa.id} activo={etapa.activo} />
           <button
             onClick={() => onEdit(etapa)}
             className="ml-2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
@@ -670,6 +747,11 @@ function SubproyectoItem({
             </span>
           </div>
           <div className="flex items-center gap-1">
+            <ActivoSwitch
+              nivel="subproyecto"
+              id={subproyecto.id}
+              activo={subproyecto.activo}
+            />
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -796,6 +878,7 @@ function SubproyectoItem({
         </div>
       </div>
       <CollapsibleContent className="pl-6 pt-3 space-y-3">
+        <SubCadenaContext.Provider value={true}>
         {subproyecto.etapas.length === 0 ? (
           <p className="text-gray-500 italic">
             No hay etapas definidas para este subproyecto.
@@ -818,6 +901,7 @@ function SubproyectoItem({
             ))}
           </div>
         )}
+        </SubCadenaContext.Provider>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -827,6 +911,7 @@ export default function ProyectosDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedProjects, setExpandedProjects] = useState<number[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [vista, setVista] = useState<"activos" | "borradores">("activos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [empresas, setEmpresas] = useState<
@@ -905,33 +990,38 @@ export default function ProyectosDashboard() {
     (subproyectoData: SubproyectoData): Subproyecto => {
       return {
         id: subproyectoData.id_subproyecto || 0,
+        activo: subproyectoData.activo !== false,
         name: subproyectoData.nombre,
-        status: subproyectoData.activo ? "En progreso" : "Inactivo",
+        status: subproyectoData.activo !== false ? "En progreso" : "Inactivo",
         startDate: "", // TODO: Agregar fechas en la base de datos
         endDate: "", // TODO: Agregar fechas en la base de datos
         progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
         etapas:
           subproyectoData.sub_etapas?.map((subEtapa) => ({
             id: subEtapa.id_sub_etapa || 0,
+ activo: subEtapa.activo !== false,
             name: subEtapa.nombre,
-            status: "En progreso", // TODO: Calcular estado real
+            status: subEtapa.activo !== false ? "En progreso" : "Inactivo",
             progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
             statusColor: "bg-purple-500",
             sectores:
               subEtapa.subsector?.map((subsector) => ({
                 id: subsector.id_subsector || 0,
+ activo: subsector.activo !== false,
                 name: subsector.nombre,
-                status: "En progreso", // TODO: Calcular estado real
+                status: subsector.activo !== false ? "En progreso" : "Inactivo",
                 progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
                 frentes:
                   subsector.subfrente?.map((subfrente) => ({
                     id: subfrente.id_subfrente || 0,
+ activo: subfrente.activo !== false,
                     name: subfrente.nombre,
-                    status: "En progreso", // TODO: Calcular estado real
+                    status: subfrente.activo !== false ? "En progreso" : "Inactivo",
                     progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
                     partidas:
                       subfrente.subpartida?.map((subpartida) => ({
                         id: subpartida.id_subpartida || 0,
+ activo: subpartida.activo !== false,
                         codigo: subpartida.codigo,
                         name: subpartida.descripcion,
                         status: "En progreso", // TODO: Calcular estado real
@@ -954,10 +1044,17 @@ export default function ProyectosDashboard() {
     async (proyecto: ProyectoData): Promise<Project> => {
       return {
         id: proyecto.id,
+        activo: proyecto.activo,
+        estado: proyecto.estado,
         name: proyecto.nombre,
         cliente: proyecto.empresas_2025?.razon_social || "",
         clienteCodigo: proyecto.cliente || "", // FK hacia empresas_2025
-        status: proyecto.activo ? "En progreso" : "Inactivo",
+        status:
+          proyecto.estado === "borrador"
+            ? "Borrador"
+            : proyecto.activo
+            ? "En progreso"
+            : "Inactivo",
         ubicacion: proyecto.ubicacion || "",
         startDate: proyecto.fecha_inicio || "",
         endDate: proyecto.fecha_fin || "",
@@ -966,25 +1063,29 @@ export default function ProyectosDashboard() {
         etapas:
           proyecto.etapas?.map((etapa) => ({
             id: etapa.id,
+ activo: etapa.activo !== false,
             name: etapa.nombre,
-            status: "En progreso", // TODO: Calcular estado real
+            status: etapa.activo !== false ? "En progreso" : "Inactivo",
             progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
             statusColor: "bg-purple-500",
             sectores:
               etapa.sectores?.map((sector) => ({
                 id: sector.id,
+ activo: sector.activo !== false,
                 name: sector.nombre,
-                status: "En progreso", // TODO: Calcular estado real
+                status: sector.activo !== false ? "En progreso" : "Inactivo",
                 progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
                 frentes:
                   sector.frentes?.map((frente) => ({
                     id: frente.id,
+ activo: frente.activo !== false,
                     name: frente.nombre,
-                    status: "En progreso", // TODO: Calcular estado real
+                    status: frente.activo !== false ? "En progreso" : "Inactivo",
                     progress: Math.floor(Math.random() * 100), // TODO: Calcular progreso real
                     partidas:
                       frente.partidas?.map((partida) => ({
                         id: partida.id,
+ activo: partida.activo !== false,
                         codigo: partida.codigo,
                         name: partida.descripcion,
                         status: "En progreso", // TODO: Calcular estado real
@@ -1004,11 +1105,12 @@ export default function ProyectosDashboard() {
   );
 
   // Cargar proyectos desde la API
-  const loadProjects = useCallback(async () => {
+  const loadProjects = useCallback(async (silencioso = false) => {
     try {
-      setLoading(true);
+      // silencioso: no desmonta la lista, así se conservan las filas expandidas
+      if (!silencioso) setLoading(true);
       setError(null);
-      const proyectosData = await proyectosApi.getAll();
+      const proyectosData = await proyectosApi.getAll(true);
 
       // Convertir proyectos y cargar subproyectos para cada uno
       const proyectosConverted = await Promise.all(
@@ -1018,7 +1120,8 @@ export default function ProyectosDashboard() {
           // Cargar subproyectos para este proyecto
           try {
             const subproyectosData = await subproyectosApi.getByProyecto(
-              proyecto.id
+              proyecto.id,
+              true
             );
             convertedProject.subproyectos = subproyectosData.map(
               convertSubproyectoDataToSubproyecto
@@ -1143,6 +1246,7 @@ export default function ProyectosDashboard() {
   const projectForm = useForm<ProjectFormData>({
     defaultValues: {
       nombre: "",
+      estado: "activo",
       descripcion: "",
       fecha_inicio: "",
       fecha_fin: "",
@@ -1253,8 +1357,13 @@ export default function ProyectosDashboard() {
         ubicacion: data.ubicacion,
         fecha_inicio: data.fecha_inicio,
         fecha_fin: data.fecha_fin,
-        estado: "activo",
-        activo: true,
+        // Al editar se conserva el tipo: un borrador solo pasa a activo con "Aprobar"
+        estado:
+          modals.editProject && selectedProject
+            ? selectedProject.estado
+            : data.estado,
+        // Al editar se conserva el interruptor actual; solo un proyecto nuevo nace activo
+        activo: modals.editProject && selectedProject ? selectedProject.activo : true,
       };
 
       if (modals.editProject && selectedProject) {
@@ -1632,12 +1741,81 @@ export default function ProyectosDashboard() {
     }
   };
 
-  const filteredProjects = projects.filter(
+  const proyectosActivos = projects.filter((p) => p.estado !== "borrador");
+  const proyectosBorrador = projects.filter((p) => p.estado === "borrador");
+
+  const filteredProjects = (
+    vista === "borradores" ? proyectosBorrador : proyectosActivos
+  ).filter(
     (project) =>
       project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.ubicacion.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Aprobar un borrador: recién ahí figura como proyecto activo en los demás módulos
+  const handleAprobarProyecto = async (projectId: number) => {
+    if (
+      !window.confirm(
+        "¿Aprobar este proyecto? Pasará a Activos y aparecerá en los selects de los demás módulos."
+      )
+    ) {
+      return;
+    }
+    try {
+      await proyectosApi.update(projectId, { estado: "activo" });
+      await loadProjects(true);
+      setVista("activos");
+    } catch (error) {
+      console.error("Error al aprobar proyecto:", error);
+      setError("Error al aprobar el proyecto");
+    }
+  };
+
+  const handleToggleActivo = async (
+    nivel: NivelActivo,
+    id: number,
+    activo: boolean
+  ) => {
+    try {
+      switch (nivel) {
+        case "proyecto":
+          await proyectosApi.update(id, { activo });
+          break;
+        case "etapa":
+          await etapasApi.update(id, { activo });
+          break;
+        case "sector":
+          await sectoresApi.update(id, { activo });
+          break;
+        case "frente":
+          await frentesApi.update(id, { activo });
+          break;
+        case "partida":
+          await partidasApi.update(id, { activo });
+          break;
+        case "subproyecto":
+          await subproyectosApi.update(id, { activo });
+          break;
+        case "sub-etapa":
+          await subEtapasApi.update(id, { activo });
+          break;
+        case "subsector":
+          await subsectoresApi.update(id, { activo });
+          break;
+        case "subfrente":
+          await subfrentesApi.update(id, { activo });
+          break;
+        case "subpartida":
+          await subpartidasApi.update(id, { activo });
+          break;
+      }
+      await loadProjects(true);
+    } catch (error) {
+      console.error("Error al cambiar el estado activo:", error);
+      setError("Error al cambiar el estado activo");
+    }
+  };
 
   const handleDeleteProject = async (projectId: number) => {
     if (
@@ -1742,6 +1920,7 @@ export default function ProyectosDashboard() {
         if (project) {
           projectForm.reset({
             nombre: project.name,
+            estado: project.estado === "borrador" ? "borrador" : "activo",
             cliente: project.clienteCodigo, // Usar el código de la empresa, no la razón social
             ubicacion: project.ubicacion,
             fecha_inicio: project.startDate,
@@ -1979,6 +2158,7 @@ export default function ProyectosDashboard() {
   };
 
   return (
+    <ActivoContext.Provider value={handleToggleActivo}>
     <div className="min-h-screen bg-background">
       <header className="border-b bg-white">
         <div className="flex h-16 items-center px-6">
@@ -2051,7 +2231,7 @@ export default function ProyectosDashboard() {
               <Briefcase className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{projects.length}</div>
+              <div className="text-2xl font-bold">{proyectosActivos.length}</div>
               <p className="text-xs text-muted-foreground">
                 Total de proyectos
               </p>
@@ -2092,7 +2272,7 @@ export default function ProyectosDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {new Set(projects.map((p) => p.cliente).filter(Boolean)).size}
+                {new Set(proyectosActivos.map((p) => p.cliente).filter(Boolean)).size}
               </div>
               <p className="text-xs text-muted-foreground">
                 Diferentes clientes
@@ -2103,8 +2283,29 @@ export default function ProyectosDashboard() {
 
         {/* Projects Table */}
         <Card>
-          <CardHeader>
-            <CardTitle>Lista de Proyectos</CardTitle>
+          <CardHeader className="gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle>Lista de Proyectos</CardTitle>
+              <Tabs
+                value={vista}
+                onValueChange={(v) => setVista(v as "activos" | "borradores")}
+              >
+                <TabsList>
+                  <TabsTrigger value="activos">
+                    Activos ({proyectosActivos.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="borradores">
+                    Borradores ({proyectosBorrador.length})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            {vista === "borradores" && (
+              <p className="text-sm text-muted-foreground">
+                Cotizaciones en preparación. No aparecen en los demás módulos
+                hasta que las apruebes.
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             <Table>
@@ -2123,6 +2324,20 @@ export default function ProyectosDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {filteredProjects.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={8}
+                      className="py-10 text-center text-sm text-muted-foreground"
+                    >
+                      {searchTerm
+                        ? "Ningún proyecto coincide con la búsqueda."
+                        : vista === "borradores"
+                        ? "No hay borradores. Crea un proyecto como Borrador para preparar una cotización."
+                        : "No hay proyectos activos."}
+                    </TableCell>
+                  </TableRow>
+                )}
                 {filteredProjects.map((project) => (
                   <React.Fragment key={project.id}>
                     <TableRow className="cursor-pointer hover:bg-gray-50">
@@ -2162,6 +2377,23 @@ export default function ProyectosDashboard() {
                           >
                             {project.status}
                           </Badge>
+                          {project.estado === "borrador" ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="ml-1 cursor-pointer"
+                              onClick={() => handleAprobarProyecto(project.id)}
+                            >
+                              <CheckCircle2 className="mr-1 h-4 w-4" />
+                              Aprobar
+                            </Button>
+                          ) : (
+                            <ActivoSwitch
+                              nivel="proyecto"
+                              id={project.id}
+                              activo={project.activo}
+                            />
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -2358,6 +2590,56 @@ export default function ProyectosDashboard() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={projectForm.control}
+                name="estado"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de proyecto</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        className="grid gap-2"
+                      >
+                        {[
+                          {
+                            value: "activo",
+                            titulo: "Activo",
+                            detalle: "Disponible desde ya en todos los módulos.",
+                          },
+                          {
+                            value: "borrador",
+                            titulo: "Borrador (cotización)",
+                            detalle:
+                              "No aparece en otros módulos hasta que lo apruebes.",
+                          },
+                        ].map((op) => (
+                          <label
+                            key={op.value}
+                            className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
+                              field.value === op.value
+                                ? "border-primary bg-primary/5"
+                                : "hover:bg-muted/50"
+                            }`}
+                          >
+                            <RadioGroupItem value={op.value} className="mt-0.5" />
+                            <span>
+                              <span className="block text-sm font-medium">
+                                {op.titulo}
+                              </span>
+                              <span className="block text-xs text-muted-foreground">
+                                {op.detalle}
+                              </span>
+                            </span>
+                          </label>
+                        ))}
+                      </RadioGroup>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -4723,5 +5005,6 @@ export default function ProyectosDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+    </ActivoContext.Provider>
   );
 }
