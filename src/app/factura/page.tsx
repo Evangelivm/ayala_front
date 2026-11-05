@@ -15,6 +15,7 @@ import {
   rubroApi,
   type RubroData,
   facturaApi,
+  searchApi,
   type FacturaData,
   type FacturaUnidadMedida,
 } from "@/lib/connections";
@@ -212,6 +213,11 @@ export default function FacturaPage() {
     }>
   >([]);
 
+  // Buscador (Elasticsearch): texto libre sobre número, proveedor, RUC, items, etc.
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchTermRef = useRef("");
+  const primeraBusquedaRef = useRef(true);
+
   // Estados para filtros de tabla
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
   const [filtroProveedor, setFiltroProveedor] = useState<string>("");
@@ -297,6 +303,19 @@ export default function FacturaPage() {
       }
     };
   }, []);
+
+  // Búsqueda con debounce de 400ms (la primera ejecución la cubre la carga inicial)
+  useEffect(() => {
+    searchTermRef.current = searchTerm;
+    if (primeraBusquedaRef.current) {
+      primeraBusquedaRef.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      loadFacturas();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // WebSocket: Escuchar actualizaciones de facturas en tiempo real
   useWebSocket<{
@@ -406,7 +425,12 @@ export default function FacturaPage() {
 
   const loadFacturas = async () => {
     try {
-      const data = await facturaApi.getAll();
+      // Con texto de búsqueda usa Elasticsearch (fallback Prisma en el backend);
+      // sin texto, el listado normal.
+      const termino = searchTermRef.current.trim();
+      const data: FacturaData[] = termino
+        ? (await searchApi.facturas(termino, 1, 200)).data
+        : await facturaApi.getAll();
 
       // Transformar datos al formato esperado por la tabla
       const facturasTransformadas = data.map((factura) => {
@@ -1818,6 +1842,7 @@ export default function FacturaPage() {
 
   // Función para limpiar filtros
   const handleLimpiarFiltros = () => {
+    setSearchTerm("");
     setFiltroEstado("TODOS");
     setFiltroProveedor("");
     setFiltroFechaDesde(undefined);
@@ -1905,6 +1930,16 @@ export default function FacturaPage() {
             <CardContent>
               {/* Filtros */}
               <div className="mb-4 p-4 bg-gray-50 rounded-lg border">
+                {/* Buscador (Elasticsearch) */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Buscar por número (ej. FFF2-00000012), proveedor, RUC, ítem, placa, observaciones..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-9 pl-9 text-xs"
+                  />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {/* Filtro por Estado */}
                   <div className="space-y-2">

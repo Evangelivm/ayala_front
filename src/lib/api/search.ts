@@ -1,6 +1,12 @@
 import { api } from "./client";
 import { ProgramacionTecnicaData } from "./programacion";
 import { OrdenCompraData, OrdenServicioData } from "./ordenes";
+import { FacturaData } from "./factura";
+
+export interface FiltrosFacturas {
+  fechaDesde?: string;
+  fechaHasta?: string;
+}
 
 // ============ SEARCH API (Elasticsearch + paginación) ============
 export interface SearchResult<T> {
@@ -92,12 +98,29 @@ export const searchApi = {
     return response.data;
   },
 
+  facturas: async (
+    q: string,
+    page: number,
+    limit: number,
+    filtros?: FiltrosFacturas
+  ): Promise<SearchResult<FacturaData>> => {
+    const params = new URLSearchParams({
+      q,
+      page: page.toString(),
+      limit: limit.toString(),
+      ...filtrosAParams(filtros),
+    });
+    const response = await api.get(`/search/facturas?${params}`);
+    return response.data;
+  },
+
   reindex: async (): Promise<{
     message: string;
     counts: {
       programacion_tecnica: number;
       ordenes_compra: number;
       ordenes_servicio: number;
+      facturas: number;
     };
   }> => {
     const response = await api.post("/search/reindex");
@@ -112,6 +135,7 @@ export const searchApi = {
       programacion_tecnica: number;
       ordenes_compra: number;
       ordenes_servicio: number;
+      facturas: number;
     };
   }> => {
     const response = await api.post("/search/recreate-indices");
