@@ -61,6 +61,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
+import OrdenPdfFirma from "@/components/OrdenPdfFirma";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -2384,19 +2385,13 @@ export default function OrdenCompraPage() {
                                     Documentos
                                   </h4>
                                   <div className="flex flex-wrap gap-2">
-                                    <a
+                                    <OrdenPdfFirma
                                       href={
                                         orden.id_orden_compra
                                           ? urlHelpers.getOrdenCompraPdfUrl(orden.id_orden_compra)
                                           : "#"
                                       }
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
-                                    >
-                                      <FileText className="h-3 w-3" />
-                                      PDF
-                                    </a>
+                                    />
                                     {orden.url ? (
                                       <a
                                         href={orden.url}
@@ -2823,19 +2818,13 @@ export default function OrdenCompraPage() {
                                     Documentos
                                   </h4>
                                   <div className="flex flex-wrap gap-2">
-                                    <a
+                                    <OrdenPdfFirma
                                       href={
                                         orden.id_orden_servicio
                                           ? urlHelpers.getOrdenServicioPdfUrl(orden.id_orden_servicio)
                                           : "#"
                                       }
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
-                                    >
-                                      <FileText className="h-3 w-3" />
-                                      PDF
-                                    </a>
+                                    />
                                     {orden.url ? (
                                       <a
                                         href={orden.url}
