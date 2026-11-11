@@ -71,6 +71,7 @@ export interface OrdenBaseData {
   nro_factura?: string | null; // Número de factura
   tipo_comprobante?: string | null; // "FACTURA" o "RH"
   nro_rh?: string | null; // Número de recibo por honorarios
+  firma_genera?: string | null; // Firma impresa en el PDF: "vladimir" | "raul" | null
   multifacturas_nros?: string | null; // Números de factura de multifacturas (comma-separated)
   url_comprobante_retencion?: string | null; // URL del comprobante de retención
   nro_serie?: string | null; // Número de serie del comprobante de retención
@@ -405,6 +406,11 @@ export const ordenesCompraApi = {
       console.error("Error actualizando número de factura:", error);
       throw error;
     }
+  },
+
+  // Guardar la firma que se imprime en el PDF ("sin" o null = sin firma)
+  actualizarFirma: async (id: number, firma: string | null): Promise<void> => {
+    await api.patch(`/ordenes-compra/${id}/firma`, { firma });
   },
 
   // Actualizar número de recibo por honorarios
@@ -852,6 +858,11 @@ export const ordenesServicioApi = {
       console.error("Error actualizando número de factura:", error);
       throw error;
     }
+  },
+
+  // Guardar la firma que se imprime en el PDF ("sin" o null = sin firma)
+  actualizarFirma: async (id: number, firma: string | null): Promise<void> => {
+    await api.patch(`/ordenes-servicio/${id}/firma`, { firma });
   },
 
   // Actualizar número de recibo por honorarios

@@ -2386,6 +2386,9 @@ export default function OrdenCompraPage() {
                                   </h4>
                                   <div className="flex flex-wrap gap-2">
                                     <OrdenPdfFirma
+                                      tipo="compra"
+                                      idOrden={orden.id_orden_compra}
+                                      firmaGuardada={orden.firma_genera}
                                       href={
                                         orden.id_orden_compra
                                           ? urlHelpers.getOrdenCompraPdfUrl(orden.id_orden_compra)
@@ -2819,6 +2822,9 @@ export default function OrdenCompraPage() {
                                   </h4>
                                   <div className="flex flex-wrap gap-2">
                                     <OrdenPdfFirma
+                                      tipo="servicio"
+                                      idOrden={orden.id_orden_servicio}
+                                      firmaGuardada={orden.firma_genera}
                                       href={
                                         orden.id_orden_servicio
                                           ? urlHelpers.getOrdenServicioPdfUrl(orden.id_orden_servicio)

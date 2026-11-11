@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileText } from "lucide-react";
 import {
   Menubar,
@@ -10,26 +10,60 @@ import {
   MenubarRadioItem,
   MenubarTrigger,
 } from "@/components/ui/menubar";
+import { ordenesCompraApi, ordenesServicioApi } from "@/lib/connections";
+import { useToast } from "@/hooks/use-toast";
 
 type Firma = "sin" | "vladimir" | "raul";
 
 interface OrdenPdfFirmaProps {
-  // URL base del PDF (sin parámetro de firma). "#" si no hay orden.
+  // URL base del PDF. "#" si no hay orden.
   href: string;
+  tipo: "compra" | "servicio";
+  idOrden?: number | null;
+  // Firma guardada en la orden (columna firma_genera)
+  firmaGuardada?: string | null;
 }
 
-// Botón PDF + menú "Firma". Con "Vladimir" el PDF se pide con ?firma=vladimir
-// y el botón pasa a decir "PDF con firma"; con "Sin firma" dice solo "PDF".
-export default function OrdenPdfFirma({ href }: OrdenPdfFirmaProps) {
-  const [firma, setFirma] = useState<Firma>("sin");
+const normalizar = (v?: string | null): Firma =>
+  v === "vladimir" || v === "raul" ? v : "sin";
+
+// Botón PDF + menú "Firma". La elección se guarda en la orden (BD) y el PDF
+// la usa automáticamente. Con firma el botón dice "PDF con firma".
+export default function OrdenPdfFirma({
+  href,
+  tipo,
+  idOrden,
+  firmaGuardada,
+}: OrdenPdfFirmaProps) {
+  const { toast } = useToast();
+  const [firma, setFirma] = useState<Firma>(normalizar(firmaGuardada));
   const conFirma = firma !== "sin";
-  const url =
-    href === "#" ? "#" : conFirma ? `${href}?firma=${firma}` : href;
+
+  // Si la orden se recarga (p. ej. por websocket) se sincroniza con la BD
+  useEffect(() => {
+    setFirma(normalizar(firmaGuardada));
+  }, [firmaGuardada]);
+
+  const cambiarFirma = async (nueva: Firma) => {
+    if (!idOrden) return;
+    const anterior = firma;
+    setFirma(nueva);
+    try {
+      const api = tipo === "compra" ? ordenesCompraApi : ordenesServicioApi;
+      await api.actualizarFirma(idOrden, nueva === "sin" ? null : nueva);
+    } catch {
+      setFirma(anterior);
+      toast({
+        title: "No se pudo guardar la firma",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="inline-flex items-center gap-1">
       <a
-        href={url}
+        href={href}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
@@ -45,7 +79,7 @@ export default function OrdenPdfFirma({ href }: OrdenPdfFirmaProps) {
           <MenubarContent>
             <MenubarRadioGroup
               value={firma}
-              onValueChange={(v) => setFirma(v as Firma)}
+              onValueChange={(v) => cambiarFirma(v as Firma)}
             >
               <MenubarRadioItem value="vladimir">Vladimir</MenubarRadioItem>
               <MenubarRadioItem value="raul">Raul</MenubarRadioItem>
