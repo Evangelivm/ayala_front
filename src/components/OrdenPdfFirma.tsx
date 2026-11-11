@@ -11,6 +11,8 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 
+type Firma = "sin" | "vladimir" | "raul";
+
 interface OrdenPdfFirmaProps {
   // URL base del PDF (sin parámetro de firma). "#" si no hay orden.
   href: string;
@@ -19,10 +21,10 @@ interface OrdenPdfFirmaProps {
 // Botón PDF + menú "Firma". Con "Vladimir" el PDF se pide con ?firma=vladimir
 // y el botón pasa a decir "PDF con firma"; con "Sin firma" dice solo "PDF".
 export default function OrdenPdfFirma({ href }: OrdenPdfFirmaProps) {
-  const [firma, setFirma] = useState<"sin" | "vladimir">("sin");
-  const conFirma = firma === "vladimir";
+  const [firma, setFirma] = useState<Firma>("sin");
+  const conFirma = firma !== "sin";
   const url =
-    href === "#" ? "#" : conFirma ? `${href}?firma=vladimir` : href;
+    href === "#" ? "#" : conFirma ? `${href}?firma=${firma}` : href;
 
   return (
     <div className="inline-flex items-center gap-1">
@@ -43,9 +45,10 @@ export default function OrdenPdfFirma({ href }: OrdenPdfFirmaProps) {
           <MenubarContent>
             <MenubarRadioGroup
               value={firma}
-              onValueChange={(v) => setFirma(v as "sin" | "vladimir")}
+              onValueChange={(v) => setFirma(v as Firma)}
             >
               <MenubarRadioItem value="vladimir">Vladimir</MenubarRadioItem>
+              <MenubarRadioItem value="raul">Raul</MenubarRadioItem>
               <MenubarRadioItem value="sin">Sin firma</MenubarRadioItem>
             </MenubarRadioGroup>
           </MenubarContent>
